@@ -1,12 +1,34 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useEffect, useState } from "react";
+import LoadingScreen from "@/components/site/LoadingScreen";
+import Navbar from "@/components/site/Navbar";
+import Hero from "@/components/site/Hero";
+import About from "@/components/site/About";
+import ComicTeasers from "@/components/site/ComicTeasers";
+import Web3Entry from "@/components/site/Web3Entry";
+import AgentDashboardPlaceholder from "@/components/site/AgentDashboardPlaceholder";
+import Footer from "@/components/site/Footer";
 
 const Index = () => {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 2500);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (loading) return <LoadingScreen />;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen">
+      <Navbar />
+      <main>
+        <Hero />
+        <About />
+        <ComicTeasers />
+        <Web3Entry />
+        <AgentDashboardPlaceholder />
+      </main>
+      <Footer />
     </div>
   );
 };
