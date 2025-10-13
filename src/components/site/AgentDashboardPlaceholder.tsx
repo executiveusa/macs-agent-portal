@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 
@@ -18,10 +19,23 @@ const AgentDashboardPlaceholder = () => {
           <p className="mt-2 text-sm text-muted-foreground">Track progress and outcomes.</p>
         </div>
       </div>
-      <div className="mt-8 text-center">
-        <Button onClick={() => toast({ title: "Request Access", description: "Agent tools unlock post wallet connect.", })}>
+      <div className="mt-8 flex flex-col items-center gap-4 text-center">
+        <Button
+          onClick={() =>
+            toast({
+              title: "Request Access",
+              description: "Agent tools unlock post wallet connect.",
+            })
+          }
+        >
           Request Access
         </Button>
+        <Link
+          to="/dashboard"
+          className="text-sm font-semibold text-primary underline-offset-4 transition hover:underline"
+        >
+          Tour the Mustang Max agent studio →
+        </Link>
       </div>
     </section>
   );

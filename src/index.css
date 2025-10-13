@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Changa+One&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -59,7 +61,19 @@
 @layer base {
   * { @apply border-border; }
   html { scroll-behavior: smooth; }
-  body { @apply bg-background text-foreground antialiased; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Changa One", "Space Grotesk", system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
   ::selection { background: hsl(var(--primary) / 0.25); color: hsl(var(--foreground)); }
 }
 
