@@ -6,6 +6,8 @@ const homeLinks = [
   { href: "#comics", label: "Comics" },
   { href: "#web3", label: "Web3" },
   { href: "#dashboard", label: "Agents" },
+  { href: "/shop", label: "Shop" },
+  { href: "/admin", label: "Admin" },
   { href: "#contact", label: "Contact" },
 ];
 
@@ -15,11 +17,31 @@ const dashboardLinks = [
   { href: "#mustang-marketplace", label: "Marketplace" },
   { href: "#insights", label: "Insights" },
   { href: "#pricing", label: "Membership" },
+  { href: "/shop", label: "Shop" },
+  { href: "/admin", label: "Admin" },
+];
+
+const shopLinks = [
+  { href: "/", label: "Home" },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/admin", label: "Admin" },
+];
+
+const adminLinks = [
+  { href: "/", label: "Home" },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/shop", label: "Shop" },
 ];
 
 const Navbar = () => {
   const location = useLocation();
-  const links = location.pathname === "/dashboard" ? dashboardLinks : homeLinks;
+  const links = location.pathname === "/dashboard" 
+    ? dashboardLinks 
+    : location.pathname === "/shop"
+    ? shopLinks
+    : location.pathname === "/admin"
+    ? adminLinks
+    : homeLinks;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/70 backdrop-blur-md">

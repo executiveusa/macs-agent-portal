@@ -4,6 +4,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Geist Font Integration */
+@font-face {
+  font-family: 'Geist Sans';
+  src: url('https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist-sans/GeistVF.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('https://cdn.jsdelivr.net/npm/geist@1.3.0/dist/fonts/geist-mono/GeistMonoVF.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* MACS DIGITAL MEDIA — Cinematic Noir + Teal Neon Design System (HSL only) */
 
 @layer base {
@@ -63,7 +80,7 @@
   html { scroll-behavior: smooth; }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family: "Geist Sans", "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   h1,
   h2,
@@ -71,8 +88,11 @@
   h4,
   h5,
   h6 {
-    font-family: "Changa One", "Space Grotesk", system-ui, sans-serif;
+    font-family: "Geist Sans", "Changa One", "Space Grotesk", system-ui, sans-serif;
     letter-spacing: -0.01em;
+  }
+  code, pre {
+    font-family: "Geist Mono", "Courier New", monospace;
   }
   ::selection { background: hsl(var(--primary) / 0.25); color: hsl(var(--foreground)); }
 }
