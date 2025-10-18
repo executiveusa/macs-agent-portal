@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const homeLinks = [
   { href: "#hero", label: "Home" },
@@ -9,6 +10,7 @@ const homeLinks = [
   { href: "/shop", label: "Shop" },
   { href: "/admin", label: "Admin" },
   { href: "#contact", label: "Contact" },
+  { href: "/signin", label: "Sign in" },
 ];
 
 const dashboardLinks = [
@@ -31,6 +33,10 @@ const adminLinks = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/shop", label: "Shop" },
+  { href: "#agent-hub", label: "Agents" },
+  { href: "#functions", label: "Functions" },
+  { href: "#operations", label: "Operations" },
+  { href: "#help", label: "Help" },
 ];
 
 const Navbar = () => {
@@ -49,7 +55,7 @@ const Navbar = () => {
         <Link to="/" className="font-semibold tracking-wider">
           MACS DIGITAL MEDIA
         </Link>
-        <ul className="flex gap-3 overflow-x-auto">
+        <ul className="flex items-center gap-3 overflow-x-auto">
           {links.map((l) => (
             <li key={l.href}>
               {l.href.startsWith("#") ? (
@@ -70,6 +76,9 @@ const Navbar = () => {
             </li>
           ))}
         </ul>
+        <Button asChild size="sm" variant="outline" className="hidden text-xs font-semibold sm:inline-flex">
+          <Link to="/signin">Sign in</Link>
+        </Button>
       </nav>
     </header>
   );
