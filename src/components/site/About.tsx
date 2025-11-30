@@ -1,25 +1,29 @@
+import { motion } from "framer-motion";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTranslation } from "@/lib/i18n";
+
 const About = () => {
+  const { language } = useLanguage();
+  const { t } = useTranslation(language);
+
   return (
-    <section id="about" aria-label="About" className="container mx-auto px-6 py-20">
-      <div className="max-w-3xl mx-auto text-center">
-        <h2 className="text-3xl md:text-4xl font-bold">Origin Story</h2>
-        <p className="mt-4 text-muted-foreground">
-          From backroads to backends—Mustang Max channels classic grit into modern craft.
-          MACS DIGITAL MEDIA builds brand experiences that move like machines and feel like films.
-        </p>
-        <div className="mt-8 grid gap-6 md:grid-cols-3">
-          {[
-            { title: 'Cinematic', text: 'Noir vibes. Neon cues. Sharp hierarchy.' },
-            { title: 'Agentic', text: 'Tools that act, so you can steer.' },
-            { title: 'Web3 + AI', text: 'Wallet-first onboarding. AI-assisted flows.' },
-          ].map((b) => (
-            <div key={b.title} className="rounded-lg border bg-card p-6 shadow-sm">
-              <h3 className="font-semibold">{b.title}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{b.text}</p>
-            </div>
-          ))}
+    <section id="about" aria-label="About Mustang Max" className="container mx-auto px-6 py-20">
+      <motion.div
+        className="max-w-3xl mx-auto"
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+      >
+        <h2 className="text-3xl md:text-4xl font-bold text-center mb-8">
+          {t("aboutTitle")}
+        </h2>
+        <div className="space-y-6 text-lg text-text-secondary leading-relaxed">
+          <p>{t("aboutParagraph1")}</p>
+          <p>{t("aboutParagraph2")}</p>
+          <p>{t("aboutParagraph3")}</p>
         </div>
-      </div>
+      </motion.div>
     </section>
   );
 };

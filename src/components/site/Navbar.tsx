@@ -1,16 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTranslation } from "@/lib/i18n";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 const homeLinks = [
-  { href: "#hero", label: "Home" },
-  { href: "#about", label: "About" },
-  { href: "#comics", label: "Comics" },
-  { href: "#web3", label: "Web3" },
-  { href: "#dashboard", label: "Agents" },
-  { href: "/shop", label: "Shop" },
-  { href: "/admin", label: "Admin" },
-  { href: "#contact", label: "Contact" },
-  { href: "/signin", label: "Sign in" },
+  { href: "#hero", labelKey: "navHome" as const },
+  { href: "#about", labelKey: "navAbout" as const },
+  { href: "#services", labelKey: "navServices" as const },
+  { href: "/blog", labelKey: "navBlog" as const },
+  { href: "#contact", labelKey: "navContact" as const },
 ];
 
 const dashboardLinks = [
@@ -41,6 +40,9 @@ const adminLinks = [
 
 const Navbar = () => {
   const location = useLocation();
+  const { language } = useLanguage();
+  const { t } = useTranslation(language);
+
   const links = location.pathname === "/dashboard" 
     ? dashboardLinks 
     : location.pathname === "/shop"
@@ -51,34 +53,40 @@ const Navbar = () => {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/70 backdrop-blur-md">
-      <nav className="container mx-auto flex items-center justify-between py-3">
+      <nav className="container mx-auto flex items-center justify-between py-3 px-4">
         <Link to="/" className="font-semibold tracking-wider">
           MACS DIGITAL MEDIA
         </Link>
         <ul className="flex items-center gap-3 overflow-x-auto">
-          {links.map((l) => (
-            <li key={l.href}>
-              {l.href.startsWith("#") ? (
-                <a
-                  href={l.href}
-                  className="hover-scale rounded-md px-3 py-1 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {l.label}
-                </a>
-              ) : (
-                <Link
-                  to={l.href}
-                  className="hover-scale rounded-md px-3 py-1 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {l.label}
-                </Link>
-              )}
-            </li>
-          ))}
+          {links.map((l) => {
+            const label = "labelKey" in l ? t(l.labelKey) : l.label;
+            return (
+              <li key={l.href}>
+                {l.href.startsWith("#") ? (
+                  <a
+                    href={l.href}
+                    className="hover-scale rounded-md px-3 py-1 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {label}
+                  </a>
+                ) : (
+                  <Link
+                    to={l.href}
+                    className="hover-scale rounded-md px-3 py-1 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {label}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
         </ul>
-        <Button asChild size="sm" variant="outline" className="hidden text-xs font-semibold sm:inline-flex">
-          <Link to="/signin">Sign in</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
+          <Button asChild size="sm" variant="outline" className="hidden text-xs font-semibold sm:inline-flex">
+            <Link to="/dashboard">Dashboard</Link>
+          </Button>
+        </div>
       </nav>
     </header>
   );
