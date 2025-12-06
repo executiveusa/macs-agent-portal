@@ -22,3 +22,19 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Railway Zero-Secrets: Never commit actual secrets
+master.secrets.json
+.railway
+.railway.env
+
+# Coolify
+.coolify
+
+# Environment files with real secrets
+.env.production
+.env.staging
+.env.local.backup
+
+# Maintenance mode markers
+.maintenance-mode.json

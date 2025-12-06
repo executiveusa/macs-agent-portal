@@ -1,0 +1,151 @@
+{
+  "project": "macs-agent-portal",
+  "description": "MACS Agent Portal - Mustang Auto Collection System Agent Portal",
+  "version": "1.0.0",
+  "generated": "2025-12-06T09:32:10.253Z",
+  "core": [
+    {
+      "name": "VITE_SUPABASE_URL",
+      "description": "Supabase project URL endpoint",
+      "required": true,
+      "format": "https://<project-id>.supabase.co",
+      "example": "https://zoclyuhrixhhcgxhnfdo.supabase.co",
+      "placeholder": "https://your-project-id.supabase.co",
+      "category": "database",
+      "module": "supabase",
+      "validation": {
+        "pattern": "^https://[a-z0-9]+\\.supabase\\.co$",
+        "required": true
+      }
+    },
+    {
+      "name": "VITE_SUPABASE_PUBLISHABLE_KEY",
+      "description": "Supabase anonymous/public API key (anon key)",
+      "required": true,
+      "format": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvY2x5dWhyaXhoaGNneGhuZmRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MDAwMTYsImV4cCI6MjA4MDA3NjAxNn0.Rrdk5XeznJcMPWHxe5fVVrX0PjupJVsTtnOQ_uVCUQA",
+      "placeholder": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.your-anon-key",
+      "category": "auth",
+      "module": "supabase",
+      "validation": {
+        "pattern": "^eyJ[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+$",
+        "required": true
+      }
+    },
+    {
+      "name": "VITE_SUPABASE_PROJECT_ID",
+      "description": "Supabase project identifier",
+      "required": false,
+      "format": "alphanumeric string",
+      "example": "zoclyuhrixhhcgxhnfdo",
+      "placeholder": "your-project-id",
+      "category": "database",
+      "module": "supabase",
+      "validation": {
+        "pattern": "^[a-z0-9]+$",
+        "required": false
+      }
+    }
+  ],
+  "optional": [
+    {
+      "name": "VITE_FIRECRAWL_API_KEY",
+      "description": "Firecrawl API key for web scraping Mustang listings",
+      "required": false,
+      "format": "fc-<random-string>",
+      "example": "fc-1234567890abcdef",
+      "placeholder": "",
+      "category": "integrations",
+      "module": "firecrawl",
+      "fallback": "Uses static fallback listings when not configured",
+      "validation": {
+        "pattern": "^fc-[A-Za-z0-9]+$",
+        "required": false
+      }
+    },
+    {
+      "name": "VITE_FIRECRAWL_BASE_URL",
+      "description": "Firecrawl API base URL endpoint",
+      "required": false,
+      "format": "https://api.firecrawl.dev/v2",
+      "example": "https://api.firecrawl.dev/v2",
+      "placeholder": "https://api.firecrawl.dev/v2",
+      "category": "integrations",
+      "module": "firecrawl",
+      "fallback": "Defaults to https://api.firecrawl.dev/v2",
+      "validation": {
+        "pattern": "^https://.*$",
+        "required": false
+      }
+    }
+  ],
+  "required_secrets": [
+    "VITE_SUPABASE_URL",
+    "VITE_SUPABASE_PUBLISHABLE_KEY"
+  ],
+  "optional_secrets": [
+    "VITE_FIRECRAWL_API_KEY"
+  ],
+  "deployment": {
+    "platform": "railway",
+    "build_command": "npm install && npm run build",
+    "start_command": "npx serve -s dist -l $PORT",
+    "install_command": "npm install",
+    "watch_patterns": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx"
+    ]
+  },
+  "schema": {
+    "version": "1.0.0",
+    "type": "railway-zero-secrets",
+    "format": "json",
+    "instructions": {
+      "usage": "This file is consumed by a separate secrets-provisioning agent",
+      "workflow": [
+        "1. Read this .agents file to discover all required and optional secrets",
+        "2. Fetch secrets from master.secrets.json or secure vault",
+        "3. Inject secrets into Railway environment via Railway CLI or API",
+        "4. Validate all required secrets are present before deployment",
+        "5. Log warnings for missing optional secrets with fallback behavior"
+      ],
+      "validation": "All secrets must match their validation patterns before injection"
+    }
+  },
+  "modules": {
+    "supabase": {
+      "description": "Supabase backend for authentication and database",
+      "required": true,
+      "secrets": [
+        "VITE_SUPABASE_URL",
+        "VITE_SUPABASE_PUBLISHABLE_KEY",
+        "VITE_SUPABASE_PROJECT_ID"
+      ],
+      "setup_url": "https://supabase.com/dashboard/project/_/settings/api",
+      "docs": "https://supabase.com/docs"
+    },
+    "firecrawl": {
+      "description": "Web scraping service for Mustang listings",
+      "required": false,
+      "secrets": [
+        "VITE_FIRECRAWL_API_KEY",
+        "VITE_FIRECRAWL_BASE_URL"
+      ],
+      "setup_url": "https://firecrawl.dev",
+      "docs": "https://docs.firecrawl.dev",
+      "fallback_strategy": "Returns hardcoded FALLBACK_LISTINGS array when API key is missing"
+    }
+  },
+  "cost_protection": {
+    "enabled": true,
+    "max_monthly_spend_usd": 0,
+    "tier": "free",
+    "resource_limits": {
+      "memory_mb": 512,
+      "cpu_cores": 0.5,
+      "concurrent_requests": 100
+    }
+  }
+}
