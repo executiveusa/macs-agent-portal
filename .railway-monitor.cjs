@@ -47,20 +47,29 @@ class RailwayMonitor {
   async checkUsage() {
     this.log('info', 'Railway Cost Protection Monitor Starting...');
 
-    // In a real implementation, this would call Railway API
-    // For now, we'll simulate the check
+    // TODO: Implement actual Railway API integration
+    // This is a template/starter implementation. To enable real monitoring:
+    // 1. Set RAILWAY_TOKEN environment variable with your Railway API token
+    // 2. Implement Railway API calls to fetch actual usage metrics
+    // 3. Railway API docs: https://docs.railway.app/reference/public-api
+    // For production use, integrate with Railway's GraphQL API to query:
+    // - deploymentUsage { memoryUsageMb, cpuUsage }
+    // - projectUsage { currentUsage, estimatedUsage }
     
     if (!this.apiToken) {
-      this.log('warn', 'RAILWAY_TOKEN not set - monitoring disabled', {
-        reason: 'API token required for usage monitoring',
-        fallback: 'Manual monitoring via Railway dashboard',
+      this.log('warn', 'RAILWAY_TOKEN not set - monitoring in simulation mode', {
+        reason: 'API token required for actual usage monitoring',
+        fallback: 'Manual monitoring via Railway dashboard recommended',
+        production_note: 'Implement Railway GraphQL API integration for production',
       });
       return;
     }
 
     this.log('info', 'Checking Railway resource usage...');
 
-    // Simulated usage check
+    // SIMULATED usage check - Replace with actual Railway API call
+    // Example GraphQL query:
+    // query { deployment(id: $deploymentId) { usage { memoryUsageMb cpuUsage } } }
     const usage = {
       memory: {
         used_mb: 256,

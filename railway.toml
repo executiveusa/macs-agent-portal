@@ -13,12 +13,14 @@ restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
 # Cost Protection: Enforce minimal resources
+# Note: Railway automatically handles resource allocation on free tier
+# These are advisory limits for Railway's scheduler
 [resource]
-# Request minimal memory allocation (Railway will scale if needed within free tier)
+# Memory limit in MB (512 MB minimum for Node.js apps)
 memory = 512
-# CPU shares - minimal allocation
+# CPU cores allocated (0.5 = half a core, suitable for static sites)
 cpu = 0.5
-# Prevent runaway processes
+# Prevent runaway processes (max concurrent connections)
 maxConcurrentRequests = 100
 
 # Watch only relevant files to minimize rebuilds
