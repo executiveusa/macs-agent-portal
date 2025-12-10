@@ -1,0 +1,15 @@
+{
+  "fonts": {
+    "heading": "Inter, sans-serif",
+    "body": "Roboto, sans-serif",
+    "comic": "Comic Neue, cursive",
+    "mono": "JetBrains Mono, monospace"
+  },
+  "sizes": {
+    "hero": "clamp(3rem, 10vw, 6rem)",
+    "display": "clamp(2rem, 5vw, 4rem)",
+    "h1": "2.5rem",
+    "h2": "2rem",
+    "body": "1rem"
+  }
+}

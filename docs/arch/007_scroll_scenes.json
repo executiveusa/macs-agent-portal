@@ -1,0 +1,42 @@
+[
+  {
+    "id": "hero",
+    "title": "MAXX-POST: Agent 006",
+    "scroll_behavior": "pinned",
+    "visual_content": "Full viewport noir street scene, rain, Mustang headlights.",
+    "interaction": "Scroll to enter Agency"
+  },
+  {
+    "id": "briefing",
+    "title": "The Briefing",
+    "scroll_behavior": "scrolling_text_over_parallax",
+    "visual_content": "Agent 006 (Dog) profile, dossier files.",
+    "interaction": "Fade in text elements"
+  },
+  {
+    "id": "the_car",
+    "title": "The Mustang MAXX",
+    "scroll_behavior": "horizontal_pin",
+    "visual_content": "3D/2D Car model or high-res side profile.",
+    "features": [
+      { "id": "ai_console", "label": "AI Neural Link", "original_007": "Armrest" },
+      { "id": "plates", "label": "Crypto-ledger Plates", "original_007": "Number Plate" },
+      { "id": "eject", "label": "Emergency Eject", "original_007": "Ejector Seat" },
+      { "id": "drone", "label": "Drone Swarm", "original_007": "Tyre Slasher" }
+    ]
+  },
+  {
+    "id": "tech_specs",
+    "title": "Ordnance & Tech",
+    "scroll_behavior": "vertical_scroll",
+    "visual_content": "Blueprints, wireframes of car/weapons.",
+    "interaction": "Draw-on SVG animations"
+  },
+  {
+    "id": "mission",
+    "title": "The Mission",
+    "scroll_behavior": "scrolling_panels",
+    "visual_content": "Comic strip panels (Noir city, chase scenes).",
+    "interaction": "Parallax comic gutters"
+  }
+]
