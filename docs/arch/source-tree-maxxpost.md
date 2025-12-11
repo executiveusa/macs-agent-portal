@@ -1,6 +1,7 @@
 # Source Tree & Tech Stack - MAXX-POST
 
 ## Tech Stack
+
 - **Framework**: Vite + React + TypeScript
 - **Styling**: Tailwind CSS, Shadcn UI
 - **Animation**: Framer Motion (already in dependencies)
@@ -8,6 +9,7 @@
 - **Routing**: React Router DOM
 
 ## Directory Structure (Key Areas)
+
 - `src/` - Application Source
   - `components/` - UI Components (Shadcn, Custom)
   - `pages/` - Route Pages
@@ -21,6 +23,7 @@
     - `THE MAXX/` - Branding/Logo
 
 ## Asset Mapping (007 -> MAXX)
+
 - **Hero** -> `HERO FULL PAGE IMAGE/*.png`
 - **Briefing** -> `006/*.png` (Agent 006 profile)
 - **Car Features** -> `MUSTANG MAXX/*.png` (Car details)
