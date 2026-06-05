@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { scenesConfig } from '@/config/scenesConfig';
+import { maxxStoryConfig } from '@/config/maxxStoryConfig';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -8,37 +9,38 @@ export const BriefingScene: React.FC = () => {
   const imageRef = useRef<HTMLImageElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const config = scenesConfig.find(s => s.id === 'briefing');
+  const { slideInDuration, scrubAmount, startOffset } = maxxStoryConfig.briefing;
 
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.from(imageRef.current, {
         x: -100,
         opacity: 0,
-        duration: 1.5,
+        duration: slideInDuration,
         scrollTrigger: {
           trigger: containerRef.current,
-          start: 'top 60%',
+          start: `top ${startOffset}`,
           end: 'bottom bottom',
-          scrub: 1
-        }
+          scrub: scrubAmount,
+        },
       });
-      
+
       gsap.from(textRef.current, {
         x: 100,
         opacity: 0,
         delay: 0.2,
-        duration: 1.5,
+        duration: slideInDuration,
         scrollTrigger: {
           trigger: containerRef.current,
-          start: 'top 60%',
+          start: `top ${startOffset}`,
           end: 'bottom bottom',
-          scrub: 1
-        }
+          scrub: scrubAmount,
+        },
       });
     }, containerRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [slideInDuration, scrubAmount, startOffset]);
 
   if (!config) return null;
 

@@ -16,6 +16,14 @@ export const scenesConfig: SceneConfig[] = [
     interaction: 'Fade in dossier text'
   },
   {
+    id: 'car_intro',
+    title: 'The Mustang MAXX',
+    scrollBehavior: 'pinned',
+    // SeedDance asset goes here when ready. Fallback uses the best full-vehicle side-profile available.
+    visualContent: '/MUSTANG MAXX/MUSTANG MAXX/ChatGPT Image Jun 19, 2025, 01_04_31 PM.png',
+    interaction: 'Scroll to reveal'
+  },
+  {
     id: 'the_car',
     title: 'The Mustang MAXX',
     scrollBehavior: 'horizontal_pin',

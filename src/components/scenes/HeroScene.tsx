@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { scenesConfig } from '@/config/scenesConfig';
+import { maxxStoryConfig } from '@/config/maxxStoryConfig';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -9,24 +10,24 @@ export const HeroScene: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const heroConfig = scenesConfig.find(s => s.id === 'hero');
+  const { textDriftY, parallaxScrub } = maxxStoryConfig.hero;
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // Parallax effect
       gsap.to(textRef.current, {
-        y: '50%',
+        y: textDriftY,
         ease: 'none',
         scrollTrigger: {
           trigger: containerRef.current,
           start: 'top top',
           end: 'bottom top',
-          scrub: true
-        }
+          scrub: parallaxScrub,
+        },
       });
     }, containerRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [textDriftY, parallaxScrub]);
 
   if (!heroConfig) return null;
 
