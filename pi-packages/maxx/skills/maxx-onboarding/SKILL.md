@@ -1,82 +1,67 @@
-# SKILL: maxx-onboarding
-
-**When to use:** Run this skill at the start of every fresh session, before writing any code. It asks 11 plain-language questions, records the answers, and saves a handoff note so the next session can resume without re-asking.
-
+---
+name: maxx-onboarding
+description: Runs the first-session MAXX setup interview in plain language, captures answers one at a time, and writes a resumable local handoff note before implementation begins.
 ---
 
-## How to Run This Skill
+# MAXX Onboarding
 
-Ask the human these questions **one at a time**. Wait for a real answer before moving to the next. Use plain language — do not mention file paths, component names, or framework terms until after the interview is complete.
+Use this skill when a non-technical person needs Agent MAXX to set up a project, offer, site, workflow, or agent lane without learning internal tool names first.
 
----
+## Operating Rule
 
-## The Questions
+Ask one question at a time. Do not explain the implementation stack before the human has described the outcome they want.
 
-1. **Who is this for first?**  
-   Is this agent mainly for you right now, for a specific client, or for anyone who visits the site?
+## Interview Flow
 
-2. **What should it set up on its own?**  
-   When someone new arrives, what should just happen automatically without them having to do anything?
+Ask these in order, waiting for the answer before moving on:
 
-3. **What should it never ask the user to understand?**  
-   What topics, terms, or steps should stay completely hidden from the person using it?
+1. Who is this agent for first: you, a client, or a public user?
+2. What should the agent be able to set up on its own without you touching code?
+3. What should the agent never ask the user to understand?
+4. What should happen automatically on first run?
+5. What should happen only after approval?
+6. Should the agent feel like a concierge, a teacher, an operator, or a coach?
+7. What is the single most important success condition for the first release?
+8. Should the setup experience be text-first, browser-first, or both?
+9. What should the first screen say in plain language?
+10. What does the SeedDance car intro need to communicate?
+11. Do you want the car intro as a still reveal, a motion clip, or both?
+12. Which assets are approved to ship, and which are reference-only?
 
-4. **What happens on first run?**  
-   Walk me through what you picture happening the very first time someone opens this — in plain English, not steps.
+## Wording Standard
 
-5. **What needs your approval before it happens?**  
-   Is there anything the agent should pause and check with you before doing?
+- Use outcome language.
+- Avoid internal labels until the answer requires them.
+- Prefer short questions over explanations.
+- If the answer is vague, ask one narrowing follow-up.
+- If the answer creates risk, name the risk and ask for approval before continuing.
 
-6. **What should it feel like?**  
-   Should this feel like a concierge (smooth, guided), a teacher (explains as it goes), an operator (direct and efficient), or a coach (encouraging, outcome-focused)?
+## Handoff Note
 
-7. **What is the single most important thing it has to get right?**  
-   If it only did one thing well, what would that be?
+After the interview, write a local note to:
 
-8. **Text-first or browser-first?**  
-   Should the setup experience mostly happen in a chat or text window, in a browser, or both equally?
+`ops/reports/MAXX-ONBOARDING-HANDOFF.md`
 
-9. **What should the first screen say?**  
-   In plain language — not marketing copy — what should someone read the very first moment they arrive?
+Include:
 
-10. **What does the car intro need to communicate?**  
-    When the Mustang appears on screen, what should the viewer feel or understand?
+- date
+- each question and answer
+- assumptions made
+- approval-only actions
+- automatic first-run actions
+- approved assets
+- blocked or unknown items
+- recommended next implementation slice
 
-11. **Still image, motion clip, or both for the car reveal?**  
-    Do you want the car to appear as a still photo reveal, a short video clip, or a combination?
+## Stop Conditions
 
----
+Pause before implementation if:
 
-## After the Interview
+- the human has not identified approved shipping assets
+- the setup would require credentials or secrets
+- the requested automatic action would write to production systems
+- the user asks for payment, deploy, or account creation without explicit approval
 
-Save the answers to a new file at:  
-`ops/reports/MAXX-ONBOARDING-<YYYY-MM-DD>.md`
+## Systems Note
 
-Use this template:
-
-```markdown
-# MAXX Onboarding Answers — <date>
-
-1. **Who is this for first?** <answer>
-2. **What should it set up automatically?** <answer>
-3. **What should stay hidden?** <answer>
-4. **First-run experience:** <answer>
-5. **Approval gates:** <answer>
-6. **Personality:** <answer>
-7. **Most important success condition:** <answer>
-8. **Interface preference:** <answer>
-9. **First screen copy:** <answer>
-10. **Car intro emotion/message:** <answer>
-11. **Asset format:** <answer>
-```
-
-Then report back: "Onboarding complete. Here is what I heard: [brief summary]. Ready to begin implementation."
-
----
-
-## Rules
-
-- Never ask two questions at once.
-- Never use the words: component, prop, hook, state, API, endpoint, deployment, branch, or PR during the interview.
-- If an answer is unclear, ask one follow-up before moving on.
-- Do not start writing code until all 11 questions have answers.
+This is an LP4 information-flow intervention: it turns vague setup intent into a structured handoff before code or automation changes are made.

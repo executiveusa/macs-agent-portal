@@ -1,13 +1,12 @@
 {
-  "version": "1",
-  "packages": ["maxx"],
-  "defaultPackage": "maxx",
-  "defaultSkill": "maxx-onboarding",
-  "packagePaths": {
-    "maxx": "./pi-packages/maxx"
-  },
-  "session": {
-    "handoffDir": "./ops/reports",
-    "handoffPrefix": "MAXX-HANDOFF"
-  }
+  "extensions": [],
+  "skills": [
+    "maxx-onboarding"
+  ],
+  "prompts": [],
+  "themes": [],
+  "packages": [
+    "../pi-packages/maxx"
+  ],
+  "enableSkillCommands": true
 }

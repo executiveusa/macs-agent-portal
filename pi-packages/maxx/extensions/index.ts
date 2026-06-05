@@ -1,26 +1,16 @@
-export const maxxExtensions = [
-  {
-    id: 'maxx-onboarding',
-    skillPath: '../skills/maxx-onboarding/SKILL.md',
-    isDefault: true,
-    description: 'Plain-language onboarding interview. Runs first on every fresh session.',
-  },
-  {
-    id: 'maxx-gsap-motion',
-    skillPath: '../skills/maxx-gsap-motion/SKILL.md',
-    isDefault: false,
-    description: 'GSAP timing and scroll-trigger guidance for scene transitions.',
-  },
-  {
-    id: 'maxx-browser-verify',
-    skillPath: '../skills/maxx-browser-verify/SKILL.md',
-    isDefault: false,
-    description: 'Browser verification checklist for visual and interaction QA.',
-  },
-  {
-    id: 'maxx-code-search',
-    skillPath: '../skills/maxx-code-search/SKILL.md',
-    isDefault: false,
-    description: 'Exact-symbol search to locate components and config keys without full file reads.',
-  },
-] as const;
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+const maxxSkills = ["maxx-onboarding", "maxx-gsap-motion", "maxx-browser-verify", "maxx-code-search"] as const;
+
+export default function registerMaxxLane(pi: ExtensionAPI) {
+  pi.on("session_start", async (_event, ctx) => {
+    ctx.ui.setStatus("maxx", `MAXX lane active: ${maxxSkills.length} skills`);
+  });
+
+  pi.registerCommand("maxx-lane", {
+    description: "Show the active MAXX Pi lane and its loaded skills",
+    handler: async (_args, ctx) => {
+      ctx.ui.notify(`MAXX lane loaded: ${maxxSkills.join(", ")}`, "info");
+    },
+  });
+}
