@@ -1,105 +1,93 @@
-import React, { useEffect, useRef } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { scenesConfig } from '@/config/scenesConfig';
-import { maxxStoryConfig } from '@/config/maxxStoryConfig';
+import React, { useEffect, useRef } from "react";
+import { scenesConfig } from "@/config/scenesConfig";
+import { maxxMotionTiming } from "@/config/maxxStoryConfig";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
 export const CarIntroScene: React.FC = () => {
-  const sectionRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLDivElement>(null);
-  const config = scenesConfig.find(s => s.id === 'car_intro');
-  const { pinLength, scrubAmount, overlayOpacityStart, overlayOpacityEnd } = maxxStoryConfig.carIntro;
+  const copyRef = useRef<HTMLDivElement>(null);
+  const config = scenesConfig.find((scene) => scene.id === "car_intro");
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      const tl = gsap.timeline({
+      const timeline = gsap.timeline({
         scrollTrigger: {
           trigger: sectionRef.current,
-          start: 'top top',
-          end: pinLength,
+          start: "top top",
+          end: maxxMotionTiming.carIntroEnd,
           pin: true,
-          scrub: scrubAmount,
+          scrub: maxxMotionTiming.carIntroScrub,
           anticipatePin: 1,
+          invalidateOnRefresh: true,
         },
       });
 
-      // Darken overlay lifts to reveal the car
-      tl.to(overlayRef.current, {
-        opacity: overlayOpacityEnd,
-        ease: 'power2.out',
-      }, 0);
-
-      // Image scales up slightly from resting position
-      tl.fromTo(
+      timeline.fromTo(
         imageRef.current,
-        { scale: 1.08, y: 20 },
-        { scale: 1, y: 0, ease: 'power2.out' },
+        {
+          scale: maxxMotionTiming.carIntroImageStartScale,
+          yPercent: maxxMotionTiming.carIntroImageStartY,
+          opacity: 0.72,
+        },
+        {
+          scale: 1,
+          yPercent: 0,
+          opacity: 1,
+          duration: 1,
+          ease: "power2.out",
+        },
         0
       );
 
-      // Title fades in mid-reveal
-      tl.fromTo(
-        titleRef.current,
-        { opacity: 0, y: 30 },
-        { opacity: 1, y: 0, ease: 'power2.out' },
-        0.4
+      timeline.fromTo(
+        copyRef.current,
+        {
+          y: 34,
+          opacity: 0,
+        },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 0.62,
+          ease: "power2.out",
+        },
+        0.18
       );
     }, sectionRef);
 
     return () => ctx.revert();
-  }, [pinLength, scrubAmount, overlayOpacityEnd]);
+  }, []);
 
   if (!config) return null;
 
   return (
-    <section
-      ref={sectionRef}
-      id="car-intro"
-      className="relative h-screen w-full bg-black overflow-hidden flex items-center justify-center"
-    >
-      {/* Car image — object-contain keeps full vehicle in frame */}
+    <section ref={sectionRef} id="car-intro" className="relative h-screen overflow-hidden bg-[#030405] text-white">
       <img
         ref={imageRef}
         src={config.visualContent}
-        alt="Mustang MAXX — full vehicle cinematic reveal"
-        className="absolute inset-0 w-full h-full object-contain"
-        style={{ filter: 'contrast(1.1) brightness(0.85)' }}
+        alt="Mustang MAXX car reveal"
+        className="absolute inset-0 h-full w-full object-cover object-[50%_82%]"
+        loading="lazy"
+        decoding="async"
+        draggable={false}
       />
-
-      {/* Noir overlay — lifts as scroll progresses */}
-      <div
-        ref={overlayRef}
-        className="absolute inset-0 bg-maxx-bg pointer-events-none"
-        style={{ opacity: overlayOpacityStart }}
-      />
-
-      {/* Wet-pavement reflection gradient at bottom */}
-      <div className="absolute bottom-0 left-0 right-0 h-1/3 pointer-events-none bg-gradient-to-t from-black via-transparent to-transparent" />
-
-      {/* Orange accent line — left edge */}
-      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-maxx-orange to-transparent opacity-60" />
-
-      {/* Cyan accent line — right edge */}
-      <div className="absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-maxx-cyan to-transparent opacity-40" />
-
-      {/* Title block */}
-      <div
-        ref={titleRef}
-        className="relative z-10 text-center space-y-2 opacity-0 mt-auto mb-16"
-      >
-        <div className="font-mono text-xs tracking-[0.5em] text-maxx-cyan/70 uppercase">
-          ASSET DECLASSIFIED
+      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.22),rgba(0,0,0,0.18)_36%,rgba(0,0,0,0.88)_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(circle_at_50%_100%,rgba(70,213,255,0.18),transparent_48%)]" />
+      <div className="relative z-10 flex h-full items-end px-5 pb-12 md:px-10 md:pb-16">
+        <div ref={copyRef} className="w-full max-w-4xl">
+          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/80">Vehicle reveal</p>
+          <h2 className="mt-4 max-w-3xl text-4xl font-black uppercase leading-none text-white md:text-6xl">
+            The operating system gets a body.
+          </h2>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 md:text-lg">
+            Agent MAXX moves from briefing to field work: a clear vehicle reveal before the platform modules open.
+          </p>
+          <div className="mt-8 h-px w-full max-w-xl bg-gradient-to-r from-maxx-orange via-maxx-cyan to-transparent" />
         </div>
-        <h2 className="text-5xl md:text-7xl font-black tracking-tighter text-white drop-shadow-2xl">
-          {config.title}
-        </h2>
-        <p className="text-gray-400 text-sm tracking-widest font-light">
-          {config.interaction}
-        </p>
       </div>
     </section>
   );
