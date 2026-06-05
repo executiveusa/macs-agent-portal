@@ -42,7 +42,7 @@ export const missionChapters = [
 ] as const;
 
 export const maxxMissionBeats = [
-  "The first reply feels remembered, not generated.",
+  "The first reply carries context before the user repeats themselves.",
   "Stalled revenue gets another pass before it disappears.",
   "Buyers get a single clean path to the next step."
 ];
