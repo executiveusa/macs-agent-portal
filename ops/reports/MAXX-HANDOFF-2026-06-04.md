@@ -1,94 +1,52 @@
-# MAXX-POST Handoff — 2026-06-04
+# MAXX Handoff - 2026-06-04
 
-## Status at Handoff
+## Repo State
 
-Branch: `claude/admiring-galileo-AOM9V` tracking `origin/claude/admiring-galileo-AOM9V`  
-Last verified build: `npm run build` passes.  
-Dev server: `npm run dev` → `http://127.0.0.1:8080/`
+- Repo: `E:\ACTIVE PROJECTS-PIPELINE\ACTIVE PROJECTS-PIPELINE\macs-agent-portal`
+- Branch: `main`, tracking `origin/main`
+- Last pre-BRAVO commit observed: `071e11964af9bea1bc2aa5e9092214735975cd61`
+- Stack: React 18, TypeScript, Vite, Tailwind, GSAP, FastAPI BFF, local Pi package lane
+- Package manager for this continuation: `npm`
 
----
+## Current Surface
 
-## What Exists (Verified in Repo)
+- Public story route: `src/pages/Index.tsx`
+- Intro overlay and countdown: `src/components/site/IntroSequence.tsx`
+- Soundtrack wiring: `src/components/layout/ShellLayout.tsx`
+- Hero scene: `src/components/scenes/HeroScene.tsx`
+- Briefing scene: `src/components/scenes/BriefingScene.tsx`
+- Current Mustang/platform scene: `src/components/scenes/MustangScene.tsx`
+- Outcome scenes: `src/components/scenes/OutcomeChaptersScene.tsx`
+- Final mission scene: `src/components/scenes/FinalMissionScene.tsx`
+- Scene data: `src/config/scenesConfig.ts`
+- Motion timing and navigation chapters: `src/config/maxxStoryConfig.ts`
+- Backend operator boundary: `backend/maxx_bff/main.py`, `backend/maxx_bff/settings.py`, `backend/maxx_bff/catalog.py`
+- Pi lane: `.pi/settings.json`, `pi-packages/maxx/README.md`, `pi-packages/maxx/extensions/index.ts`
 
-### Frontend — React 18 / Vite / TypeScript / GSAP
+## Evidence
 
-| File | Role |
-|---|---|
-| `src/pages/Index.tsx` | Story shell: IntroSequence → HeroScene → BriefingScene → CarIntroScene → MustangScene → Mission placeholder |
-| `src/components/site/IntroSequence.tsx` | Full-screen intro overlay; countdown frames; Escape skip; Tab trap; `maxx_intro_seen` localStorage gate |
-| `src/components/scenes/HeroScene.tsx` | GSAP parallax hero; full-body MAXX visible; reads `scenesConfig.hero` |
-| `src/components/scenes/BriefingScene.tsx` | Dossier slide-in; Agent 006 profile photo; reads `scenesConfig.briefing` |
-| `src/components/scenes/CarIntroScene.tsx` | Cinematic scroll-pinned car reveal; low-angle; `object-contain` keeps full vehicle in frame |
-| `src/components/scenes/MustangScene.tsx` | Interactive hotspot overlay on car; reads `scenesConfig.the_car` |
-| `src/components/layout/ShellLayout.tsx` | Master shell; noise overlay; nav; audio element wired to `/audio/maxx-intro.mp3` |
-| `src/config/scenesConfig.ts` | Asset paths and copy for all scenes |
-| `src/config/maxxStoryConfig.ts` | Timing constants shared across scenes (durations, scrub values, skip keys) |
+- Fresh repo-root verification confirmed `.git`, `package.json`, `src`, `tailwind.config.ts`, `AGENTS.md`, and `CLAUDE.md`.
+- Repo directives require EMERALD TABLETS(TM) compliance, frontend/backend lane separation, direct imports, no `vendor/` edits, no `EMERALD-TABLETS/` edits, and ops reporting under `ops/reports/`.
+- The saved implementation plan is `docs/superpowers/plans/2026-06-04-maxx-pi-self-setup-agent.md`.
+- Current plan says prior browser verification and `npm run build` had passed before this BRAVO continuation. Those are prior-session facts and must be re-verified before final completion.
+- jCodeMunch is installed locally, but the exposed interface in this session is not a usable retrieval tool. Direct reads have been kept targeted.
 
-### Pi Package (Local Agent Lane)
+## Pending Work
 
-| File | Role |
-|---|---|
-| `.pi/settings.json` | Pi runtime config; loads MAXX package; sets onboarding as default first step |
-| `pi-packages/maxx/package.json` | Pi package manifest |
-| `pi-packages/maxx/README.md` | Human-readable Pi package guide |
-| `pi-packages/maxx/extensions/index.ts` | Extension registration (onboarding, gsap-motion, browser-verify, code-search) |
-| `pi-packages/maxx/skills/maxx-onboarding/SKILL.md` | Plain-language interview; 11 questions; saves answers to handoff note |
-| `pi-packages/maxx/skills/maxx-gsap-motion/SKILL.md` | GSAP timing guidance |
-| `pi-packages/maxx/skills/maxx-browser-verify/SKILL.md` | Browser verification steps |
-| `pi-packages/maxx/skills/maxx-code-search/SKILL.md` | Exact-symbol search guidance |
+- Add a plain-language Pi onboarding skill for MAXX.
+- Wire that skill into the local MAXX Pi package without removing existing skills.
+- Add a dedicated car intro/reveal scene before the current platform hotspot scene.
+- Use a repo-local car asset path and keep the SeedDance brief documented because no SeedDance generator is available in this session.
+- Re-run `npm run build` and, if possible, browser-check the intro to car reveal path.
+- Write `ops/reports/BRAVO-COMPLETE.md` with commit, build, and blocker evidence.
 
-### Assets
+## Systems Map
 
-| Path | Notes |
-|---|---|
-| `public/MUSTANG MAXX/HERO FULL PAGE IMAGE/ChatGPT Image Dec 10, 2025, 01_05_29 PM.png` | Hero background — full-body MAXX character |
-| `public/MUSTANG MAXX/006/ChatGPT Image Jun 19, 2025, 01_06_02 PM.png` | Briefing dossier photo |
-| `public/MUSTANG MAXX/MUSTANG MAXX/ChatGPT Image Jun 19, 2025, 01_04_31 PM.png` | MustangScene interactive hotspot image |
-| `public/MUSTANG MAXX/CAR INTRO/` | **Placeholder directory — awaiting SeedDance asset** |
-| `public/audio/maxx-intro.mp3` | **Placeholder path — drop the supplied MP3 here to activate soundtrack** |
+- Stocks: frontend scene config, Pi package settings, BFF catalogs, static MAXX asset folders, ops reports.
+- Flows: intro completion event, music event, scroll-triggered scene progression, Pi skill discovery, BFF guarded catalog writes.
+- Feedback loops: build verification, browser verification, ops reports, operator-key write guard, handoff notes.
+- Leverage point: LP4 information flow. The handoff makes current state and next work legible to the next agent without broad rediscovery.
 
----
+## Resume Prompt
 
-## What Is Verified Working
-
-- Story flow renders: Intro overlay → Hero → Briefing → Car Reveal → Mustang hotspots → Mission placeholder.
-- GSAP scroll-pinning active on HeroScene and MustangScene.
-- CarIntroScene uses `object-contain` so the full vehicle stays in frame.
-- IntroSequence checks `localStorage` so repeat visitors skip the overlay.
-- Audio element present in ShellLayout; plays silently if MP3 is missing.
-- `npm run build` passes (TypeScript, no import errors).
-
----
-
-## What Is Still Pending
-
-- [ ] **SeedDance car intro asset** — drop the generated image/video into `public/MUSTANG MAXX/CAR INTRO/` and update `scenesConfig.car_intro.visualContent`.
-- [ ] **Soundtrack MP3** — drop the supplied file at `public/audio/maxx-intro.mp3`.
-- [ ] **Backend write gates** — `backend/maxx_bff/` directory created; `main.py`, `settings.py`, `catalog.py` stubs still needed for the operator API key boundary.
-- [ ] **Onboarding interview answers** — run the Pi onboarding skill and save the answers so the next session inherits the user's choices.
-- [ ] **Final copy pass** — outcome-based language audit on all scene copy.
-- [ ] **Mobile timing QA** — verify car reveal timing on viewport < 768px.
-
----
-
-## Quick-Start Commands for Next Session
-
-```bash
-git status --short --branch
-cat .pi/settings.json
-cat pi-packages/maxx/README.md
-cat src/pages/Index.tsx
-cat src/components/site/IntroSequence.tsx
-npm run build
-# then open http://127.0.0.1:8080/ in browser
-```
-
----
-
-## Key Decisions Recorded
-
-1. **Pi lane is local** — agent logic stays in `pi-packages/maxx/`, not scattered across scene components.
-2. **Onboarding asks first** — the Pi onboarding skill interviews the human in plain language before any code is written.
-3. **`object-contain` for car** — ensures full vehicle visible on any viewport; do not change to `object-cover` without a confirmed full-frame asset.
-4. **Timing lives in `maxxStoryConfig.ts`** — never hardcode durations inside scene components.
-5. **SeedDance brief**: Cinematic reveal of the Mustang MAXX, full vehicle centered in frame, low-angle perspective, noir lighting, wet reflective pavement, black and orange accents, no crop, no extra vehicles, no people in front of the car, no text, premium and dramatic, designed for a scroll-pinned website intro.
+Continue in `E:\ACTIVE PROJECTS-PIPELINE\ACTIVE PROJECTS-PIPELINE\macs-agent-portal` only. Use `npm`. Preserve the cinematic frontend and backend operator split. Do B2 Pi onboarding, B3 car reveal scene, B4 story/music alignment, then B5 verification and `ops/reports/BRAVO-COMPLETE.md`. Do not touch `vendor/` or `EMERALD-TABLETS/`.
