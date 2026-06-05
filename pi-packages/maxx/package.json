@@ -1,0 +1,15 @@
+{
+  "name": "maxx",
+  "version": "0.1.0",
+  "description": "MAXX-POST Pi package — onboarding, motion tuning, browser verification, and code search for the MAXX agent.",
+  "pi": {
+    "displayName": "MAXX Agent",
+    "defaultSkill": "maxx-onboarding",
+    "skills": [
+      "maxx-onboarding",
+      "maxx-gsap-motion",
+      "maxx-browser-verify",
+      "maxx-code-search"
+    ]
+  }
+}
