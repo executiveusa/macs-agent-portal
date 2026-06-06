@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTranslation } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,11 +28,7 @@ const Blog = () => {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchPosts();
-  }, []);
-
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("blog_posts")
@@ -47,7 +43,15 @@ const Blog = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchPosts();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [fetchPosts]);
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
