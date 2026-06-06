@@ -1,6 +1,5 @@
 import React from 'react';
 import { LayoutDashboard, Users, Workflow, CreditCard, Settings, LogOut } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
@@ -49,7 +48,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
-const NavItem = ({ icon, label, active }: { icon: any, label: string, active?: boolean }) => (
+const NavItem = ({ icon, label, active }: { icon: React.ReactNode; label: string; active?: boolean }) => (
   <button className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${active ? 'bg-maxx-cyan/10 text-maxx-cyan border border-maxx-cyan/20' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
     {icon}
     <span className="text-sm font-medium">{label}</span>

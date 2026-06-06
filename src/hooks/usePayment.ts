@@ -5,10 +5,12 @@ import { createBitcoinInvoice, checkPaymentStatus } from '../services/bitcoinSer
 
 export type PaymentState = 'idle' | 'loading' | 'awaiting_payment' | 'success' | 'error';
 
+type BitcoinInvoice = Awaited<ReturnType<typeof createBitcoinInvoice>>;
+
 export const usePayment = () => {
   const [status, setStatus] = useState<PaymentState>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [invoice, setInvoice] = useState<any | null>(null);
+  const [invoice, setInvoice] = useState<BitcoinInvoice | null>(null);
 
   const initiatePayment = async (plan: PaymentPlan) => {
     setStatus('loading');
@@ -33,8 +35,8 @@ export const usePayment = () => {
           }
         }, 2000);
       }
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Payment failed');
       setStatus('error');
     }
   };

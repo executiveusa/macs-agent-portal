@@ -161,7 +161,7 @@ export async function searchMustangListings(
             summary:
               link.description?.trim() ||
               `${source.provider} Mustang opportunity uncovered via Firecrawl from ${hostname}.`,
-            freshness: `Fetched via Firecrawl for \"${searchTerm}\"`,
+            freshness: `Fetched via Firecrawl for "${searchTerm}"`,
           } satisfies MustangListing;
         });
 

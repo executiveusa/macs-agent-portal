@@ -15,7 +15,7 @@ export const BriefingScene: React.FC = () => {
     const ctx = gsap.context(() => {
       gsap.from(imageRef.current, {
         x: -100,
-        opacity: 0,
+        opacity: 0.65,
         duration: slideInDuration,
         scrollTrigger: {
           trigger: containerRef.current,
@@ -27,7 +27,7 @@ export const BriefingScene: React.FC = () => {
 
       gsap.from(textRef.current, {
         x: 100,
-        opacity: 0,
+        opacity: 0.75,
         delay: 0.2,
         duration: slideInDuration,
         scrollTrigger: {
@@ -70,7 +70,7 @@ export const BriefingScene: React.FC = () => {
           <div className="space-y-4 text-gray-400 text-lg leading-relaxed font-light">
             <p>
               Born in the shadows of the old web. Trained in the art of autonomous deployment. 
-              Agent 006 is not just a mascot—he is the <strong className="text-maxx-cyan">key</strong> to the protocol.
+              Agent 006 is not just a mascot - he is the <strong className="text-maxx-cyan">key</strong> to the protocol.
             </p>
             <p>
               While other agents sleep, 006 compiles. He smells fear and inefficient code components.

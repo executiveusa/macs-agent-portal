@@ -1,5 +1,5 @@
 import React from 'react';
-import { MoreHorizontal, PlayCircle, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2 } from 'lucide-react';
 
 export const PipelineBoard: React.FC = () => {
   return (
@@ -19,7 +19,14 @@ export const PipelineBoard: React.FC = () => {
   );
 };
 
-const Column = ({ title, count, children, statusColor }: any) => (
+type ColumnProps = {
+  title: string;
+  count: number;
+  children: React.ReactNode;
+  statusColor: string;
+};
+
+const Column = ({ title, count, children, statusColor }: ColumnProps) => (
   <div className="bg-maxx-bg/50 border border-gray-800 rounded-lg flex flex-col h-[500px]">
     <div className={`p-4 border-b border-gray-800 flex justify-between items-center border-t-2 ${statusColor}`}>
       <h4 className="font-bold text-sm uppercase text-gray-300">{title}</h4>
@@ -31,7 +38,15 @@ const Column = ({ title, count, children, statusColor }: any) => (
   </div>
 );
 
-const JobCard = ({ title, type, time, active, status }: any) => (
+type JobCardProps = {
+  title: string;
+  type: string;
+  time: string;
+  active?: boolean;
+  status?: 'success';
+};
+
+const JobCard = ({ title, type, time, active, status }: JobCardProps) => (
   <div className={`bg-gray-900 border border-gray-800 p-4 rounded hover:border-gray-600 transition-colors cursor-pointer group ${active ? 'ring-1 ring-maxx-orange/50' : ''}`}>
     <div className="flex justify-between items-start mb-2">
       <span className="text-xs font-mono text-gray-500 bg-black/30 px-1 rounded">{type}</span>
