@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,16 +8,12 @@ import { toast } from "@/hooks/use-toast";
 
 const VoiceControl = () => {
   const [isListening, setIsListening] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
 
-  // Check if browser supports Web Speech API
-  useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      setVoiceEnabled(true);
-    }
-  }, []);
+  const voiceEnabled =
+    typeof window !== "undefined" &&
+    ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
 
   const startListening = () => {
     if (!voiceEnabled) {

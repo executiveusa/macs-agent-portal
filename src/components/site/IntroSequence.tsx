@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { maxxStoryConfig } from '@/config/maxxStoryConfig';
 
 interface IntroSequenceProps {
@@ -18,6 +18,11 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({ onComplete }) => {
   const [visible, setVisible] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const dismiss = useCallback(() => {
+    localStorage.setItem(seenKey, '1');
+    setVisible(false);
+    setTimeout(onComplete, 600);
+  }, [onComplete, seenKey]);
 
   useEffect(() => {
     if (localStorage.getItem(seenKey)) {
@@ -38,8 +43,7 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({ onComplete }) => {
     }, frameMs);
 
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [countdownFrames, dismiss, durationMs, onComplete, seenKey]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -47,14 +51,7 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({ onComplete }) => {
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const dismiss = () => {
-    localStorage.setItem(seenKey, '1');
-    setVisible(false);
-    setTimeout(onComplete, 600);
-  };
+  }, [dismiss, skipKey]);
 
   if (!visible) return null;
 
