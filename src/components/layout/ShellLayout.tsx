@@ -4,7 +4,7 @@ import { Menu, RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { missionChapters } from "@/config/maxxStoryConfig";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
-const maxxMusicUrl = new URL("../../../Wojtek Mazolewski Quintet - Beautiful People [Official Video].mp3", import.meta.url).href;
+const maxxMusicUrl = "/audio/maxx-intro.mp3";
 
 interface ShellLayoutProps {
   children: React.ReactNode;

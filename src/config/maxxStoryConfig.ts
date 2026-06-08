@@ -91,3 +91,11 @@ export const maxxBriefingStats = [
     value: "Frontend theater stays clean while the backend runs orchestration, browser control, and deployment logic."
   }
 ];
+
+export const maxxStoryConfig = {
+  briefing: {
+    slideInDuration: 1.08,
+    scrubAmount: 1.15,
+    startOffset: "72%",
+  },
+} as const;
