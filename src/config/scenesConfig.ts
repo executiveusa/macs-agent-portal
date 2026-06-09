@@ -1,4 +1,31 @@
-import { SceneConfig, PaymentPlan } from "../types/maxxpost";
+import { FeatureSpec, SceneConfig, PaymentPlan } from "../types/maxxpost";
+
+const maxxCarFeatureSpecs: FeatureSpec[] = [
+  {
+    id: "shadowthread",
+    label: "ShadowThread\u2122",
+    description: "High-volume conversations start landing with memory, calm, and premium brand control.",
+    original_007_ref: "Armrest",
+  },
+  {
+    id: "ghostrecall",
+    label: "GhostRecall\u2122",
+    description: "Quiet leads get reactivated with context-rich follow-up before revenue disappears for good.",
+    original_007_ref: "Number Plate",
+  },
+  {
+    id: "closecircuit",
+    label: "CloseCircuit\u2122",
+    description: "Buyers get the right recommendation, the right offer, and the right path to payment.",
+    original_007_ref: "Ejector Seat",
+  },
+  {
+    id: "forgestack",
+    label: "ForgeStack\u2122",
+    description: "Each deployment can absorb custom data, custom APIs, and a full reskin without breaking the engine.",
+    original_007_ref: "Tyre Slasher",
+  },
+];
 
 export const scenesConfig: SceneConfig[] = [
   {
@@ -27,32 +54,15 @@ export const scenesConfig: SceneConfig[] = [
     title: "The Mustang MAXX",
     scrollBehavior: "horizontal_pin",
     visualContent: "/MUSTANG MAXX/MUSTANG MAXX/ChatGPT Image Jun 19, 2025, 01_04_31 PM.png",
-    features: [
-      {
-        id: "shadowthread",
-        label: "ShadowThread\u2122",
-        description: "High-volume conversations start landing with memory, calm, and premium brand control.",
-        original_007_ref: "Armrest",
-      },
-      {
-        id: "ghostrecall",
-        label: "GhostRecall\u2122",
-        description: "Quiet leads get reactivated with context-rich follow-up before revenue disappears for good.",
-        original_007_ref: "Number Plate",
-      },
-      {
-        id: "closecircuit",
-        label: "CloseCircuit\u2122",
-        description: "Buyers get the right recommendation, the right offer, and the right path to payment.",
-        original_007_ref: "Ejector Seat",
-      },
-      {
-        id: "forgestack",
-        label: "ForgeStack\u2122",
-        description: "Each deployment can absorb custom data, custom APIs, and a full reskin without breaking the engine.",
-        original_007_ref: "Tyre Slasher",
-      },
-    ],
+    features: maxxCarFeatureSpecs,
+  },
+  {
+    id: "tech_specs",
+    title: "Ordnance & Tech",
+    scrollBehavior: "vertical_scroll",
+    visualContent: "/MUSTANG MAXX/COMIC/1920x0.jpg",
+    interaction: "Draw-on SVG animations",
+    features: maxxCarFeatureSpecs,
   },
   {
     id: "mission",

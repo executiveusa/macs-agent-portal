@@ -18,6 +18,11 @@ const CarIntroScene = lazy(async () => {
   return { default: module.CarIntroScene };
 });
 
+const TechSpecsScene = lazy(async () => {
+  const module = await import("@/components/scenes/TechSpecsScene");
+  return { default: module.TechSpecsScene };
+});
+
 const OutcomeChaptersScene = lazy(async () => {
   const module = await import("@/components/scenes/OutcomeChaptersScene");
   return { default: module.OutcomeChaptersScene };
@@ -60,12 +65,7 @@ const SceneFallback = ({
 );
 
 const Index = () => {
-  const [introComplete, setIntroComplete] = useState(false);
-
-  useEffect(() => {
-    const hasSeenIntro = window.sessionStorage.getItem("maxx_intro_seen") === "1";
-    setIntroComplete(hasSeenIntro);
-  }, []);
+  const [introComplete, setIntroComplete] = useState(() => window.sessionStorage.getItem("maxx_intro_seen") === "1");
 
   useEffect(() => {
     const handleStartOver = () => {
@@ -96,6 +96,9 @@ const Index = () => {
         </Suspense>
         <Suspense fallback={<SceneFallback id="car" eyebrow="Platform" title="Loading the MAXX shell." height="min-h-screen" />}>
           <MustangScene />
+        </Suspense>
+        <Suspense fallback={<SceneFallback id="tech_specs" eyebrow="Ordnance & Tech" title="Loading the dossier." />}>
+          <TechSpecsScene />
         </Suspense>
         <Suspense
           fallback={<SceneFallback id="departments" eyebrow="Departments" title="Loading the revenue engines." />}

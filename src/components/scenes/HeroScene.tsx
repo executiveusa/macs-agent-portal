@@ -68,7 +68,7 @@ export const HeroScene: React.FC = () => {
             departments.
           </h1>
           <p className="mt-6 max-w-2xl text-base font-light leading-7 text-white/72 md:text-xl md:leading-8">
-            Agent MAXX turns memory, recovery, and commerce into one field-ready operating surface.
+            Agent MAXX turns memory, recovery, and commerce into one command surface.
           </p>
 
           <div className="mt-10 grid gap-3 md:max-w-3xl md:grid-cols-3">
@@ -87,7 +87,7 @@ export const HeroScene: React.FC = () => {
               href="#briefing"
               className="bg-maxx-orange px-5 py-3 text-xs font-bold uppercase tracking-[0.35em] text-black transition-colors hover:bg-white"
             >
-              Enter field brief
+              Enter mission brief
             </a>
             <span className="text-[10px] uppercase tracking-[0.45em] text-white/40">
               Scroll to initialize command

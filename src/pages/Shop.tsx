@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
 import Navbar from "@/components/site/Navbar";
 import Footer from "@/components/site/Footer";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,11 +91,6 @@ const initialProducts: Product[] = [
   }
 ];
 
-const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 }
-};
-
 const Shop = () => {
   const [products] = useState<Product[]>(initialProducts);
   const [filter, setFilter] = useState<"all" | "hats" | "tshirts">("all");
@@ -109,18 +103,14 @@ const Shop = () => {
     <div className="min-h-screen">
       <Navbar />
       <main className="container mx-auto px-6 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-12 text-center"
-        >
+        <div className="mb-12 text-center">
           <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
             Mustang Max Shop
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
             Premium gear for Mustang enthusiasts and collectors
           </p>
-        </motion.div>
+        </div>
 
         {/* Category Filter */}
         <div className="mb-8 flex justify-center gap-3">
@@ -145,48 +135,37 @@ const Shop = () => {
         </div>
 
         {/* Product Grid */}
-        <motion.div
-          className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-          initial="hidden"
-          animate="visible"
-          transition={{ staggerChildren: 0.1 }}
-        >
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProducts.map((product) => (
-            <motion.div key={product.id} variants={cardVariants}>
-              <Card className="overflow-hidden transition-all hover:shadow-lg">
-                <div className="aspect-square overflow-hidden">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="h-full w-full object-cover transition-transform hover:scale-105"
-                  />
+            <Card key={product.id} className="overflow-hidden transition-all hover:shadow-lg">
+              <div className="aspect-square overflow-hidden">
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="h-full w-full object-cover transition-transform hover:scale-105"
+                />
+              </div>
+              <CardHeader>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-lg">{product.name}</CardTitle>
+                  <Badge variant="secondary">{product.category === "hats" ? "Hat" : "T-Shirt"}</Badge>
                 </div>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-lg">{product.name}</CardTitle>
-                    <Badge variant="secondary">
-                      {product.category === "hats" ? "Hat" : "T-Shirt"}
-                    </Badge>
-                  </div>
-                  <CardDescription>{product.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl font-bold">${product.price}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {product.stock} in stock
-                    </span>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button className="w-full" disabled={product.stock === 0}>
-                    {product.stock > 0 ? "Add to Cart" : "Out of Stock"}
-                  </Button>
-                </CardFooter>
-              </Card>
-            </motion.div>
+                <CardDescription>{product.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold">${product.price}</span>
+                  <span className="text-sm text-muted-foreground">{product.stock} in stock</span>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" disabled={product.stock === 0}>
+                  {product.stock > 0 ? "Add to Cart" : "Out of Stock"}
+                </Button>
+              </CardFooter>
+            </Card>
           ))}
-        </motion.div>
+        </div>
 
         {filteredProducts.length === 0 && (
           <div className="py-20 text-center">

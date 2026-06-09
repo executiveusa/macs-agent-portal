@@ -9,7 +9,6 @@ export const FinalMissionScene: React.FC = () => {
   const sectionRef = useRef<HTMLElement>(null);
   const headlineRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<HTMLDivElement[]>([]);
-  cardRefs.current = [];
 
   useEffect(() => {
     const ctx = gsap.context(() => {

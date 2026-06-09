@@ -45,7 +45,7 @@ export const BriefingScene: React.FC = () => {
   if (!config) return null;
 
   return (
-    <section ref={containerRef} className="py-32 px-6 md:px-20 min-h-[80vh] flex flex-col md:flex-row items-center gap-12 bg-maxx-secondary relative overflow-hidden">
+    <section id="briefing" ref={containerRef} className="py-32 px-6 md:px-20 min-h-[80vh] flex flex-col md:flex-row items-center gap-12 bg-maxx-secondary relative overflow-hidden">
        {/* Background accent */}
        <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-black/50 to-transparent pointer-events-none" />
 
