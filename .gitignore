@@ -23,3 +23,14 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Spillover checkouts and runtime report noise from adjacent worktrees
+/MUSTANG-MAXX/
+/backend/
+/jcodemunch-mcp/
+/new-images-landing-page-maxx-agent/
+/pi/
+/vendor/
+/ops/reports/*.json
+/ops/reports/*.png
+/public/MUSTANG MAXX/5e7e1e4ed1213b2eb688f491_007-Logo-C.svg
