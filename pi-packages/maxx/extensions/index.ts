@@ -6,6 +6,8 @@ const maxxSkills = [
   "maxx-browser-verify",
   "maxx-code-search",
   "maxx-video-dossier",
+  "maxx-software-factory",
+  "maxx-skill-router",
 ] as const;
 
 export default function registerMaxxLane(pi: ExtensionAPI) {
@@ -35,6 +37,26 @@ export default function registerMaxxLane(pi: ExtensionAPI) {
     handler: async (_args, ctx) => {
       ctx.ui.notify(
         "Run `npm run maxx:video-dossier -- --source https://www.youtube.com/@stefan_3d_ai/videos --out ops/reports/MAXX-STEFAN-3D-AI-DOSSIER.md`.",
+        "info",
+      );
+    },
+  });
+
+  pi.registerCommand("maxx-software-factory", {
+    description: "Show the Agent Maxx skill-router and registry workflow",
+    handler: async (_args, ctx) => {
+      ctx.ui.notify(
+        "Read pi-packages/maxx/skills/maxx-software-factory/SKILL.md, then use pi-packages/maxx/registry/ as the lazy-loaded registry scaffold.",
+        "info",
+      );
+    },
+  });
+
+  pi.registerCommand("maxx-skill-router", {
+    description: "Show the lightweight MAXX router skill",
+    handler: async (_args, ctx) => {
+      ctx.ui.notify(
+        "Read pi-packages/maxx/skills/maxx-skill-router/SKILL.md to classify the task before loading broader factory docs.",
         "info",
       );
     },

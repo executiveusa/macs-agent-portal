@@ -10,7 +10,9 @@
       "maxx-gsap-motion",
       "maxx-browser-verify",
       "maxx-code-search",
-      "maxx-video-dossier"
+      "maxx-video-dossier",
+      "maxx-software-factory",
+      "maxx-skill-router"
     ]
   }
 }

@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "blueprints": [
+    {
+      "id": "factory.issue_to_pr",
+      "name": "Issue to PR",
+      "steps": ["intake", "repo_context", "plan", "sandbox_branch", "edit", "test", "review", "docs_update", "ledger_event", "pr"]
+    },
+    {
+      "id": "factory.readme_to_registry",
+      "name": "README to Skill Registry",
+      "steps": ["clone_or_fetch", "read_readme", "extract_schema", "classify", "dedupe", "risk_score", "write_registry", "write_graphs"]
+    },
+    {
+      "id": "factory.video_to_skill",
+      "name": "Video to Skill",
+      "steps": ["watch_video", "extract_frames_transcript", "summarize", "identify_workflow", "write_skill", "write_second_brain_note", "ledger_event"]
+    },
+    {
+      "id": "factory.repo_to_course",
+      "name": "Repo to Client Course",
+      "steps": ["repo_map", "codebase_to_course", "plain_english_explanations", "interactive_html", "client_review", "publish"]
+    },
+    {
+      "id": "factory.observable_agent_landing_page",
+      "name": "Observable Agent Landing Page",
+      "steps": ["agent_profile", "public_metrics", "mission_log", "donation_log", "token_costs", "community_value", "redaction", "landing_page_update"]
+    },
+    {
+      "id": "factory.content_to_publication",
+      "name": "Content Research to Publication",
+      "steps": ["content_intake", "competitor_analysis", "idea_generation", "draft", "style_gate", "approval", "schedule_or_publish", "ledger_event"]
+    }
+  ]
+}
