@@ -1,6 +1,12 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const maxxSkills = ["maxx-onboarding", "maxx-gsap-motion", "maxx-browser-verify", "maxx-code-search"] as const;
+const maxxSkills = [
+  "maxx-onboarding",
+  "maxx-gsap-motion",
+  "maxx-browser-verify",
+  "maxx-code-search",
+  "maxx-video-dossier",
+] as const;
 
 export default function registerMaxxLane(pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
@@ -11,6 +17,26 @@ export default function registerMaxxLane(pi: ExtensionAPI) {
     description: "Show the active MAXX Pi lane and its loaded skills",
     handler: async (_args, ctx) => {
       ctx.ui.notify(`MAXX lane loaded: ${maxxSkills.join(", ")}`, "info");
+    },
+  });
+
+  pi.registerCommand("maxx-browser-verify", {
+    description: "Show the remote browser smoke-test command",
+    handler: async (_args, ctx) => {
+      ctx.ui.notify(
+        "Run `npm run maxx:browser-smoke -- http://127.0.0.1:4173/` with MAXX_BROWSER_WS_ENDPOINT set.",
+        "info",
+      );
+    },
+  });
+
+  pi.registerCommand("maxx-video-dossier", {
+    description: "Show the video dossier generation command",
+    handler: async (_args, ctx) => {
+      ctx.ui.notify(
+        "Run `npm run maxx:video-dossier -- --source https://www.youtube.com/@stefan_3d_ai/videos --out ops/reports/MAXX-STEFAN-3D-AI-DOSSIER.md`.",
+        "info",
+      );
     },
   });
 }

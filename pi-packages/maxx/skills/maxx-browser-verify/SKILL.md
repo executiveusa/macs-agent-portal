@@ -1,6 +1,8 @@
 # SKILL: maxx-browser-verify
 
-**When to use:** After any visual or interaction change, before marking a task complete. Run the checklist below in the browser at `http://127.0.0.1:8080/`.
+**When to use:** After any visual or interaction change, before marking a task complete. Run the checklist below in the browser at `http://127.0.0.1:4173/` by default, using the remote browser endpoint from `MAXX_BROWSER_WS_ENDPOINT`.
+
+**Execution rule:** Use Playwright `chromium.connectOverCDP(...)` against the remote Browser API. Do not rely on a local Chrome/Chromium install for this path.
 
 ---
 
@@ -55,4 +57,12 @@ In browser DevTools console:
 ```js
 localStorage.removeItem('maxx_intro_seen');
 location.reload();
+```
+
+## Smoke Test Command
+
+Use this when you need a fast remote-browser connection check before the checklist:
+
+```bash
+npm run maxx:browser-smoke -- http://127.0.0.1:4173/
 ```

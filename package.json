@@ -8,7 +8,9 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint src",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "maxx:browser-smoke": "node scripts/maxx-browser-smoke.mjs",
+    "maxx:video-dossier": "node scripts/maxx-video-dossier.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -80,6 +82,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^15.15.0",
     "lovable-tagger": "^1.3.0",
+    "playwright-core": "^1.60.0",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
     "typescript": "^5.8.3",

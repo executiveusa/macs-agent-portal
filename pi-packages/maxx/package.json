@@ -9,7 +9,8 @@
       "maxx-onboarding",
       "maxx-gsap-motion",
       "maxx-browser-verify",
-      "maxx-code-search"
+      "maxx-code-search",
+      "maxx-video-dossier"
     ]
   }
 }
