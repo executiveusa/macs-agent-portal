@@ -1,0 +1,3 @@
+display_name: Land The Plane
+short_description: Finish, verify, and merge a completed MAXX branch safely.
+default_prompt: Land the plane for the current branch.

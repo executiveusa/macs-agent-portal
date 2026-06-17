@@ -233,6 +233,35 @@
         "commit": "",
         "date_checked": "2026-06-12"
       }
+    },
+    {
+      "id": "land-the-plane",
+      "display_name": "Land The Plane",
+      "source_url": "local:pi-packages/maxx/skills/land-the-plane/SKILL.md",
+      "source_status": "verified",
+      "type": "skill",
+      "tier": "mission-critical",
+      "mission_layer": "merge and closeout",
+      "provides": ["safe merge gating", "review and CI closeout", "post-merge verification"],
+      "requires": ["repo AGENTS.md", "PR state", "verification commands"],
+      "trigger_phrases": ["land the plane", "merge to main", "finish the PR", "close the branch"],
+      "when_to_use": ["when the branch is complete and ready to land"],
+      "when_not_to_use": ["when the task is still under active feature exploration"],
+      "load_method": "invoke_skill",
+      "default_state": "enabled",
+      "sandbox_required": true,
+      "secrets_required": [],
+      "secrets_policy": "do not merge if secrets appear in diff or logs",
+      "token_policy": "minimal_context",
+      "observability_events": ["merge_gate_check", "merge_complete", "post_merge_verify"],
+      "workflow_blueprints": ["factory.branch_to_main"],
+      "risk_level": "medium",
+      "license_notes": "Local MAXX skill",
+      "verified_from": {
+        "readme_path": "pi-packages/maxx/skills/land-the-plane/SKILL.md",
+        "commit": "",
+        "date_checked": "2026-06-12"
+      }
     }
   ]
 }

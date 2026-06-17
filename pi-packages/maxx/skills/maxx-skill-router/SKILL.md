@@ -11,8 +11,9 @@
 3. Prefer `maxx-code-search`, `maxx-browser-verify`, and `maxx-gsap-motion` before broad reads or edits.
 4. Send repo research and registry work to `maxx-software-factory`.
 5. Send video/content extraction to `maxx-video-dossier`.
-6. Keep secrets out of prompts, docs, registries, and logs.
-7. Do not load the entire MAXX lane unless the task truly needs it.
+6. Send merge/closeout work to `land-the-plane`.
+7. Keep secrets out of prompts, docs, registries, and logs.
+8. Do not load the entire MAXX lane unless the task truly needs it.
 
 ## Default mapping
 
@@ -21,6 +22,7 @@
 - `animation` -> `maxx-gsap-motion`
 - `content_research` / `video_research` -> `maxx-video-dossier`
 - `documentation` / `handoff` / `registry` -> `maxx-software-factory`
+- `merge` / `release` / `close_branch` / `land_the_plane` -> `land-the-plane`
 
 ## Output
 

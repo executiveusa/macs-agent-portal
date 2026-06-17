@@ -10,6 +10,7 @@ Router goal: choose the smallest safe tool/skill set for the task.
 - `dependency_research` -> kernel + opensrc.
 - `content_research` / `video_research` -> `maxx-video-dossier`.
 - `handoff` / `documentation` -> `maxx-software-factory`.
+- `merge` / `release` / `close_branch` -> `land-the-plane`.
 
 ## Safety rules
 

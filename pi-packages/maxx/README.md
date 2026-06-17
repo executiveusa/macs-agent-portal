@@ -2,7 +2,7 @@
 
 This local package is the MAXX lane for Pi.
 
-It ships seven skills:
+It ships eight skills:
 
 - `maxx-onboarding`
 - `maxx-gsap-motion`
@@ -11,6 +11,7 @@ It ships seven skills:
 - `maxx-video-dossier`
 - `maxx-software-factory`
 - `maxx-skill-router`
+- `land-the-plane`
 
 `maxx-onboarding` is the first-session setup lane. It asks plain-language questions one at a time, captures the answers, and writes `ops/reports/MAXX-ONBOARDING-HANDOFF.md` before implementation begins.
 
@@ -21,6 +22,8 @@ It ships seven skills:
 `maxx-software-factory` installs the lazy-loaded skill router, README audit workflow, registry scaffolding, and software-factory blueprints for Agent Maxx. It is instruction-first and should only load the specific tools needed for the active task.
 
 `maxx-skill-router` is the lightweight decision layer that chooses the minimum MAXX skill set for the task before any broader factory docs load.
+
+`land-the-plane` is the closeout gate that keeps branches from merging until review, checks, conflicts, and verification are clean.
 
 It also exposes a light extension for session labeling so Pi can tell when the MAXX lane is active.
 

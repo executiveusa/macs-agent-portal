@@ -47,6 +47,7 @@ When this skill is used for the software-factory install, the work should produc
 
 - `docs/architecture/agentmax-skill-router.md`
 - `docs/architecture/agentmax-software-factory.md`
+- `docs/architecture/land-the-plane.md`
 - `pi-packages/maxx/registry/skill-registry.json`
 - `pi-packages/maxx/registry/skill-router-policy.md`
 - `pi-packages/maxx/registry/workflow-blueprints.json`

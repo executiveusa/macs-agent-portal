@@ -16,6 +16,7 @@ Install lazily. Load the minimum.
 - Video/content analysis -> `maxx-video-dossier`.
 - Browser verification -> `maxx-browser-verify`.
 - Registry/router work -> `maxx-software-factory`.
+- Merge/closeout -> `land-the-plane`.
 - New UI or motion work -> existing MAXX visual skills.
 
 ## Safety

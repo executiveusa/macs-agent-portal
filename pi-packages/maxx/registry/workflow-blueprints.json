@@ -30,6 +30,11 @@
       "id": "factory.content_to_publication",
       "name": "Content Research to Publication",
       "steps": ["content_intake", "competitor_analysis", "idea_generation", "draft", "style_gate", "approval", "schedule_or_publish", "ledger_event"]
+    },
+    {
+      "id": "factory.branch_to_main",
+      "name": "Branch to Main",
+      "steps": ["context_load", "conflict_check", "feedback_loop", "verification", "simplification_gate", "security_gate", "merge", "post_merge_verify"]
     }
   ]
 }
