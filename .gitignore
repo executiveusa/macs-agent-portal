@@ -34,3 +34,4 @@ dist-ssr
 /ops/reports/*.json
 /ops/reports/*.png
 /public/MUSTANG MAXX/5e7e1e4ed1213b2eb688f491_007-Logo-C.svg
+/public/MUSTANG MAXX/**/*.zip
