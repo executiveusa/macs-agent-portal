@@ -15,8 +15,10 @@ Turn a completed branch into a safe merge with no hand-holding:
 3. Fix blocking issues.
 4. Apply low-risk nitpicks.
 5. Re-run verification until green.
-6. Merge only when the gates pass.
-7. Verify the merged result on `main`.
+6. Ask for explicit human confirmation before creating a PR if one does not already exist.
+7. Ask for explicit human confirmation immediately before merging.
+8. Merge only when the gates pass.
+9. Verify the merged result on `main`.
 
 This skill is the closeout layer for Agent Maxx. It is a merge gate, not a shortcut around review.
 

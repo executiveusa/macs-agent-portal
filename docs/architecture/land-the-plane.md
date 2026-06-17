@@ -26,10 +26,10 @@ This repo now has a dedicated closeout skill for finishing completed work and me
 
 ## Guardrails
 
-- No merge on failing checks.
-- No merge with unresolved blocking comments.
-- No merge with conflicts.
-- No secret leakage.
+- Do not merge while checks are failing.
+- Do not merge while blocking comments remain unresolved.
+- Do not merge while conflicts remain unresolved.
+- Prevent secret leakage in the diff, logs, and generated output.
 - Stop after repeated identical failures.
 
 ## Output
