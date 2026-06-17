@@ -7,8 +7,6 @@ This repository now has a direct-upload Cloudflare Pages pipeline for `macs-agen
 - Cloudflare Pages project: `macs-agent-portal`
 - Pages URL: `https://macs-agent-portal.pages.dev`
 - Current preview deployment: `https://zte-land-plane.macs-agent-portal.pages.dev`
-- GitHub Actions workflow: [`.github/workflows/cloudflare-pages.yml`](../../.github/workflows/cloudflare-pages.yml)
-
 ## Required GitHub secrets
 
 Set these repository secrets in GitHub:
@@ -23,9 +21,9 @@ Use a narrowly scoped token with:
 
 ## How the pipeline works
 
-- `push` to `main` builds the app and deploys the production branch.
-- `pull_request` builds the app and uploads a preview deployment for the branch.
-- `workflow_dispatch` allows a manual redeploy from GitHub.
+- Direct upload deployments target the Pages project with `wrangler pages deploy`.
+- The current live preview alias is branch-scoped, so each branch can publish its own deployment URL.
+- If you later add GitHub Actions, use the same `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` secret pair.
 
 ## Current deployment target
 
