@@ -14,6 +14,8 @@
 6. Send merge/closeout work to `land-the-plane`.
 7. Keep secrets out of prompts, docs, registries, and logs.
 8. Do not load the entire MAXX lane unless the task truly needs it.
+9. When the task mentions external repo lists, gateway selection, or tool cataloging, route to `maxx-software-factory` first.
+10. When the task mentions browser automation or MCP wiring, prefer `maxx-browser-verify` for verification and `maxx-software-factory` for cataloging.
 
 ## Default mapping
 
@@ -23,6 +25,11 @@
 - `content_research` / `video_research` -> `maxx-video-dossier`
 - `documentation` / `handoff` / `registry` -> `maxx-software-factory`
 - `merge` / `release` / `close_branch` / `land_the_plane` -> `land-the-plane`
+- `gateway_research` / `integration_selection` -> `maxx-software-factory`
+- `browser_automation` / `mcp_automation` -> `maxx-software-factory`
+- `skill_authoring` / `handoff_authoring` -> `maxx-software-factory`
+- `orchestration` / `review_loop` -> `maxx-software-factory`
+- `provider_selection` / `security_selection` -> `maxx-software-factory`
 
 ## Output
 

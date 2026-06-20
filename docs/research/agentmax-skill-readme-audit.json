@@ -1,7 +1,48 @@
 {
-  "version": 1,
-  "status": "scaffold",
-  "duplicates": [],
-  "entries": [],
-  "notes": "Populate after README-first audit."
+  "version": 2,
+  "status": "cataloged",
+  "duplicates": [
+    "jgravelle/jcodemunch-mcp",
+    "skrun-dev/skrun",
+    "modelcontextprotocol/ext-apps",
+    "git@github.com:executiveusa/pauli-taste-skill.git"
+  ],
+  "entries": [
+    {
+      "bucket": "gateway and integration",
+      "action": "load on demand",
+      "notes": "Use for AI gateways, MCP integration, and provider routing."
+    },
+    {
+      "bucket": "browser and MCP automation",
+      "action": "load on demand",
+      "notes": "Use for browser control, symbol search, and automation scaffolding."
+    },
+    {
+      "bucket": "skill and handoff design",
+      "action": "load on demand",
+      "notes": "Use for skills, prompts, handoffs, and reusable operator docs."
+    },
+    {
+      "bucket": "orchestration, review, and merge closeout",
+      "action": "load on demand",
+      "notes": "Use for parallel work, review loops, and branch landing."
+    },
+    {
+      "bucket": "media, docs, and visual packaging",
+      "action": "load on demand",
+      "notes": "Use for docs, videos, courseware, and presentation packaging."
+    },
+    {
+      "bucket": "provider, model, and security selection",
+      "action": "load on demand",
+      "notes": "Use for model comparison and secret-handling patterns."
+    },
+    {
+      "bucket": "quarantine",
+      "action": "do not autoload",
+      "notes": "Use for private, inaccessible, malformed, or untrusted references."
+    }
+  ],
+  "notes": "See the markdown audit for the full repo-by-repo list and quarantine details."
 }
