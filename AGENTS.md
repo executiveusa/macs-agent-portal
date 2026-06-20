@@ -27,3 +27,18 @@ This repo follows the Emerald Tablets™ operating protocol.
 - Run `npm run lint` and `npm run build` before release work.
 - Browser-check user-facing surfaces after visual changes.
 
+## Reference Routing
+
+- For a new or unfamiliar repo, start with `docs/architecture/agentic-operating-prompt.md`.
+- Before using any large external repo list, open `docs/architecture/agentmax-skill-router.md` and `docs/research/agentmax-skill-readme-audit.md`.
+- Prefer local mirrors first: `pi/`, `jcodemunch-mcp/`, and `vendor/mcp-ext-apps/`.
+- Route new references into the smallest matching bucket:
+  - gateway and integration
+  - browser and MCP automation
+  - skill and handoff design
+  - orchestration, review, and merge closeout
+  - media, docs, and visual packaging
+  - provider, model, and security selection
+- Quarantine private, inaccessible, malformed, or secret-bound references until they are explicitly audited.
+- Do not autoload the full reference list. Load only the bucket needed for the current task.
+

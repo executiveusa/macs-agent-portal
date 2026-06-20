@@ -20,4 +20,6 @@ This repo now has a starter install for the Agent Maxx software-factory routing 
 
 ## Next step
 
-Fill the registry from real README audits before activating more tools.
+Fill the registry from the external reference audit and keep the new buckets lazy-loaded before activating more tools.
+
+For a fresh repo or a handoff to another agent, start from `docs/architecture/agentic-operating-prompt.md` before loading any large reference list.

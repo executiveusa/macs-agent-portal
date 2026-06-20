@@ -8,6 +8,7 @@ const maxxSkills = [
   "maxx-video-dossier",
   "maxx-software-factory",
   "maxx-skill-router",
+  "land-the-plane",
 ] as const;
 
 export default function registerMaxxLane(pi: ExtensionAPI) {
@@ -57,6 +58,16 @@ export default function registerMaxxLane(pi: ExtensionAPI) {
     handler: async (_args, ctx) => {
       ctx.ui.notify(
         "Read pi-packages/maxx/skills/maxx-skill-router/SKILL.md to classify the task before loading broader factory docs.",
+        "info",
+      );
+    },
+  });
+
+  pi.registerCommand("land-the-plane", {
+    description: "Show the MAXX merge-and-close workflow",
+    handler: async (_args, ctx) => {
+      ctx.ui.notify(
+        "Read pi-packages/maxx/skills/land-the-plane/SKILL.md for the branch-close and merge gate workflow.",
         "info",
       );
     },

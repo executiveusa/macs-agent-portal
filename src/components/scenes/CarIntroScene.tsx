@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useLayoutEffect, useRef } from "react";
 import { scenesConfig } from "@/config/scenesConfig";
 import { maxxMotionTiming } from "@/config/maxxStoryConfig";
 import { gsap } from "gsap";
@@ -12,11 +12,17 @@ export const CarIntroScene: React.FC = () => {
   const copyRef = useRef<HTMLDivElement>(null);
   const config = scenesConfig.find((scene) => scene.id === "car_intro");
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const section = sectionRef.current;
+    const image = imageRef.current;
+    const copy = copyRef.current;
+
+    if (!section || !image || !copy) return;
+
     const ctx = gsap.context(() => {
       const timeline = gsap.timeline({
         scrollTrigger: {
-          trigger: sectionRef.current,
+          trigger: section,
           start: "top top",
           end: maxxMotionTiming.carIntroEnd,
           pin: true,
@@ -27,7 +33,7 @@ export const CarIntroScene: React.FC = () => {
       });
 
       timeline.fromTo(
-        imageRef.current,
+        image,
         {
           scale: maxxMotionTiming.carIntroImageStartScale,
           yPercent: maxxMotionTiming.carIntroImageStartY,
@@ -44,7 +50,7 @@ export const CarIntroScene: React.FC = () => {
       );
 
       timeline.fromTo(
-        copyRef.current,
+        copy,
         {
           y: 34,
           opacity: 0,
@@ -57,10 +63,10 @@ export const CarIntroScene: React.FC = () => {
         },
         0.18
       );
-    }, sectionRef);
+    }, section);
 
     return () => ctx.revert();
-  }, []);
+  }, [config?.visualContent]);
 
   if (!config) return null;
 

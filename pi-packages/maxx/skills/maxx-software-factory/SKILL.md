@@ -16,6 +16,8 @@
 6. Keep the registry lazy-loaded. Never install the full repo list into runtime context.
 7. Mark private, inaccessible, secret-bound, or push-capable autonomous tools as `quarantine` until proven safe.
 8. Write public-safe observable events for meaningful build or registry actions.
+9. When the user provides a large external repo list, dedupe it, bucket it, and write the catalog before promoting any bucket into active use.
+10. Prefer local mirrors first and remote references second.
 
 ---
 
@@ -33,6 +35,11 @@ For a new task:
 
 - `code_understanding`, `bug_fix`, `feature_build`, `refactor` -> kernel + refactor tools.
 - `dependency_research` -> kernel + opensrc + README audit.
+- `gateway_selection`, `integration_selection` -> gateway bucket + registry update.
+- `browser_automation`, `mcp_automation` -> browser bucket + registry update.
+- `skill_authoring`, `handoff_authoring` -> skill bucket + registry update.
+- `orchestration`, `review_loop`, `merge_closeout` -> orchestration bucket + `land-the-plane` if merge is in scope.
+- `provider_selection`, `security_selection` -> provider bucket + quarantine review.
 - `ui_design`, `animation` -> MAXX UI and motion skills.
 - `browser_qa`, `e2e_test` -> browser verification skills.
 - `content_research`, `video_research` -> video dossier / content analysis skills.
@@ -47,6 +54,8 @@ When this skill is used for the software-factory install, the work should produc
 
 - `docs/architecture/agentmax-skill-router.md`
 - `docs/architecture/agentmax-software-factory.md`
+- `docs/research/agentmax-skill-readme-audit.md`
+- `docs/architecture/land-the-plane.md`
 - `pi-packages/maxx/registry/skill-registry.json`
 - `pi-packages/maxx/registry/skill-router-policy.md`
 - `pi-packages/maxx/registry/workflow-blueprints.json`
