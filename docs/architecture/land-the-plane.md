@@ -26,9 +26,9 @@ This repo now has a dedicated closeout skill for finishing completed work and me
 
 ## Guardrails
 
-- Do not merge if checks are failing or the branch is unstable.
-- Do not merge if blocking comments remain unresolved.
-- Do not merge if merge conflicts remain unresolved.
+- If checks are failing or the branch is unstable, do not merge.
+- Resolve blocking comments before merging.
+- Treat unresolved merge conflicts as a stop sign.
 - Prevent secret leakage in the diff, logs, and generated output.
 - Stop after repeated identical failures.
 

@@ -8,7 +8,7 @@
 
 ## Mission
 
-Turn a completed branch into a safe merge with no hand-holding:
+Turn a completed branch into a safe merge with explicit user confirmation gates:
 
 1. Verify the current branch state.
 2. Inspect PR comments, checks, and mergeability.
