@@ -32,6 +32,16 @@
       "steps": ["content_intake", "competitor_analysis", "idea_generation", "draft", "style_gate", "approval", "schedule_or_publish", "ledger_event"]
     },
     {
+      "id": "factory.video_to_clips",
+      "name": "Owned Video to Clips",
+      "steps": ["ownership_gate", "usage_check", "submit_to_opusclip", "wait_for_processing", "list_clips", "describe_clip", "transcript_review", "operator_selection", "ledger_event"]
+    },
+    {
+      "id": "factory.clip_to_social_post",
+      "name": "Clip to Social Post",
+      "steps": ["clip_selection", "social_account_check", "generate_copy", "human_approval", "publish_or_schedule_gate", "post_or_schedule", "ledger_event"]
+    },
+    {
       "id": "factory.branch_to_main",
       "name": "Branch to Main",
       "steps": ["context_load", "conflict_check", "feedback_loop", "verification", "simplification_gate", "security_gate", "merge", "post_merge_verify"]

@@ -2,13 +2,14 @@
 
 This local package is the MAXX lane for Pi.
 
-It ships eight skills:
+It ships nine skills:
 
 - `maxx-onboarding`
 - `maxx-gsap-motion`
 - `maxx-browser-verify`
 - `maxx-code-search`
 - `maxx-video-dossier`
+- `maxx-opusclip`
 - `maxx-software-factory`
 - `maxx-skill-router`
 - `land-the-plane`
@@ -18,6 +19,8 @@ It ships eight skills:
 `maxx-browser-verify` is the remote browser smoke-test lane. It uses `MAXX_BROWSER_WS_ENDPOINT` with Playwright CDP instead of a local browser binary.
 
 `maxx-video-dossier` turns a public video source into a Markdown briefing file. It uses Firecrawl for source discovery and the remote browser bridge for verification.
+
+`maxx-opusclip` is the backend-only media execution lane. It submits owned or licensed videos to OpusClip, retrieves clips/transcripts, creates copy, and gates share/publish/schedule/cost-bearing actions.
 
 `maxx-software-factory` installs the lazy-loaded skill router, README audit workflow, registry scaffolding, and software-factory blueprints for Agent Maxx. It is instruction-first and should only load the specific tools needed for the active task.
 

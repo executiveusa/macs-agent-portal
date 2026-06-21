@@ -23,6 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+.maxx-rollback/
+_reference/
 
 # Spillover checkouts and runtime report noise from adjacent worktrees
 /MUSTANG-MAXX/

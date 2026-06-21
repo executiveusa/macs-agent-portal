@@ -43,6 +43,7 @@ For a new task:
 - `ui_design`, `animation` -> MAXX UI and motion skills.
 - `browser_qa`, `e2e_test` -> browser verification skills.
 - `content_research`, `video_research` -> video dossier / content analysis skills.
+- `media_execution`, `clip_generation`, `social_clip_publishing` -> OpusClip skill with confirmation gates.
 - `handoff`, `documentation` -> registry, router, and handoff docs.
 - `observable_ledger` -> ledger skill and public-safe redaction rules.
 

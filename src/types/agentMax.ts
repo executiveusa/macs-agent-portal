@@ -26,5 +26,9 @@ export interface AgentCommandResult {
   summary: string;
   selectedAgent: AgentId;
   provider: ProviderId;
+  route?: string;
+  skillId?: string;
+  commandHint?: string;
+  safetyNotes?: string[];
   createdAt: string;
 }

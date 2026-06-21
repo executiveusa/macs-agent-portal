@@ -6,6 +6,7 @@ const maxxSkills = [
   "maxx-browser-verify",
   "maxx-code-search",
   "maxx-video-dossier",
+  "maxx-opusclip",
   "maxx-software-factory",
   "maxx-skill-router",
   "land-the-plane",
@@ -38,6 +39,16 @@ export default function registerMaxxLane(pi: ExtensionAPI) {
     handler: async (_args, ctx) => {
       ctx.ui.notify(
         "Run `npm run maxx:video-dossier -- --source https://www.youtube.com/@stefan_3d_ai/videos --out ops/reports/MAXX-STEFAN-3D-AI-DOSSIER.md`.",
+        "info",
+      );
+    },
+  });
+
+  pi.registerCommand("maxx-opusclip", {
+    description: "Show the backend-only OpusClip command lane",
+    handler: async (_args, ctx) => {
+      ctx.ui.notify(
+        "Run `npm run maxx:opusclip -- --help`. Live OpusClip calls require OPUSCLIP_API_KEY and explicit confirmation flags for submit, publish, schedule, thumbnail, and edit actions.",
         "info",
       );
     },

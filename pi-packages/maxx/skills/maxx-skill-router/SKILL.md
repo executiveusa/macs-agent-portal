@@ -11,11 +11,12 @@
 3. Prefer `maxx-code-search`, `maxx-browser-verify`, and `maxx-gsap-motion` before broad reads or edits.
 4. Send repo research and registry work to `maxx-software-factory`.
 5. Send video/content extraction to `maxx-video-dossier`.
-6. Send merge/closeout work to `land-the-plane`.
-7. Keep secrets out of prompts, docs, registries, and logs.
-8. Do not load the entire MAXX lane unless the task truly needs it.
-9. When the task mentions external repo lists, gateway selection, or tool cataloging, route to `maxx-software-factory` first.
-10. When the task mentions browser automation or MCP wiring, prefer `maxx-browser-verify` for verification and `maxx-software-factory` for cataloging.
+6. Send owned/licensed clip execution, transcripts, social copy, and gated publishing to `maxx-opusclip`.
+7. Send merge/closeout work to `land-the-plane`.
+8. Keep secrets out of prompts, docs, registries, and logs.
+9. Do not load the entire MAXX lane unless the task truly needs it.
+10. When the task mentions external repo lists, gateway selection, or tool cataloging, route to `maxx-software-factory` first.
+11. When the task mentions browser automation or MCP wiring, prefer `maxx-browser-verify` for verification and `maxx-software-factory` for cataloging.
 
 ## Default mapping
 
@@ -23,6 +24,7 @@
 - `browser_qa` -> `maxx-browser-verify`
 - `animation` -> `maxx-gsap-motion`
 - `content_research` / `video_research` -> `maxx-video-dossier`
+- `media_execution` / `clip_generation` / `social_clip_publishing` -> `maxx-opusclip`
 - `documentation` / `handoff` / `registry` -> `maxx-software-factory`
 - `merge` / `release` / `close_branch` / `land_the_plane` -> `land-the-plane`
 - `gateway_research` / `integration_selection` -> `maxx-software-factory`

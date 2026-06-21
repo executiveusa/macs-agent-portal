@@ -9,7 +9,10 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint src",
     "preview": "vite preview",
+    "maxx:checkpoint": "node scripts/maxx-checkpoint.mjs",
+    "maxx:rollback:last": "node scripts/maxx-rollback.mjs --latest",
     "maxx:browser-smoke": "node scripts/maxx-browser-smoke.mjs",
+    "maxx:opusclip": "node scripts/maxx-opusclip.mjs",
     "maxx:video-dossier": "node scripts/maxx-video-dossier.mjs"
   },
   "dependencies": {

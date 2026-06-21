@@ -355,6 +355,35 @@
       }
     },
     {
+      "id": "maxx-opusclip",
+      "display_name": "MAXX OpusClip",
+      "source_url": "local:pi-packages/maxx/skills/maxx-opusclip/SKILL.md",
+      "source_status": "verified",
+      "type": "skill",
+      "tier": "mission-critical",
+      "mission_layer": "media execution",
+      "provides": ["owned video clipping", "clip transcripts", "social copy", "gated publishing", "usage checks"],
+      "requires": ["OPUSCLIP_API_KEY", "owned or licensed source confirmation"],
+      "trigger_phrases": ["opusclip", "clip this video", "make shorts", "publish clip", "schedule video"],
+      "when_to_use": ["when a user wants Agent Maxx to create clips or social posts from owned or licensed video"],
+      "when_not_to_use": ["when the task is only video research or does not have rights to the source"],
+      "load_method": "invoke_skill",
+      "default_state": "enabled",
+      "sandbox_required": true,
+      "secrets_required": ["OPUSCLIP_API_KEY"],
+      "secrets_policy": "runtime env only; never store or print the token",
+      "token_policy": "minimal_context",
+      "observability_events": ["opusclip_usage_checked", "opusclip_project_submitted", "opusclip_clip_selected", "opusclip_publish_gate"],
+      "workflow_blueprints": ["factory.video_to_clips", "factory.clip_to_social_post"],
+      "risk_level": "medium",
+      "license_notes": "Reference repo observed as MIT; API terms and media rights remain operator responsibility",
+      "verified_from": {
+        "readme_path": "_reference/repos/opus-skills/skills/opusclip/SKILL.md",
+        "commit": "20b4b10d1dc635b15b47de90e4ae0e8bb4113efd",
+        "date_checked": "2026-06-20"
+      }
+    },
+    {
       "id": "skill-and-handoff-reference-bucket",
       "display_name": "Skill and handoff reference bucket",
       "source_url": "local:docs/research/agentmax-skill-readme-audit.md",

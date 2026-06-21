@@ -44,3 +44,25 @@ export const AGENT_MAX_PROFILES: AgentProfile[] = [
     status: "active",
   },
 ];
+
+export const AGENT_MAX_SKILL_ROUTES = {
+  opusclip: {
+    route: "media_execution",
+    skillId: "maxx-opusclip",
+    commandHint: "npm run maxx:opusclip -- --help",
+    triggerKeywords: [
+      "opusclip",
+      "clip",
+      "shorts",
+      "transcript",
+      "social copy",
+      "publish video",
+      "schedule video",
+    ],
+    safetyNotes: [
+      "Browser UI does not call OpusClip directly.",
+      "OPUSCLIP_API_KEY must stay in runtime env.",
+      "Submit, publish, schedule, thumbnail, and edit jobs require explicit confirmation flags.",
+    ],
+  },
+} as const;
