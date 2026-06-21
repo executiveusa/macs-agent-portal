@@ -47,7 +47,7 @@ export const scenesConfig: SceneConfig[] = [
     id: "hero",
     title: "AGENT MAXX // MEET MAXX",
     scrollBehavior: "pinned",
-    visualContent: "/MUSTANG MAXX/HERO FULL PAGE IMAGE/MUSTANG MAX COVER.png",
+    visualContent: "/MUSTANG MAXX/HERO FULL PAGE IMAGE/ChatGPT Image Dec 10, 2025, 01_05_29 PM.png",
     interaction: "Scroll to meet MAXX",
   },
   {
