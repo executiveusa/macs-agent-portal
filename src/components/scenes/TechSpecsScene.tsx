@@ -69,13 +69,12 @@ export const TechSpecsScene: React.FC = () => {
 
       <div className="relative mx-auto max-w-7xl">
         <div className="max-w-3xl">
-          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/78">Ordnance &amp; Tech</p>
+          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/78">Build Systems</p>
           <h2 className="mt-4 text-4xl font-black uppercase leading-[0.92] text-white md:text-6xl">
-            Blueprints for the mission.
+            Turn repeatable work into an operating system.
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-white/68 md:text-lg">
-            The car is no longer just a reveal. It becomes a system map: gadgets, protocols, and operating logic
-            behind the mission.
+            Build websites, dashboards, automations, and agent workflows that keep the operation moving after the first conversation.
           </p>
         </div>
 
@@ -90,10 +89,9 @@ export const TechSpecsScene: React.FC = () => {
             <div className="relative z-10 flex h-full flex-col justify-between p-6 md:p-8">
               <div className="flex items-start justify-between gap-6">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.45em] text-maxx-cyan/70">Vehicle dossier</p>
+                  <p className="text-[10px] uppercase tracking-[0.45em] text-maxx-cyan/70">System dossier</p>
                   <p className="mt-3 max-w-sm text-sm leading-6 text-white/68">
-                    Draw-on notes, hotspot labels, and the control stack that keeps the vehicle readable inside the
-                    larger story.
+                    The operating surface stays clear while the system underneath gets more capable.
                   </p>
                 </div>
                 <div className="rounded-2xl border border-cyan-300/20 bg-black/30 px-4 py-3 text-right">
@@ -115,23 +113,23 @@ export const TechSpecsScene: React.FC = () => {
                 />
 
                 <div className="absolute left-[14%] top-[24%] rounded-full border border-cyan-200/50 bg-black/55 px-3 py-1 text-[10px] uppercase tracking-[0.4em] text-cyan-100">
-                  AI Console
+                  Websites &amp; Landing Pages
                 </div>
                 <div className="absolute left-[20%] bottom-[18%] rounded-full border border-cyan-200/50 bg-black/55 px-3 py-1 text-[10px] uppercase tracking-[0.4em] text-cyan-100">
-                  Crypto Plates
+                  Automations &amp; Workflows
                 </div>
                 <div className="absolute right-[18%] top-[22%] rounded-full border border-cyan-200/50 bg-black/55 px-3 py-1 text-[10px] uppercase tracking-[0.4em] text-cyan-100">
-                  Emergency Eject
+                  Custom Agent Skills
                 </div>
                 <div className="absolute right-[12%] bottom-[20%] rounded-full border border-cyan-200/50 bg-black/55 px-3 py-1 text-[10px] uppercase tracking-[0.4em] text-cyan-100">
-                  Drone Swarm
+                  Build the System
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-cyan-300/15 pt-4 text-[10px] uppercase tracking-[0.42em] text-white/40">
-                <span>Draw-on SVG treatment</span>
-                <span>Reference map preserved</span>
-                <span>Noir blueprint mode</span>
+                <span>System map preserved</span>
+                <span>Workflow layer visible</span>
+                <span>Operator logic first</span>
               </div>
             </div>
           </div>
@@ -163,7 +161,7 @@ export const TechSpecsScene: React.FC = () => {
             <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,255,255,0.025))] p-6">
               <p className="text-[10px] uppercase tracking-[0.45em] text-white/36">Field note</p>
               <p className="mt-4 text-lg leading-8 text-white/86">
-                Mapped. The mission stays cinematic while the system stays legible.
+                Mapped. The story stays cinematic while the system stays usable.
               </p>
             </div>
           </div>

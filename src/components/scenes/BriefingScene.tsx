@@ -54,31 +54,28 @@ export const BriefingScene: React.FC = () => {
             <img 
               ref={imageRef} 
               src={config.visualContent} 
-              alt="Agent 006" 
+              alt="Agent MAXX lead dossier"
               className="w-full grayscale contrast-125 sepia-[.3]"
             />
             <div className="absolute bottom-4 right-4 bg-maxx-ink text-maxx-paper px-3 py-1 font-mono text-xs">
-              CONFIDENTIAL // EYES ONLY
+              TARGETING // LIVE SIGNAL
             </div>
          </div>
        </div>
 
        <div className="flex-1 space-y-8 relative z-10 text-right md:text-left" ref={textRef}>
-          <h2 className="text-4xl md:text-6xl font-bold text-white uppercase tracking-tighter">
-            {config.title}
-          </h2>
+          <h2 className="text-4xl md:text-6xl font-bold text-white uppercase tracking-tighter">Find Leads</h2>
           <div className="space-y-4 text-gray-400 text-lg leading-relaxed font-light">
             <p>
-              Born in the shadows of the old web. Trained in the art of autonomous deployment. 
-              Agent 006 is not just a mascot - he is the <strong className="text-maxx-cyan">key</strong> to the protocol.
+              Agent MAXX scans the market, reads the room, and turns scattered prospects into a ranked lead list your team can actually use.
             </p>
             <p>
-              While other agents sleep, 006 compiles. He smells fear and inefficient code components.
+              From websites, search results, social signals, directories, and CRM notes, MAXX builds the first dossier before the first message goes out.
             </p>
           </div>
           <div className="flex gap-4">
              <button className="px-8 py-3 bg-maxx-cyan text-black font-bold uppercase hover:bg-white transition-colors">
-               Read Dossier
+               Build Lead Dossier
              </button>
           </div>
        </div>

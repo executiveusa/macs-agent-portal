@@ -88,24 +88,24 @@ const Index = () => {
     <>
       <ShellLayout introActive={!introComplete}>
         <HeroScene />
-        <Suspense fallback={<SceneFallback id="briefing" eyebrow="Briefing" title="Loading command context." />}>
+        <Suspense fallback={<SceneFallback id="briefing" eyebrow="Find Leads" title="Loading command context." />}>
           <BriefingScene />
         </Suspense>
-        <Suspense fallback={<SceneFallback id="car-intro" eyebrow="Vehicle" title="Loading the field reveal." height="min-h-screen" />}>
+        <Suspense fallback={<SceneFallback id="car-intro" eyebrow="Create Content" title="Loading the field reveal." height="min-h-screen" />}>
           <CarIntroScene />
         </Suspense>
-        <Suspense fallback={<SceneFallback id="car" eyebrow="Platform" title="Loading the MAXX shell." height="min-h-screen" />}>
+        <Suspense fallback={<SceneFallback id="car" eyebrow="Close Deals" title="Loading the MAXX shell." height="min-h-screen" />}>
           <MustangScene />
         </Suspense>
-        <Suspense fallback={<SceneFallback id="tech_specs" eyebrow="Ordnance & Tech" title="Loading the dossier." />}>
+        <Suspense fallback={<SceneFallback id="tech_specs" eyebrow="Build Systems" title="Loading the dossier." />}>
           <TechSpecsScene />
         </Suspense>
         <Suspense
-          fallback={<SceneFallback id="departments" eyebrow="Departments" title="Loading the revenue engines." />}
+          fallback={<SceneFallback id="departments" eyebrow="Run Operations" title="Loading the revenue engines." />}
         >
           <OutcomeChaptersScene />
         </Suspense>
-        <Suspense fallback={<SceneFallback id="mission" eyebrow="Final protocol" title="Loading the closing act." />}>
+        <Suspense fallback={<SceneFallback id="mission" eyebrow="Start Mission" title="Loading the closing act." />}>
           <FinalMissionScene />
         </Suspense>
       </ShellLayout>

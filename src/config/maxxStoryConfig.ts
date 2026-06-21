@@ -38,48 +38,63 @@ export const maxxMotionTiming = {
 } as const;
 
 export const missionChapters = [
-  { id: "hero", label: "Reveal", shortLabel: "Reveal" },
-  { id: "briefing", label: "Briefing", shortLabel: "Brief" },
-  { id: "car-intro", label: "Vehicle", shortLabel: "Car" },
-  { id: "car", label: "Platform", shortLabel: "Modules" },
-  { id: "tech_specs", label: "Ordnance", shortLabel: "Tech" },
-  { id: "departments", label: "Departments", shortLabel: "Ops" },
-  { id: "mission", label: "Mission", shortLabel: "Finale" },
+  { id: "hero", label: "Meet MAXX", shortLabel: "MAXX" },
+  { id: "briefing", label: "Find Leads", shortLabel: "Leads" },
+  { id: "car-intro", label: "Create Content", shortLabel: "Content" },
+  { id: "car", label: "Close Deals", shortLabel: "Close" },
+  { id: "tech_specs", label: "Build Systems", shortLabel: "Build" },
+  { id: "departments", label: "Run Operations", shortLabel: "Ops" },
+  { id: "mission", label: "Start Mission", shortLabel: "Start" },
 ] as const;
 
-export const maxxMissionBeats = [
-  "The first reply carries context before the user repeats themselves.",
-  "Stalled revenue gets another pass before it disappears.",
-  "Buyers get a single clean path to the next step."
+export const maxxHeroBeats = [
+  "Find the right leads before the opportunity goes cold.",
+  "Turn raw ideas into posts, clips, pages, offers, and campaigns.",
+  "Follow up, close the loop, and keep the whole operation moving."
 ];
 
 export const maxxDepartmentCards = [
   {
     id: "shadowthread",
-    eyebrow: "Customer Experience Agent",
-    title: "ShadowThread\u2122",
+    eyebrow: "Daily Mission Board",
+    title: "Daily Mission Board",
     image: "/MUSTANG MAXX/006/ChatGPT Image Dec 10, 2025, 01_05_14 PM.png",
-    summary: "Every inbound conversation starts feeling premium, personal, and impossible to drop.",
-    outcome:
-      "Members get answers that sound like your best operator on their best day, while your team gets its time back."
+    summary: "See the work that needs attention now without digging through three tabs.",
+    outcome: "The team gets one place to queue the next move and keep the day moving."
   },
   {
     id: "ghostrecall",
-    eyebrow: "Revenue Recovery Agent",
-    title: "GhostRecall\u2122",
+    eyebrow: "Memory & Context",
+    title: "Memory & Context",
     image: "/MUSTANG MAXX/COMIC/ChatGPT Image Jun 19, 2025, 01_04_43 PM.png",
-    summary: "Dormant leads stop disappearing into the CRM void.",
-    outcome:
-      "Agent MAXX reopens stalled conversations with memory, timing, and pressure that feels human instead of automated."
+    summary: "Keep the details, decisions, and history attached to every thread.",
+    outcome: "MAXX remembers what matters so follow-up never starts from zero."
   },
   {
     id: "closecircuit",
-    eyebrow: "Commerce Agent",
-    title: "CloseCircuit\u2122",
+    eyebrow: "Tool Command Layer",
+    title: "Tool Command Layer",
     image: "/MUSTANG MAXX/MUSTANG MAXX/ChatGPT Image Jun 19, 2025, 01_04_45 PM.png",
-    summary: "Buyers get guided to the right offer, the right next step, and the right payment path.",
-    outcome:
-      "Friction drops, confidence rises, and the path from question to transaction gets dramatically shorter."
+    summary: "Turn the stack of apps into a single operator surface.",
+    outcome: "Launch the right tool at the right time without bouncing between systems."
+  }
+];
+
+export const maxxFinalMissionCards = [
+  {
+    id: "choose",
+    title: "Choose the Outcome",
+    body: "Start with the result you actually want, so the workflow can aim at something real.",
+  },
+  {
+    id: "launch",
+    title: "Launch the Workflow",
+    body: "Let MAXX assemble the steps, tools, and context needed to get the work moving.",
+  },
+  {
+    id: "control",
+    title: "Keep Control",
+    body: "Stay in charge with approvals, context, and a clear view of what happens next.",
   }
 ];
 

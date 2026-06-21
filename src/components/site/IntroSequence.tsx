@@ -132,25 +132,23 @@ export const IntroSequence = ({ onComplete }: IntroSequenceProps) => {
         onClick={completeSequence}
         className="absolute right-6 top-6 z-10 border border-white/15 px-4 py-2 text-[10px] uppercase tracking-[0.4em] text-white/65 transition-colors hover:border-maxx-cyan hover:text-maxx-cyan md:right-8 md:top-8"
       >
-        Skip intro
+        Skip Intro
       </button>
 
       {phase === "briefing" ? (
         <div className="relative flex h-full flex-col items-center justify-center px-6 text-center">
           <div className="mb-8 flex items-center gap-3 text-[10px] uppercase tracking-[0.55em] text-white/55">
             <span className="h-px w-16 bg-maxx-orange/70" />
-            Operation MAXX
+            MAXX Protocol
             <span className="h-px w-16 bg-maxx-orange/70" />
           </div>
           <p className="max-w-3xl text-balance text-3xl font-light leading-tight text-white/90 md:text-5xl">
-            "Start with the outcome. Bring the engine into frame. Then let every conversation move like a mission."
+            Maxx, Agent Maxx.
           </p>
           <p className="mt-5 text-xs uppercase tracking-[0.45em] text-white/45">
-            Agent MAXX field briefing
+            Field Briefing
           </p>
-          <p className="mt-8 text-[10px] uppercase tracking-[0.38em] text-white/32">
-            Press escape to skip the sequence
-          </p>
+          <p className="mt-8 text-[10px] uppercase tracking-[0.38em] text-white/32">Press escape to skip intro</p>
           <button
             ref={beginButtonRef}
             type="button"
@@ -161,7 +159,7 @@ export const IntroSequence = ({ onComplete }: IntroSequenceProps) => {
             }}
             className="mt-14 border-b border-white/70 pb-2 text-sm uppercase tracking-[0.5em] text-white transition-colors hover:text-maxx-orange"
           >
-            Begin
+            Activate MAXX
           </button>
         </div>
       ) : (

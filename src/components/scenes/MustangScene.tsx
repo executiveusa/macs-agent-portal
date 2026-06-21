@@ -99,7 +99,7 @@ export const MustangScene: React.FC = () => {
         </div>
 
         <div className="mt-8 text-center">
-          <p className="text-gray-500 text-sm font-mono">SCROLL TO INSPECT ORDNANCE</p>
+          <p className="text-gray-500 text-sm font-mono">SCROLL TO CLOSE THE LOOP</p>
         </div>
 
       </div>

@@ -85,12 +85,12 @@ export const CarIntroScene: React.FC = () => {
       <div className="absolute inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(circle_at_50%_100%,rgba(70,213,255,0.18),transparent_48%)]" />
       <div className="relative z-10 flex h-full items-end px-5 pb-12 md:px-10 md:pb-16">
         <div ref={copyRef} className="w-full max-w-4xl">
-          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/80">Vehicle reveal</p>
+          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/80">CONTENT ENGINE // ONLINE</p>
           <h2 className="mt-4 max-w-3xl text-4xl font-black uppercase leading-none text-white md:text-6xl">
-            The operating system gets a body.
+            Turn raw ideas into media that moves.
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 md:text-lg">
-            Agent MAXX moves from briefing to field work: a clear vehicle reveal before the platform modules open.
+            Agent MAXX turns prompts, videos, notes, offers, and rough ideas into posts, clips, pages, campaigns, and follow-up assets built for the people you want to reach.
           </p>
           <div className="mt-8 h-px w-full max-w-xl bg-gradient-to-r from-maxx-orange via-maxx-cyan to-transparent" />
         </div>

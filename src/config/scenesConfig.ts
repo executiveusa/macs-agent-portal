@@ -3,73 +3,88 @@ import { FeatureSpec, SceneConfig, PaymentPlan } from "../types/maxxpost";
 const maxxCarFeatureSpecs: FeatureSpec[] = [
   {
     id: "shadowthread",
-    label: "ShadowThread\u2122",
-    description: "High-volume conversations start landing with memory, calm, and premium brand control.",
+    label: "Smart Follow-Up",
+    description: "Keep the right next message in motion before the lead cools off.",
     original_007_ref: "Armrest",
   },
   {
     id: "ghostrecall",
-    label: "GhostRecall\u2122",
-    description: "Quiet leads get reactivated with context-rich follow-up before revenue disappears for good.",
+    label: "Offer Builder",
+    description: "Turn a warm conversation into a clear next step, price, or package.",
     original_007_ref: "Number Plate",
   },
   {
     id: "closecircuit",
-    label: "CloseCircuit\u2122",
-    description: "Buyers get the right recommendation, the right offer, and the right path to payment.",
+    label: "Conversation Memory",
+    description: "Keep the context attached so every reply feels like a continuation, not a reset.",
     original_007_ref: "Ejector Seat",
   },
+];
+
+const maxxTechFeatureSpecs: FeatureSpec[] = [
   {
-    id: "forgestack",
-    label: "ForgeStack\u2122",
-    description: "Each deployment can absorb custom data, custom APIs, and a full reskin without breaking the engine.",
+    id: "websites",
+    label: "Websites & Landing Pages",
+    description: "Ship the pages, funnels, and launch surfaces that carry the message forward.",
     original_007_ref: "Tyre Slasher",
+  },
+  {
+    id: "automations",
+    label: "Automations & Workflows",
+    description: "Wire the follow-up, routing, and repetitive work so the team stays focused.",
+    original_007_ref: "Armrest",
+  },
+  {
+    id: "skills",
+    label: "Custom Agent Skills",
+    description: "Package repeatable behaviors into reusable commands the operator can trigger again.",
+    original_007_ref: "Number Plate",
   },
 ];
 
 export const scenesConfig: SceneConfig[] = [
   {
     id: "hero",
-    title: "AGENT MAXX // FULL REVEAL",
+    title: "AGENT MAXX // MEET MAXX",
     scrollBehavior: "pinned",
     visualContent: "/MUSTANG MAXX/HERO FULL PAGE IMAGE/MUSTANG MAX COVER.png",
-    interaction: "Scroll to enter command",
+    interaction: "Scroll to meet MAXX",
   },
   {
     id: "briefing",
-    title: "The Briefing",
+    title: "Find Leads",
     scrollBehavior: "scrolling_text_over_parallax",
     visualContent: "/MUSTANG MAXX/006/ChatGPT Image Jun 19, 2025, 01_06_02 PM.png",
-    interaction: "Reveal the operating doctrine",
+    interaction: "Surface the lead brief",
   },
   {
     id: "car_intro",
-    title: "The Car Reveal",
+    title: "Create Content",
     scrollBehavior: "pinned",
     visualContent: "/MUSTANG MAXX/CAR INTRO/Mustang-MAXX-car-reveal.png",
-    interaction: "Reveal the vehicle before the platform modules",
+    interaction: "Reveal the content engine before the platform modules",
   },
   {
     id: "the_car",
-    title: "The Mustang MAXX",
+    title: "Close Deals",
     scrollBehavior: "horizontal_pin",
     visualContent: "/MUSTANG MAXX/MUSTANG MAXX/ChatGPT Image Jun 19, 2025, 01_04_31 PM.png",
     features: maxxCarFeatureSpecs,
   },
   {
     id: "tech_specs",
-    title: "Ordnance & Tech",
+    title: "Build Systems",
     scrollBehavior: "vertical_scroll",
     visualContent: "/MUSTANG MAXX/COMIC/1920x0.jpg",
-    interaction: "Draw-on SVG animations",
-    features: maxxCarFeatureSpecs,
+    interaction: "Map the system behind the story",
+    features: maxxTechFeatureSpecs,
   },
   {
     id: "mission",
-    title: "The Mission",
+    title: "Start Mission",
     scrollBehavior: "scrolling_panels",
     visualContent: "comic_panels",
-    interaction: "Parallax comic gutters",
+    interaction: "Run the final sequence",
   },
 ];
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { scenesConfig } from "@/config/scenesConfig";
-import { maxxMissionBeats, maxxMotionTiming } from "@/config/maxxStoryConfig";
+import { maxxHeroBeats, maxxMotionTiming } from "@/config/maxxStoryConfig";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -61,18 +61,18 @@ export const HeroScene: React.FC = () => {
             {heroConfig.title}
           </div>
           <h1 className="max-w-5xl text-5xl font-black uppercase leading-[0.88] text-white md:text-7xl xl:text-8xl">
-            One agent.
+            1 Agent.
             <br />
-            Three revenue
+            Many Skills.
             <br />
-            departments.
+            Maxximum Possibilities.
           </h1>
           <p className="mt-6 max-w-2xl text-base font-light leading-7 text-white/72 md:text-xl md:leading-8">
-            Agent MAXX turns memory, recovery, and commerce into one command surface.
+            Agent MAXX is your AI operator for lead generation, content creation, follow-up, sales support, and business automation.
           </p>
 
           <div className="mt-10 grid gap-3 md:max-w-3xl md:grid-cols-3">
-            {maxxMissionBeats.map((beat) => (
+            {maxxHeroBeats.map((beat) => (
               <div
                 key={beat}
                 className="border border-white/10 bg-white/[0.04] px-4 py-4 text-sm leading-6 text-white/72 backdrop-blur-sm"
@@ -87,10 +87,10 @@ export const HeroScene: React.FC = () => {
               href="#briefing"
               className="bg-maxx-orange px-5 py-3 text-xs font-bold uppercase tracking-[0.35em] text-black transition-colors hover:bg-white"
             >
-              Enter mission brief
+              See What MAXX Can Do
             </a>
             <span className="text-[10px] uppercase tracking-[0.45em] text-white/40">
-              Scroll to initialize command
+              Scroll to unlock the skill stack
             </span>
           </div>
         </div>
@@ -109,8 +109,8 @@ export const HeroScene: React.FC = () => {
               />
             </div>
             <div className="mt-4 flex items-center justify-between gap-4 border-t border-white/10 pt-4 text-[10px] uppercase tracking-[0.45em] text-white/45">
-              <span>Full-body reveal</span>
-              <span>Operator in frame</span>
+              <span>Agent Online</span>
+              <span>Skills Armed</span>
             </div>
           </div>
         </div>
