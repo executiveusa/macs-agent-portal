@@ -19,59 +19,111 @@ export const CarIntroScene: React.FC = () => {
 
     if (!section || !image || !copy) return;
 
+    const mm = gsap.matchMedia();
     const ctx = gsap.context(() => {
-      const timeline = gsap.timeline({
-        scrollTrigger: {
-          trigger: section,
-          start: "top top",
-          end: maxxMotionTiming.carIntroEnd,
-          pin: true,
-          scrub: maxxMotionTiming.carIntroScrub,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-        },
+      mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
+        const timeline = gsap.timeline({
+          scrollTrigger: {
+            trigger: section,
+            start: "top top",
+            end: maxxMotionTiming.carIntroEnd,
+            pin: true,
+            scrub: maxxMotionTiming.carIntroScrub,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+          },
+        });
+
+        timeline.fromTo(
+          image,
+          {
+            scale: maxxMotionTiming.carIntroImageStartScale,
+            yPercent: maxxMotionTiming.carIntroImageStartY,
+            opacity: 0.72,
+          },
+          {
+            scale: 1,
+            yPercent: 0,
+            opacity: 1,
+            duration: 1,
+            ease: "power2.out",
+          },
+          0
+        );
+
+        timeline.fromTo(
+          copy,
+          {
+            y: 34,
+            opacity: 0,
+          },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.62,
+            ease: "power2.out",
+          },
+          0.18
+        );
       });
 
-      timeline.fromTo(
-        image,
-        {
-          scale: maxxMotionTiming.carIntroImageStartScale,
-          yPercent: maxxMotionTiming.carIntroImageStartY,
-          opacity: 0.72,
-        },
-        {
-          scale: 1,
-          yPercent: 0,
-          opacity: 1,
-          duration: 1,
-          ease: "power2.out",
-        },
-        0
-      );
+      mm.add("(max-width: 767px) and (prefers-reduced-motion: no-preference)", () => {
+        const timeline = gsap.timeline({
+          scrollTrigger: {
+            trigger: section,
+            start: "top top",
+            end: "+=90%",
+            pin: true,
+            scrub: 0.55,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+          },
+        });
 
-      timeline.fromTo(
-        copy,
-        {
-          y: 34,
-          opacity: 0,
-        },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.62,
-          ease: "power2.out",
-        },
-        0.18
-      );
+        timeline.fromTo(
+          image,
+          {
+            scale: 1.03,
+            yPercent: 1,
+            opacity: 0.82,
+          },
+          {
+            scale: 1,
+            yPercent: 0,
+            opacity: 1,
+            duration: 1,
+            ease: "power2.out",
+          },
+          0
+        );
+
+        timeline.fromTo(
+          copy,
+          {
+            y: 18,
+            opacity: 0,
+          },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.55,
+            ease: "power2.out",
+          },
+          0.18
+        );
+      });
     }, section);
 
-    return () => ctx.revert();
+    return () => {
+      mm.revert();
+      ctx.revert();
+    };
   }, [config?.visualContent]);
 
   if (!config) return null;
 
   return (
-    <section ref={sectionRef} id="car-intro" className="relative h-screen overflow-hidden bg-[#030405] text-white">
+    <section ref={sectionRef} id="car-intro" className="relative h-dvh overflow-hidden bg-[#030405] text-white">
       <img
         ref={imageRef}
         src={config.visualContent}

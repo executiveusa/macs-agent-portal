@@ -13,35 +13,59 @@ export const MustangScene: React.FC = () => {
   const config = scenesConfig.find(s => s.id === 'the_car');
 
   useEffect(() => {
+    const mm = gsap.matchMedia();
     const ctx = gsap.context(() => {
-      // Pin the section
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: "top top",
-          end: "+=300%", // 3 screens long
-          pin: true,
-          scrub: 1,
-          anticipatePin: 1
-        }
+      mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top top",
+            end: "+=300%",
+            pin: true,
+            scrub: 1,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+          }
+        });
+
+        tl.to(carRef.current, {
+          scale: 1.1,
+          x: '-5%',
+          ease: "none"
+        });
       });
 
-      // Simple horizontal drift or zoom to simulate 007 exploration
-      tl.to(carRef.current, {
-        scale: 1.1,
-        x: '-5%',
-        ease: "none"
-      });
+      mm.add("(max-width: 767px) and (prefers-reduced-motion: no-preference)", () => {
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top top",
+            end: "+=120%",
+            pin: true,
+            scrub: 0.55,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+          }
+        });
 
+        tl.to(carRef.current, {
+          scale: 1.03,
+          x: 0,
+          ease: "none"
+        });
+      });
     }, sectionRef);
 
-    return () => ctx.revert();
+    return () => {
+      mm.revert();
+      ctx.revert();
+    };
   }, []);
 
   if (!config || !config.features) return null;
 
   return (
-    <section ref={sectionRef} className="h-screen w-full bg-maxx-bg relative flex flex-col justify-center overflow-hidden" id="car">
+    <section ref={sectionRef} className="h-dvh w-full bg-maxx-bg relative flex flex-col justify-center overflow-hidden" id="car">
       
       {/* Background Graphic */}
       <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">

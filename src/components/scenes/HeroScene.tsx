@@ -13,34 +13,67 @@ export const HeroScene: React.FC = () => {
   const heroConfig = scenesConfig.find((scene) => scene.id === "hero");
 
   useEffect(() => {
+    const mm = gsap.matchMedia();
     const ctx = gsap.context(() => {
-      gsap.to(textRef.current, {
-        y: maxxMotionTiming.heroTextShift,
-        ease: "none",
-        scrollTrigger: {
-          trigger: containerRef.current,
-          start: "top top",
-          end: "bottom top",
-          scrub: true,
-          invalidateOnRefresh: true
-        }
+      mm.add("(min-width: 1024px) and (prefers-reduced-motion: no-preference)", () => {
+        gsap.to(textRef.current, {
+          y: maxxMotionTiming.heroTextShift,
+          ease: "none",
+          scrollTrigger: {
+            trigger: containerRef.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: true,
+            invalidateOnRefresh: true,
+          },
+        });
+
+        gsap.to(imageRef.current, {
+          scale: maxxMotionTiming.heroImageScale,
+          yPercent: maxxMotionTiming.heroImageY,
+          ease: "none",
+          scrollTrigger: {
+            trigger: containerRef.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: true,
+            invalidateOnRefresh: true,
+          },
+        });
       });
 
-      gsap.to(imageRef.current, {
-        scale: maxxMotionTiming.heroImageScale,
-        yPercent: maxxMotionTiming.heroImageY,
-        ease: "none",
-        scrollTrigger: {
-          trigger: containerRef.current,
-          start: "top top",
-          end: "bottom top",
-          scrub: true,
-          invalidateOnRefresh: true
-        }
+      mm.add("(max-width: 1023px) and (prefers-reduced-motion: no-preference)", () => {
+        gsap.to(textRef.current, {
+          y: "6%",
+          ease: "none",
+          scrollTrigger: {
+            trigger: containerRef.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: 0.45,
+            invalidateOnRefresh: true,
+          },
+        });
+
+        gsap.to(imageRef.current, {
+          scale: 1.01,
+          yPercent: 1,
+          ease: "none",
+          scrollTrigger: {
+            trigger: containerRef.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: 0.45,
+            invalidateOnRefresh: true,
+          },
+        });
       });
     }, containerRef);
 
-    return () => ctx.revert();
+    return () => {
+      mm.revert();
+      ctx.revert();
+    };
   }, []);
 
   if (!heroConfig) return null;
@@ -48,7 +81,7 @@ export const HeroScene: React.FC = () => {
   return (
     <section
       ref={containerRef}
-      className="relative isolate overflow-hidden bg-[#040507] px-6 pb-16 pt-24 text-white md:px-8 lg:min-h-screen lg:px-10 lg:pb-20 lg:pt-28"
+      className="relative isolate overflow-hidden bg-[#040507] px-6 pb-16 pt-24 text-white md:px-8 lg:min-h-dvh lg:px-10 lg:pb-20 lg:pt-28"
       id="hero"
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,122,60,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(70,213,255,0.14),transparent_26%)]" />

@@ -1,7 +1,7 @@
 export const countdownFrames = ["006", "005", "004", "003", "002", "001"];
 
 export const maxxMotionTiming = {
-  introFrameDuration: 360,
+  introFrameDuration: 1000,
   introExitDuration: 320,
   heroTextShift: "18%",
   heroImageScale: 1.03,

@@ -19,8 +19,8 @@ export const BillingPanel: React.FC = () => {
     <div className="bg-maxx-bg border border-gray-800 rounded-xl p-6 shadow-2xl">
        <div className="flex justify-between items-start mb-6">
          <div>
-           <h3 className="text-xl font-bold text-white">Agency Treasury</h3>
-           <p className="text-gray-400 text-sm">Manage subscription and crypto-credits.</p>
+           <h3 className="text-xl font-bold text-white">Agent Access</h3>
+           <p className="text-gray-400 text-sm">Keep Stacy's MAXX workspace active and ready for approved missions.</p>
          </div>
          <div className="px-3 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded text-xs font-mono">
            PLAN: FREE TIER

@@ -24,10 +24,9 @@ const SignIn = () => {
           <Badge variant="outline" className="border-emerald-400/60 bg-emerald-500/10 text-emerald-100">
             Secure access
           </Badge>
-          <h1 className="text-4xl font-semibold text-white">Sign in to your agent cockpit</h1>
+          <h1 className="text-4xl font-semibold text-white">Stacy, sign in to control Agent MAXX</h1>
           <p className="max-w-xl text-sm text-slate-300">
-            Authenticate with Google or email to unlock the Maxx Coze Studio powered dashboard. Access your agents, workflows,
-            and monitoring tools from any device with enterprise-grade security controls.
+            Use this private dashboard to review what MAXX prepared, approve the next move, and keep leads, content, and follow-up under one operator account.
           </p>
           <div className="grid gap-4 md:grid-cols-2">
             {["Granular RBAC", "Audit trails", "Multi-region failover", "SAML ready"].map((item) => (
@@ -50,7 +49,7 @@ const SignIn = () => {
           <Card className="border-white/10 bg-white/5 backdrop-blur">
             <CardHeader className="space-y-2 text-center">
               <CardTitle className="text-2xl text-white">Welcome back</CardTitle>
-              <p className="text-sm text-slate-300">Choose your preferred sign-in method to continue.</p>
+              <p className="text-sm text-slate-300">Choose your sign-in method to open Stacy's control room.</p>
             </CardHeader>
             <CardContent className="space-y-4">
               <Button className="w-full bg-white text-slate-900 hover:bg-slate-100">
@@ -91,7 +90,7 @@ const SignIn = () => {
             <CardFooter className="flex flex-col gap-4 text-xs text-slate-300">
               <div className="flex items-center gap-2">
                 <Wand2 className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-                Use the Google option for the fastest setup—your MACS domain is pre-approved.
+                Use the Google option for the fastest setup; your MACS domain is pre-approved.
               </div>
               <div className="flex items-center gap-2">
                 <Sparkle className="h-4 w-4 text-purple-300" aria-hidden="true" />
