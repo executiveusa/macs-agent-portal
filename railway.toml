@@ -1,0 +1,87 @@
+# Railway Zero-Secrets Configuration
+# This configuration ensures minimal resource usage and cost protection
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install && npm run build"
+
+[deploy]
+startCommand = "npx serve -s dist -l $PORT"
+healthcheckPath = "/"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Cost Protection: Enforce minimal resources
+# Note: Railway automatically handles resource allocation on free tier
+# These are advisory limits for Railway's scheduler
+[resource]
+# Memory limit in MB (512 MB minimum for Node.js apps)
+memory = 512
+# CPU cores allocated (0.5 = half a core, suitable for static sites)
+cpu = 0.5
+# Prevent runaway processes (max concurrent connections)
+maxConcurrentRequests = 100
+
+# Watch only relevant files to minimize rebuilds
+[watch]
+include = [
+  "src/**/*.ts",
+  "src/**/*.tsx",
+  "src/**/*.js",
+  "src/**/*.jsx",
+  "index.html",
+  "vite.config.ts",
+  "package.json"
+]
+exclude = [
+  "node_modules/**",
+  "dist/**",
+  ".git/**",
+  "*.log",
+  ".env*",
+  "README.md"
+]
+
+# Environment variables with safe defaults
+# Required secrets must be set via Railway dashboard or CLI
+[env]
+NODE_ENV = "production"
+PORT = { value = "8080", required = false }
+
+# Cost monitoring markers for automated agents
+[metadata]
+cost_protection_enabled = true
+free_tier_mode = true
+max_monthly_spend_usd = 0
+auto_shutdown_on_limit = true
+maintenance_mode_ready = true
+coolify_migration_ready = false
+
+# Railway service configuration
+[service]
+type = "web"
+# Use smallest instance type available in free tier
+# Railway will automatically select appropriate instance
+# plan = "starter" # Uncomment if you have a paid plan
+
+[nixpacks]
+# Minimal Nix packages for cost efficiency
+packages = ["nodejs_20"]
+
+[nixpacks.build]
+cmds = [
+  "npm ci --prefer-offline --no-audit",
+  "npm run build"
+]
+
+[nixpacks.start]
+cmd = "npx serve -s dist -l $PORT"
+
+# Caching to reduce build times and resource usage
+[cache]
+paths = [
+  "node_modules",
+  ".npm",
+  "dist"
+]

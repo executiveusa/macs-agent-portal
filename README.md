@@ -1,4 +1,25 @@
-# Welcome to your Lovable project
+# MACS Agent Portal
+
+Agent MAXX front page, Stacy dashboard, and deployment support for the MACS Agent Portal.
+
+## Deployment Status
+
+- Primary host: Vercel
+- Production alias: https://macs-agent-portal-pi.vercel.app
+- Build command: `npm run build`
+- Output directory: `dist`
+- Fallback planning: Railway and Coolify support docs are included for future migration or cost-control scenarios.
+
+## Deployment Docs
+
+- `RAILWAY_DEPLOYMENT.md`
+- `COOLIFY_SUPPORT.md`
+- `COOLIFY_MIGRATION.md`
+- `HOSTINGER_VPN.md`
+- `DEPLOYMENT_SUMMARY.md`
+- `.agents`
+
+Do not commit filled secret files. Use Vercel, Railway, Coolify, or a vault for runtime values.
 
 ## Project info
 

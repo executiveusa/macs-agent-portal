@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { maxxMissionBeats, maxxMotionTiming } from "@/config/maxxStoryConfig";
+import { maxxFinalMissionCards, maxxMotionTiming } from "@/config/maxxStoryConfig";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -60,27 +60,27 @@ export const FinalMissionScene: React.FC = () => {
 
       <div className="relative mx-auto max-w-7xl">
         <div ref={headlineRef} className="max-w-3xl">
-          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-orange/78">Closing act</p>
+          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-orange/78">Start Mission</p>
           <h2 className="mt-4 text-4xl font-black uppercase leading-[0.92] text-white md:text-6xl">
-            The mission is a repeatable outcome.
+            Start with one outcome. Let MAXX build the workflow around it.
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-white/68 md:text-lg">
-            The story ends where the product begins: a clean handoff from discovery to action, with every chapter
-            pointing back to the same result.
+            The story stays focused on the result: less friction, more follow-through, and a cleaner next move.
           </p>
         </div>
 
         <div className="mt-12 grid gap-5 lg:grid-cols-3">
-          {maxxMissionBeats.map((beat, index) => (
+          {maxxFinalMissionCards.map((card, index) => (
             <div
-              key={beat}
+              key={card.id}
               ref={(node) => {
                 if (node) cardRefs.current[index] = node;
               }}
               className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/30"
             >
-              <p className="text-[10px] uppercase tracking-[0.42em] text-maxx-cyan/70">Mission beat {index + 1}</p>
-              <p className="mt-4 text-lg leading-8 text-white/84">{beat}</p>
+              <p className="text-[10px] uppercase tracking-[0.42em] text-maxx-cyan/70">Mission step {index + 1}</p>
+              <h3 className="mt-4 text-2xl font-black uppercase leading-none text-white">{card.title}</h3>
+              <p className="mt-4 text-lg leading-8 text-white/84">{card.body}</p>
             </div>
           ))}
         </div>
@@ -90,18 +90,17 @@ export const FinalMissionScene: React.FC = () => {
           <div className="mt-4 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div className="max-w-3xl">
               <h3 className="text-3xl font-black uppercase leading-none text-white md:text-5xl">
-                Hand the user a path they can actually finish.
+                Start with one outcome. Let MAXX build the workflow around it.
               </h3>
               <p className="mt-4 text-sm leading-7 text-white/68 md:text-base">
-                The experience stays cinematic, but the outcome is plain: less friction, more follow-through, and a
-                stronger next action.
+                Find leads, create content, follow up, build the system, and recover revenue without losing the thread.
               </p>
             </div>
             <a
               href="/dashboard"
               className="inline-flex items-center justify-center border border-maxx-orange/70 bg-maxx-orange px-5 py-3 text-xs font-bold uppercase tracking-[0.36em] text-black transition-colors hover:bg-white"
             >
-              Enter the Agency
+              Start Your First Mission
             </a>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { scenesConfig } from "@/config/scenesConfig";
-import { maxxMissionBeats, maxxMotionTiming } from "@/config/maxxStoryConfig";
+import { maxxHeroBeats, maxxMotionTiming } from "@/config/maxxStoryConfig";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -13,34 +13,67 @@ export const HeroScene: React.FC = () => {
   const heroConfig = scenesConfig.find((scene) => scene.id === "hero");
 
   useEffect(() => {
+    const mm = gsap.matchMedia();
     const ctx = gsap.context(() => {
-      gsap.to(textRef.current, {
-        y: maxxMotionTiming.heroTextShift,
-        ease: "none",
-        scrollTrigger: {
-          trigger: containerRef.current,
-          start: "top top",
-          end: "bottom top",
-          scrub: true,
-          invalidateOnRefresh: true
-        }
+      mm.add("(min-width: 1024px) and (prefers-reduced-motion: no-preference)", () => {
+        gsap.to(textRef.current, {
+          y: maxxMotionTiming.heroTextShift,
+          ease: "none",
+          scrollTrigger: {
+            trigger: containerRef.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: true,
+            invalidateOnRefresh: true,
+          },
+        });
+
+        gsap.to(imageRef.current, {
+          scale: maxxMotionTiming.heroImageScale,
+          yPercent: maxxMotionTiming.heroImageY,
+          ease: "none",
+          scrollTrigger: {
+            trigger: containerRef.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: true,
+            invalidateOnRefresh: true,
+          },
+        });
       });
 
-      gsap.to(imageRef.current, {
-        scale: maxxMotionTiming.heroImageScale,
-        yPercent: maxxMotionTiming.heroImageY,
-        ease: "none",
-        scrollTrigger: {
-          trigger: containerRef.current,
-          start: "top top",
-          end: "bottom top",
-          scrub: true,
-          invalidateOnRefresh: true
-        }
+      mm.add("(max-width: 1023px) and (prefers-reduced-motion: no-preference)", () => {
+        gsap.to(textRef.current, {
+          y: "6%",
+          ease: "none",
+          scrollTrigger: {
+            trigger: containerRef.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: 0.45,
+            invalidateOnRefresh: true,
+          },
+        });
+
+        gsap.to(imageRef.current, {
+          scale: 1.01,
+          yPercent: 1,
+          ease: "none",
+          scrollTrigger: {
+            trigger: containerRef.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: 0.45,
+            invalidateOnRefresh: true,
+          },
+        });
       });
     }, containerRef);
 
-    return () => ctx.revert();
+    return () => {
+      mm.revert();
+      ctx.revert();
+    };
   }, []);
 
   if (!heroConfig) return null;
@@ -48,7 +81,7 @@ export const HeroScene: React.FC = () => {
   return (
     <section
       ref={containerRef}
-      className="relative isolate overflow-hidden bg-[#040507] px-6 pb-16 pt-24 text-white md:px-8 lg:min-h-screen lg:px-10 lg:pb-20 lg:pt-28"
+      className="relative isolate overflow-hidden bg-[#040507] px-6 pb-16 pt-24 text-white md:px-8 lg:min-h-dvh lg:px-10 lg:pb-20 lg:pt-28"
       id="hero"
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,122,60,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(70,213,255,0.14),transparent_26%)]" />
@@ -61,18 +94,18 @@ export const HeroScene: React.FC = () => {
             {heroConfig.title}
           </div>
           <h1 className="max-w-5xl text-5xl font-black uppercase leading-[0.88] text-white md:text-7xl xl:text-8xl">
-            One agent.
+            1 Agent.
             <br />
-            Three revenue
+            Many Skills.
             <br />
-            departments.
+            Maxximum Possibilities.
           </h1>
           <p className="mt-6 max-w-2xl text-base font-light leading-7 text-white/72 md:text-xl md:leading-8">
-            Agent MAXX turns memory, recovery, and commerce into one command surface.
+            Agent MAXX is your AI operator for lead generation, content creation, follow-up, sales support, and business automation.
           </p>
 
           <div className="mt-10 grid gap-3 md:max-w-3xl md:grid-cols-3">
-            {maxxMissionBeats.map((beat) => (
+            {maxxHeroBeats.map((beat) => (
               <div
                 key={beat}
                 className="border border-white/10 bg-white/[0.04] px-4 py-4 text-sm leading-6 text-white/72 backdrop-blur-sm"
@@ -87,10 +120,10 @@ export const HeroScene: React.FC = () => {
               href="#briefing"
               className="bg-maxx-orange px-5 py-3 text-xs font-bold uppercase tracking-[0.35em] text-black transition-colors hover:bg-white"
             >
-              Enter mission brief
+              See What MAXX Can Do
             </a>
             <span className="text-[10px] uppercase tracking-[0.45em] text-white/40">
-              Scroll to initialize command
+              Scroll to unlock the skill stack
             </span>
           </div>
         </div>
@@ -109,8 +142,8 @@ export const HeroScene: React.FC = () => {
               />
             </div>
             <div className="mt-4 flex items-center justify-between gap-4 border-t border-white/10 pt-4 text-[10px] uppercase tracking-[0.45em] text-white/45">
-              <span>Full-body reveal</span>
-              <span>Operator in frame</span>
+              <span>Agent Online</span>
+              <span>Skills Armed</span>
             </div>
           </div>
         </div>

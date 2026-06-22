@@ -7,8 +7,8 @@ const AgentDashboardPlaceholder = () => {
     <section id="dashboard" aria-label="Agent dashboard" className="container mx-auto px-6 py-20">
       <div className="grid gap-6 md:grid-cols-3">
         <div className="rounded-lg border bg-card p-6">
-          <h3 className="font-semibold">Maxx Coze Studio sync</h3>
-          <p className="mt-2 text-sm text-muted-foreground">Prompts, workflows, and plugins flow directly into the MACS cockpit.</p>
+          <h3 className="font-semibold">Stacy control room</h3>
+          <p className="mt-2 text-sm text-muted-foreground">Leads, content, follow-up, and approvals flow into one MAXX workspace.</p>
         </div>
         <div className="rounded-lg border bg-card p-6">
           <h3 className="font-semibold">Agent analytics</h3>
@@ -24,14 +24,14 @@ const AgentDashboardPlaceholder = () => {
           onClick={() =>
             toast({
               title: "Access requested",
-              description: "We'll notify you once your Maxx Coze Studio seat is provisioned.",
+              description: "We'll notify you once your MAXX operator access is ready.",
             })
           }
         >
-          Request Studio access
+          Request operator access
         </Button>
         <Link to="/dashboard" className="text-sm font-semibold text-primary underline-offset-4 transition hover:underline">
-          Explore the admin agent dashboard →
+          Explore Stacy's dashboard
         </Link>
       </div>
     </section>

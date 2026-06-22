@@ -48,13 +48,12 @@ export const OutcomeChaptersScene: React.FC = () => {
 
       <div className="relative mx-auto max-w-7xl">
         <div className="max-w-3xl">
-          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/78">Revenue departments</p>
+          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/78">Run Operations</p>
           <h2 className="mt-4 text-4xl font-black uppercase leading-[0.92] text-white md:text-6xl">
-            One agent. Three revenue departments.
+            Keep every revenue move from falling through the cracks.
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-white/68 md:text-lg">
-            The frontend stops selling features and starts showing the outcome: support, recovery, and commerce
-            working as one field-ready surface.
+            One command layer keeps leads, content, follow-up, projects, and tools moving in the same direction.
           </p>
         </div>
 

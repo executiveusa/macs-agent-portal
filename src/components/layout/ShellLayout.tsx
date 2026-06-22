@@ -130,7 +130,7 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({ children, introActive 
             <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.45em] text-white/45">Agent MAXX</div>
-                <div className="text-base font-black tracking-tight text-white md:text-xl">006 Field Surface</div>
+                <div className="text-base font-black tracking-tight text-white md:text-xl">MAXX Command Surface</div>
               </div>
 
               <div className="hidden items-center gap-5 text-xs uppercase tracking-[0.28em] text-white/65 md:flex">
@@ -155,7 +155,7 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({ children, introActive 
                   className="hidden items-center gap-2 border border-white/15 px-3 py-2 text-[11px] uppercase tracking-[0.32em] text-white/72 transition-colors hover:border-maxx-orange hover:text-maxx-orange lg:inline-flex"
                 >
                   {musicPlaying ? <Volume2 size={14} /> : <VolumeX size={14} />}
-                  {musicPlaying ? "Music On" : "Music Off"}
+                  {musicPlaying ? "Sound On" : "Sound Off"}
                 </button>
                 <button
                   type="button"
@@ -163,29 +163,29 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({ children, introActive 
                   className="hidden items-center gap-2 border border-white/15 px-3 py-2 text-[11px] uppercase tracking-[0.32em] text-white/72 transition-colors hover:border-maxx-cyan hover:text-maxx-cyan lg:inline-flex"
                 >
                   <RotateCcw size={14} />
-                  Replay 006
+                  Replay Intro
                 </button>
                 <Link
                   to="/signin"
                   className="hidden border border-white/20 px-3 py-2 text-[11px] uppercase tracking-[0.35em] text-white transition-colors hover:border-maxx-orange hover:text-maxx-orange md:inline-flex md:px-4"
                 >
-                  Operator Login
+                  Enter Dashboard
                 </Link>
 
                 <Sheet>
                   <SheetTrigger className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white transition-colors hover:border-maxx-orange hover:text-maxx-orange md:hidden">
                     <Menu size={18} />
-                    <span className="sr-only">Open mission navigation</span>
+                    <span className="sr-only">Open MAXX navigation</span>
                   </SheetTrigger>
                   <SheetContent side="right" className="w-[84vw] border-white/10 bg-[#060708] p-0 text-white">
                     <SheetHeader className="border-b border-white/10 px-5 py-5">
                       <SheetTitle className="text-lg font-black uppercase tracking-[0.2em] text-white">Agent MAXX</SheetTitle>
-                      <p className="text-xs uppercase tracking-[0.32em] text-slate-500">Briefing to field</p>
+                      <p className="text-xs uppercase tracking-[0.32em] text-slate-500">From mission to execution</p>
                     </SheetHeader>
 
                     <div className="space-y-3 px-5 py-5 text-sm uppercase tracking-[0.24em]">
                       <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
-                        <p className="text-[10px] uppercase tracking-[0.38em] text-white/35">Current Chapter</p>
+                        <p className="text-[10px] uppercase tracking-[0.38em] text-white/35">Current Move</p>
                         <p className="mt-3 text-lg font-black uppercase tracking-[0.16em] text-white">
                           {activeChapterData.label}
                         </p>
@@ -215,7 +215,7 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({ children, introActive 
                           className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white/80"
                         >
                           {musicPlaying ? <Volume2 size={15} /> : <VolumeX size={15} />}
-                          {musicPlaying ? "Music On" : "Music Off"}
+                          {musicPlaying ? "Sound On" : "Sound Off"}
                         </button>
                       </SheetClose>
                       <SheetClose asChild>
@@ -225,14 +225,14 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({ children, introActive 
                           className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white/80"
                         >
                           <RotateCcw size={15} />
-                          Replay 006
+                          Replay Intro
                         </button>
                       </SheetClose>
                       <Link
                         to="/signin"
                         className="mt-4 block rounded-2xl border border-maxx-orange/40 bg-maxx-orange/10 px-4 py-3 text-maxx-orange"
                       >
-                        Operator Login
+                        Enter Dashboard
                       </Link>
                     </div>
                   </SheetContent>
@@ -243,7 +243,7 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({ children, introActive 
 
           <aside className="pointer-events-none fixed right-6 top-1/2 z-30 hidden -translate-y-1/2 xl:block">
             <div className="pointer-events-auto w-52 rounded-[28px] border border-white/10 bg-black/55 p-4 shadow-2xl shadow-black/50 backdrop-blur-xl">
-              <p className="text-[10px] uppercase tracking-[0.4em] text-white/35">Mission Progress</p>
+              <p className="text-[10px] uppercase tracking-[0.4em] text-white/35">Mission Path</p>
               <div className="mt-4 space-y-3">
                 {missionChapters.map((chapter, index) => {
                   const isActive = chapter.id === activeChapter;
@@ -283,7 +283,7 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({ children, introActive 
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-3 text-[11px] uppercase tracking-[0.34em] text-white/75 transition-colors hover:border-maxx-cyan hover:text-maxx-cyan"
               >
                 <RotateCcw size={14} />
-                Replay 006
+                Replay Intro
               </button>
             </div>
           </aside>
@@ -294,7 +294,7 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({ children, introActive 
 
       {!introActive && (
         <footer className="border-t border-white/10 bg-black px-6 py-12 text-center text-xs uppercase tracking-[0.32em] text-white/38">
-          <p>Agent MAXX // Outcome-led cinematic operating system</p>
+          <p>Agent MAXX // Leads. Content. Sales. Systems. Operations.</p>
         </footer>
       )}
     </div>

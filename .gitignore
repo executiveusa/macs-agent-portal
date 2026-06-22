@@ -26,6 +26,16 @@ dist-ssr
 .maxx-rollback/
 _reference/
 
+# Provider/runtime secrets and deployment metadata
+master.secrets.json
+.railway/
+.railway.env
+.coolify/
+.env.production
+.env.staging
+.env.local.backup
+.maintenance-mode.json
+
 # Spillover checkouts and runtime report noise from adjacent worktrees
 /MUSTANG-MAXX/
 /backend/

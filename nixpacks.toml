@@ -1,0 +1,24 @@
+# Nixpacks Configuration for Railway Zero-Secrets Deployment
+# Ensures minimal resource usage and cost protection
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+aptPkgs = []
+
+[phases.install]
+cmds = [
+  "npm ci --prefer-offline --no-audit --loglevel error"
+]
+
+[phases.build]
+cmds = [
+  "npm run build"
+]
+
+[start]
+cmd = "npx serve -s dist -l $PORT"
+
+[variables]
+NODE_ENV = "production"
+NPM_CONFIG_LOGLEVEL = "error"
+NPM_CONFIG_PREFER_OFFLINE = "true"

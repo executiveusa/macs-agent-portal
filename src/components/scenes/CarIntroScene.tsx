@@ -19,59 +19,111 @@ export const CarIntroScene: React.FC = () => {
 
     if (!section || !image || !copy) return;
 
+    const mm = gsap.matchMedia();
     const ctx = gsap.context(() => {
-      const timeline = gsap.timeline({
-        scrollTrigger: {
-          trigger: section,
-          start: "top top",
-          end: maxxMotionTiming.carIntroEnd,
-          pin: true,
-          scrub: maxxMotionTiming.carIntroScrub,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-        },
+      mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
+        const timeline = gsap.timeline({
+          scrollTrigger: {
+            trigger: section,
+            start: "top top",
+            end: maxxMotionTiming.carIntroEnd,
+            pin: true,
+            scrub: maxxMotionTiming.carIntroScrub,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+          },
+        });
+
+        timeline.fromTo(
+          image,
+          {
+            scale: maxxMotionTiming.carIntroImageStartScale,
+            yPercent: maxxMotionTiming.carIntroImageStartY,
+            opacity: 0.72,
+          },
+          {
+            scale: 1,
+            yPercent: 0,
+            opacity: 1,
+            duration: 1,
+            ease: "power2.out",
+          },
+          0
+        );
+
+        timeline.fromTo(
+          copy,
+          {
+            y: 34,
+            opacity: 0,
+          },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.62,
+            ease: "power2.out",
+          },
+          0.18
+        );
       });
 
-      timeline.fromTo(
-        image,
-        {
-          scale: maxxMotionTiming.carIntroImageStartScale,
-          yPercent: maxxMotionTiming.carIntroImageStartY,
-          opacity: 0.72,
-        },
-        {
-          scale: 1,
-          yPercent: 0,
-          opacity: 1,
-          duration: 1,
-          ease: "power2.out",
-        },
-        0
-      );
+      mm.add("(max-width: 767px) and (prefers-reduced-motion: no-preference)", () => {
+        const timeline = gsap.timeline({
+          scrollTrigger: {
+            trigger: section,
+            start: "top top",
+            end: "+=90%",
+            pin: true,
+            scrub: 0.55,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+          },
+        });
 
-      timeline.fromTo(
-        copy,
-        {
-          y: 34,
-          opacity: 0,
-        },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.62,
-          ease: "power2.out",
-        },
-        0.18
-      );
+        timeline.fromTo(
+          image,
+          {
+            scale: 1.03,
+            yPercent: 1,
+            opacity: 0.82,
+          },
+          {
+            scale: 1,
+            yPercent: 0,
+            opacity: 1,
+            duration: 1,
+            ease: "power2.out",
+          },
+          0
+        );
+
+        timeline.fromTo(
+          copy,
+          {
+            y: 18,
+            opacity: 0,
+          },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.55,
+            ease: "power2.out",
+          },
+          0.18
+        );
+      });
     }, section);
 
-    return () => ctx.revert();
+    return () => {
+      mm.revert();
+      ctx.revert();
+    };
   }, [config?.visualContent]);
 
   if (!config) return null;
 
   return (
-    <section ref={sectionRef} id="car-intro" className="relative h-screen overflow-hidden bg-[#030405] text-white">
+    <section ref={sectionRef} id="car-intro" className="relative h-dvh overflow-hidden bg-[#030405] text-white">
       <img
         ref={imageRef}
         src={config.visualContent}
@@ -85,12 +137,12 @@ export const CarIntroScene: React.FC = () => {
       <div className="absolute inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(circle_at_50%_100%,rgba(70,213,255,0.18),transparent_48%)]" />
       <div className="relative z-10 flex h-full items-end px-5 pb-12 md:px-10 md:pb-16">
         <div ref={copyRef} className="w-full max-w-4xl">
-          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/80">Vehicle reveal</p>
+          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/80">CONTENT ENGINE // ONLINE</p>
           <h2 className="mt-4 max-w-3xl text-4xl font-black uppercase leading-none text-white md:text-6xl">
-            The operating system gets a body.
+            Turn raw ideas into media that moves.
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 md:text-lg">
-            Agent MAXX moves from briefing to field work: a clear vehicle reveal before the platform modules open.
+            Agent MAXX turns prompts, videos, notes, offers, and rough ideas into posts, clips, pages, campaigns, and follow-up assets built for the people you want to reach.
           </p>
           <div className="mt-8 h-px w-full max-w-xl bg-gradient-to-r from-maxx-orange via-maxx-cyan to-transparent" />
         </div>

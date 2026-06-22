@@ -3,17 +3,17 @@ import { MoreHorizontal, CheckCircle2 } from 'lucide-react';
 
 export const PipelineBoard: React.FC = () => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
-      <Column title="Queued" count={2} statusColor="border-gray-600">
-        <JobCard title="Agent_Smith_V3" type="Avatar Gen" time="2m ago" />
-        <JobCard title="Landing_Page_X" type="Site Deploy" time="10m ago" />
+    <div className="grid h-full grid-cols-1 gap-6 lg:grid-cols-3">
+      <Column title="Needs Stacy" count={2} statusColor="border-gray-600">
+        <JobCard title="Approve lead shortlist" type="Leads" time="2m ago" />
+        <JobCard title="Choose landing page angle" type="Website" time="10m ago" />
       </Column>
-      <Column title="Processing" count={1} statusColor="border-maxx-orange">
-        <JobCard title="Crypto_Dash_Main" type="App Builder" time="Running..." active />
+      <Column title="MAXX Working" count={1} statusColor="border-maxx-orange">
+        <JobCard title="Draft follow-up sequence" type="Sales" time="Running..." active />
       </Column>
-      <Column title="Online" count={4} statusColor="border-maxx-cyan">
-        <JobCard title="MACS_Portal_v1" type="Production" time="Deployed" status="success" />
-        <JobCard title="Test_Net_Node" type="Infrastructure" time="Deployed" status="success" />
+      <Column title="Ready To Send" count={4} statusColor="border-maxx-cyan">
+        <JobCard title="Monday content pack" type="Content" time="Ready" status="success" />
+        <JobCard title="Warm lead recap" type="Follow-up" time="Ready" status="success" />
       </Column>
     </div>
   );
@@ -27,7 +27,7 @@ type ColumnProps = {
 };
 
 const Column = ({ title, count, children, statusColor }: ColumnProps) => (
-  <div className="bg-maxx-bg/50 border border-gray-800 rounded-lg flex flex-col h-[500px]">
+  <div className="flex min-h-[320px] flex-col rounded-lg border border-gray-800 bg-maxx-bg/50 lg:h-[460px]">
     <div className={`p-4 border-b border-gray-800 flex justify-between items-center border-t-2 ${statusColor}`}>
       <h4 className="font-bold text-sm uppercase text-gray-300">{title}</h4>
       <span className="bg-gray-800 text-xs px-2 py-0.5 rounded text-gray-400">{count}</span>
@@ -47,7 +47,7 @@ type JobCardProps = {
 };
 
 const JobCard = ({ title, type, time, active, status }: JobCardProps) => (
-  <div className={`bg-gray-900 border border-gray-800 p-4 rounded hover:border-gray-600 transition-colors cursor-pointer group ${active ? 'ring-1 ring-maxx-orange/50' : ''}`}>
+  <div className={`group cursor-pointer rounded border border-gray-800 bg-gray-900 p-4 transition-colors hover:border-gray-600 ${active ? 'ring-1 ring-maxx-orange/50' : ''}`}>
     <div className="flex justify-between items-start mb-2">
       <span className="text-xs font-mono text-gray-500 bg-black/30 px-1 rounded">{type}</span>
       <button className="text-gray-600 hover:text-white"><MoreHorizontal size={14} /></button>

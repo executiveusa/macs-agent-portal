@@ -1,0 +1,73 @@
+{
+  "project": "macs-agent-portal",
+  "description": "Agent MAXX portal deployment secret manifest. Values are intentionally placeholders.",
+  "version": "1.0.0",
+  "core": [
+    {
+      "name": "VITE_SUPABASE_URL",
+      "description": "Supabase project URL endpoint.",
+      "required": true,
+      "placeholder": "https://your-project-id.supabase.co",
+      "category": "database",
+      "module": "supabase",
+      "validation": {
+        "pattern": "^https://[a-z0-9]+\\.supabase\\.co$"
+      }
+    },
+    {
+      "name": "VITE_SUPABASE_PUBLISHABLE_KEY",
+      "description": "Supabase anonymous publishable key. Keep service-role keys server-side only.",
+      "required": true,
+      "placeholder": "eyJ...your-anon-key",
+      "category": "auth",
+      "module": "supabase",
+      "validation": {
+        "pattern": "^eyJ[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+$"
+      }
+    },
+    {
+      "name": "VITE_SUPABASE_PROJECT_ID",
+      "description": "Supabase project identifier.",
+      "required": false,
+      "placeholder": "your-project-id",
+      "category": "database",
+      "module": "supabase",
+      "validation": {
+        "pattern": "^[a-z0-9]+$"
+      }
+    }
+  ],
+  "optional": [
+    {
+      "name": "VITE_FIRECRAWL_API_KEY",
+      "description": "Firecrawl API key for source discovery workflows.",
+      "required": false,
+      "placeholder": "fc-your-key",
+      "category": "integrations",
+      "module": "firecrawl",
+      "fallback": "Video and listing workflows should fail clearly or use documented fallback behavior when missing."
+    },
+    {
+      "name": "MAXX_BROWSER_WS_ENDPOINT",
+      "description": "Remote Playwright CDP endpoint for MAXX browser verification.",
+      "required": false,
+      "placeholder": "wss://user:password@host:port",
+      "category": "browser",
+      "module": "remote-browser",
+      "fallback": "No local browser fallback for production automation paths."
+    }
+  ],
+  "deployment": {
+    "primary": "vercel",
+    "fallbacks": ["railway", "coolify"],
+    "build_command": "npm run build",
+    "install_command": "npm ci",
+    "output_directory": "dist"
+  },
+  "guardrails": [
+    "Do not commit filled secret files.",
+    "Inject provider values through Vercel, Railway, Coolify, or a vault.",
+    "Rotate any credential that appears in chat, logs, screenshots, or source.",
+    "Keep service-role and admin credentials out of browser-exposed VITE variables."
+  ]
+}
