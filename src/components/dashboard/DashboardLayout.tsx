@@ -1,101 +1,145 @@
-import React from 'react';
-import { Bot, LayoutDashboard, LogOut, Menu, Settings, Target, Wand2 } from 'lucide-react';
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import type { ReactNode } from "react";
+import {
+  Activity,
+  Bot,
+  BriefcaseBusiness,
+  Command,
+  Gauge,
+  KanbanSquare,
+  LogOut,
+  Menu,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "@/hooks/useAuth";
 
-const navItems = [
-  { icon: <LayoutDashboard size={20} />, label: "Today", active: true },
-  { icon: <Target size={20} />, label: "Leads" },
-  { icon: <Wand2 size={20} />, label: "Content" },
-  { icon: <Bot size={20} />, label: "MAXX Skills" },
-  { icon: <Settings size={20} />, label: "Settings" },
+const navigation = [
+  { path: "/dashboard/command", label: "Command", icon: Command },
+  { path: "/dashboard/live", label: "Live", icon: Activity },
+  { path: "/dashboard/missions", label: "Missions", icon: KanbanSquare },
+  { path: "/dashboard/crm", label: "CRM", icon: BriefcaseBusiness },
+  { path: "/dashboard/approvals", label: "Approvals", icon: ShieldCheck },
+  { path: "/dashboard/skills", label: "Skills", icon: Sparkles },
+  { path: "/dashboard/usage", label: "Usage", icon: Gauge },
+  { path: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
-export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+function TowerNav({ onNavigate }: { onNavigate?: () => void }) {
+  const location = useLocation();
   return (
-    <div className="min-h-screen bg-maxx-secondary text-white font-sans lg:flex">
-      <aside className="hidden fixed inset-y-0 left-0 z-20 w-64 flex-col border-r border-gray-800 bg-maxx-bg lg:flex">
-        <DashboardBrand />
-        <DashboardNav />
-        <DashboardDisconnect />
-      </aside>
+    <nav className="space-y-1.5">
+      {navigation.map((item) => {
+        const active =
+          location.pathname === "/dashboard" && item.path.endsWith("/command")
+            ? true
+            : location.pathname.startsWith(item.path);
+        const Icon = item.icon;
+        return (
+          <Link
+            key={item.path}
+            to={item.path}
+            onClick={onNavigate}
+            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+              active
+                ? "bg-black text-white shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
+                : "text-black/55 hover:bg-black/[0.055] hover:text-black"
+            }`}
+          >
+            <Icon size={17} strokeWidth={active ? 2.25 : 1.8} />
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
 
-      <div className="min-h-screen flex-1 px-4 py-5 sm:px-6 lg:ml-64 lg:p-8">
-        <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <MobileDashboardNav />
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-gray-500">Stacy Control Room</p>
-              <h1 className="mt-1 text-2xl font-bold uppercase leading-tight tracking-wide">Run Agent MAXX</h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="rounded-full border border-maxx-cyan bg-maxx-cyan/10 px-3 py-1 text-xs font-mono uppercase text-maxx-cyan">
-              MAXX Online
-            </div>
-            <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-maxx-cyan bg-gray-700">
-              <img src="/MUSTANG MAXX/006/ChatGPT Image Jun 19, 2025, 01_06_02 PM.png" alt="Stacy profile" />
-            </div>
-          </div>
-        </header>
-
-        <main>{children}</main>
+function Brand() {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-black text-white shadow-lg">
+        <Bot size={18} />
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-black/35">Private system</p>
+        <p className="text-[15px] font-semibold tracking-[-0.02em] text-[#1d1d1f]">MAXX Control Tower</p>
       </div>
     </div>
   );
-};
+}
 
-const NavItem = ({ icon, label, active }: { icon: React.ReactNode; label: string; active?: boolean }) => (
-  <button className={`w-full flex items-center gap-3 rounded-lg px-4 py-3 transition-all ${active ? 'bg-maxx-cyan/10 text-maxx-cyan border border-maxx-cyan/20' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
-    {icon}
-    <span className="text-sm font-medium">{label}</span>
-  </button>
-);
+export function DashboardLayout({
+  children,
+  status,
+  currentIntent,
+}: {
+  children: ReactNode;
+  status: "online" | "degraded" | "offline";
+  currentIntent: string;
+}) {
+  const { signOut, devBypass } = useAuth();
 
-const DashboardBrand = () => (
-  <div className="border-b border-gray-800 p-6">
-    <div className="text-xl font-black tracking-tighter text-white">MAXX<span className="text-maxx-cyan">.AI</span></div>
-    <div className="mt-1 text-xs tracking-widest text-gray-500">STACY OPERATOR ACCESS</div>
-  </div>
-);
+  return (
+    <div className="min-h-screen bg-[#f4f4f2] text-[#1d1d1f]">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] border-r border-black/[0.07] bg-[#f9f9f7]/95 px-4 py-5 backdrop-blur-2xl lg:flex lg:flex-col">
+        <Brand />
+        <div className="mt-9 flex-1">
+          <TowerNav />
+        </div>
+        <div className="rounded-2xl border border-black/[0.07] bg-white/70 p-3.5">
+          <div className="flex items-center gap-2 text-xs font-medium">
+            <span
+              className={`h-2 w-2 rounded-full ${
+                status === "online" ? "bg-emerald-500" : status === "degraded" ? "bg-amber-500" : "bg-red-500"
+              }`}
+            />
+            MAXX {status}
+          </div>
+          <p className="mt-2 line-clamp-2 text-xs leading-5 text-black/45">{currentIntent}</p>
+          {devBypass && <p className="mt-2 text-[10px] uppercase tracking-wider text-amber-700">Local auth bypass</p>}
+        </div>
+        <button
+          onClick={() => signOut()}
+          className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-black/45 transition hover:bg-black/5 hover:text-black"
+        >
+          <LogOut size={15} />
+          Sign out
+        </button>
+      </aside>
 
-const DashboardNav = () => (
-  <nav className="flex-1 space-y-2 p-4">
-    {navItems.map((item) => (
-      <NavItem key={item.label} {...item} />
-    ))}
-  </nav>
-);
-
-const DashboardDisconnect = () => (
-  <div className="border-t border-gray-800 p-4">
-    <button className="flex w-full items-center gap-3 text-gray-400 transition-colors hover:text-white">
-      <LogOut size={18} />
-      <span className="text-sm">Sign Out</span>
-    </button>
-  </div>
-);
-
-const MobileDashboardNav = () => (
-  <Sheet>
-    <SheetTrigger className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition-colors hover:border-maxx-cyan hover:text-maxx-cyan lg:hidden">
-      <Menu size={20} />
-      <span className="sr-only">Open Stacy dashboard navigation</span>
-    </SheetTrigger>
-    <SheetContent side="left" className="w-[84vw] border-gray-800 bg-maxx-bg p-0 text-white">
-      <SheetHeader className="border-b border-gray-800 p-6 text-left">
-        <SheetTitle className="text-xl font-black tracking-tight text-white">MAXX<span className="text-maxx-cyan">.AI</span></SheetTitle>
-        <p className="text-xs uppercase tracking-[0.28em] text-gray-500">Stacy operator access</p>
-      </SheetHeader>
-      <nav className="space-y-2 p-4">
-        {navItems.map((item) => (
-          <SheetClose asChild key={item.label}>
-            <NavItem {...item} />
-          </SheetClose>
-        ))}
-      </nav>
-      <div className="absolute inset-x-0 bottom-0 border-t border-gray-800 p-4">
-        <DashboardDisconnect />
-      </div>
-    </SheetContent>
-  </Sheet>
-);
+      <main className="min-h-screen lg:pl-[248px]">
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-black/[0.06] bg-[#f4f4f2]/85 px-4 backdrop-blur-2xl sm:px-7 lg:px-9">
+          <div className="flex items-center gap-3">
+            <Sheet>
+              <SheetTrigger className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-white lg:hidden">
+                <Menu size={18} />
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[280px] border-black/10 bg-[#f9f9f7] p-5">
+                <Brand />
+                <div className="mt-9">
+                  <TowerNav />
+                </div>
+              </SheetContent>
+            </Sheet>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-black/35">Stacy operator access</p>
+              <p className="max-w-[55vw] truncate text-sm font-medium text-black/70">{currentIntent}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/80 px-3 py-1.5 text-xs font-medium shadow-sm">
+            <span
+              className={`h-2 w-2 rounded-full ${
+                status === "online" ? "bg-emerald-500" : status === "degraded" ? "bg-amber-500" : "bg-red-500"
+              }`}
+            />
+            {status === "online" ? "Systems ready" : status === "degraded" ? "Setup needed" : "Offline"}
+          </div>
+        </header>
+        <div className="mx-auto max-w-[1500px] p-4 sm:p-7 lg:p-9">{children}</div>
+      </main>
+    </div>
+  );
+}
