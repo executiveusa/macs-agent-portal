@@ -1,0 +1,23 @@
+services:
+  maxx-control-plane:
+    build:
+      context: ../..
+      dockerfile: services/maxx-control-plane/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8787
+      MAXX_ICM_ROOT: /data/maxx
+    ports:
+      - "8787"
+    volumes:
+      - maxx-icm:/data/maxx
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8787/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  maxx-icm:

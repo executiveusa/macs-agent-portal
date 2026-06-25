@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "policy": "trusted-local-only",
+  "skills": [
+    "maxx-onboarding",
+    "maxx-gsap-motion",
+    "maxx-browser-verify",
+    "maxx-code-search",
+    "maxx-video-dossier",
+    "maxx-opusclip",
+    "maxx-software-factory",
+    "maxx-skill-router",
+    "land-the-plane"
+  ]
+}

@@ -1,107 +1,158 @@
-import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
-import Navbar from "@/components/site/Navbar";
-import Footer from "@/components/site/Footer";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { Mail, ShieldCheck, Sparkle, UserCircle, Wand2 } from "lucide-react";
+import { useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { ArrowRight, Bot, CheckCircle2, KeyRound, Mail, ShieldCheck } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const SignIn = () => {
+  const { session, devBypass } = useAuth();
+  const location = useLocation();
+  const [email, setEmail] = useState("");
+  const [pending, setPending] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+
+  if (session || devBypass) {
+    const destination = (location.state as { from?: string } | null)?.from ?? "/dashboard/command";
+    return <Navigate to={destination} replace />;
+  }
+
+  const sendMagicLink = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setPending(true);
+    setError("");
+    const { error: authError } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/dashboard/command` },
+    });
+    setPending(false);
+    if (authError) setError(authError.message);
+    else setNotice("Check your inbox. The secure access link is ready.");
+  };
+
+  const signInWithGoogle = async () => {
+    setPending(true);
+    setError("");
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/dashboard/command` },
+    });
+    if (authError) {
+      setPending(false);
+      setError(authError.message);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100">
-      <Navbar />
-      <main className="container mx-auto flex flex-col gap-10 pb-16 pt-24 lg:flex-row lg:items-center">
-        <motion.div
-          className="flex-1 space-y-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <Badge variant="outline" className="border-emerald-400/60 bg-emerald-500/10 text-emerald-100">
-            Secure access
-          </Badge>
-          <h1 className="text-4xl font-semibold text-white">Stacy, sign in to control Agent MAXX</h1>
-          <p className="max-w-xl text-sm text-slate-300">
-            Use this private dashboard to review what MAXX prepared, approve the next move, and keep leads, content, and follow-up under one operator account.
-          </p>
-          <div className="grid gap-4 md:grid-cols-2">
-            {["Granular RBAC", "Audit trails", "Multi-region failover", "SAML ready"].map((item) => (
-              <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm">
-                <ShieldCheck className="h-5 w-5 text-emerald-300" aria-hidden="true" />
-                {item}
+    <main className="relative min-h-screen overflow-hidden bg-[#f4f4f2] px-5 py-8 text-[#1d1d1f] sm:px-8 lg:px-12">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(255,255,255,0.98),transparent_34%),radial-gradient(circle_at_85%_90%,rgba(187,215,255,0.35),transparent_32%)]" />
+      <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl items-center">
+        <div className="grid w-full overflow-hidden rounded-[32px] border border-black/[0.06] bg-white/65 shadow-[0_40px_120px_rgba(0,0,0,0.12)] backdrop-blur-3xl lg:grid-cols-[1.15fr_0.85fr]">
+          <section className="flex min-h-[500px] flex-col justify-between bg-[#111214] p-8 text-white sm:p-12 lg:min-h-[690px] lg:p-16">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-black">
+                <Bot size={21} />
               </div>
-            ))}
-          </div>
-          <p className="text-xs text-slate-400">
-            Need help provisioning new users? Visit the <Link to="/dashboard#help" className="text-emerald-200 underline">help center</Link> for onboarding docs.
-          </p>
-        </motion.div>
-        <motion.div
-          className="flex-1"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-        >
-          <Card className="border-white/10 bg-white/5 backdrop-blur">
-            <CardHeader className="space-y-2 text-center">
-              <CardTitle className="text-2xl text-white">Welcome back</CardTitle>
-              <p className="text-sm text-slate-300">Choose your sign-in method to open Stacy's control room.</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full bg-white text-slate-900 hover:bg-slate-100">
-                <UserCircle className="mr-2 h-5 w-5" aria-hidden="true" /> Continue with Google
-              </Button>
-              <div className="relative text-center text-xs uppercase tracking-[0.35em] text-slate-400">
-                <Separator className="border-white/10" />
-                <span className="absolute inset-x-0 -top-2 mx-auto w-max bg-white/5 px-3 py-1">Or use email</span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/40">Agent MAXX</p>
+                <p className="text-sm font-medium text-white/80">Private control tower</p>
               </div>
-              <form className="space-y-4">
-                <div className="space-y-2 text-left">
-                  <Label htmlFor="email" className="text-xs text-slate-200">
-                    Email address
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@macs.digital"
-                    className="border-white/10 bg-slate-900/70 text-sm text-white placeholder:text-slate-500"
-                  />
+            </div>
+            <div className="max-w-xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[#8cbcff]">Stacy operator access</p>
+              <h1 className="mt-5 text-4xl font-semibold tracking-[-0.055em] sm:text-6xl">
+                Your company,
+                <br />
+                under intelligent control.
+              </h1>
+              <p className="mt-6 max-w-lg text-base leading-7 text-white/52 sm:text-lg">
+                Talk to MAXX, observe every mission, approve consequential actions, and manage the CRM from one private
+                workspace.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                ["Inspectable", "ICM stage history"],
+                ["Controlled", "Risk-based approvals"],
+                ["Private", "Server-side secrets"],
+              ].map(([title, detail]) => (
+                <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+                  <p className="text-sm font-medium">{title}</p>
+                  <p className="mt-1 text-xs text-white/38">{detail}</p>
                 </div>
-                <div className="space-y-2 text-left">
-                  <Label htmlFor="password" className="text-xs text-slate-200">
-                    Magic link or password
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter secure passphrase"
-                    className="border-white/10 bg-slate-900/70 text-sm text-white placeholder:text-slate-500"
-                  />
+              ))}
+            </div>
+          </section>
+
+          <section className="flex items-center p-7 sm:p-12 lg:p-16">
+            <div className="w-full">
+              <div className="mb-9">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-black/10 bg-white shadow-sm">
+                  <KeyRound size={20} />
                 </div>
-                <Button type="submit" className="w-full bg-emerald-500/80 text-slate-950 hover:bg-emerald-400">
-                  <Mail className="mr-2 h-4 w-4" aria-hidden="true" /> Send access link
-                </Button>
+                <h2 className="text-3xl font-semibold tracking-[-0.04em]">Enter the tower</h2>
+                <p className="mt-2 text-sm leading-6 text-black/48">
+                  Access is restricted to the approved Stacy operator allowlist.
+                </p>
+              </div>
+
+              <button
+                onClick={signInWithGoogle}
+                disabled={pending}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-sm font-semibold shadow-sm transition hover:bg-black/[0.025] disabled:opacity-50"
+              >
+                <ShieldCheck size={17} />
+                Continue with Google
+              </button>
+
+              <div className="my-6 flex items-center gap-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-black/28">
+                <span className="h-px flex-1 bg-black/10" />
+                Secure email link
+                <span className="h-px flex-1 bg-black/10" />
+              </div>
+
+              <form onSubmit={sendMagicLink} className="space-y-3">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-medium text-black/55">Approved email</span>
+                  <div className="flex items-center rounded-2xl border border-black/10 bg-white px-4 shadow-sm focus-within:border-black/30">
+                    <Mail size={17} className="text-black/30" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="stacy@company.com"
+                      className="w-full bg-transparent px-3 py-3.5 text-sm outline-none placeholder:text-black/25"
+                    />
+                  </div>
+                </label>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3.5 text-sm font-semibold text-white shadow-lg transition hover:bg-black/85 disabled:opacity-50"
+                >
+                  {pending ? "Securing access..." : "Send access link"}
+                  {!pending && <ArrowRight size={16} />}
+                </button>
               </form>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-4 text-xs text-slate-300">
-              <div className="flex items-center gap-2">
-                <Wand2 className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-                Use the Google option for the fastest setup; your MACS domain is pre-approved.
-              </div>
-              <div className="flex items-center gap-2">
-                <Sparkle className="h-4 w-4 text-purple-300" aria-hidden="true" />
-                First time? Your account will be provisioned with starter agents and sample workflows.
-              </div>
-            </CardFooter>
-          </Card>
-        </motion.div>
-      </main>
-      <Footer />
-    </div>
+
+              {notice && (
+                <div className="mt-4 flex items-start gap-2 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-800">
+                  <CheckCircle2 size={17} className="mt-0.5 shrink-0" />
+                  {notice}
+                </div>
+              )}
+              {error && <div className="mt-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
+              <p className="mt-7 text-xs leading-5 text-black/35">
+                Authentication is handled by Supabase. Provider keys, Pi controls, browser credentials, and ICM filesystem
+                access remain inside the private VPS control plane.
+              </p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
   );
 };
 
