@@ -1,0 +1,43 @@
+model:
+  default: openai/gpt-5.5
+  provider: nous
+  base_url: https://inference-api.nousresearch.com/v1
+agent:
+  max_turns: 60
+  task_completion_guidance: true
+  environment_probe: true
+  persona: emerald-tablets
+terminal:
+  backend: local
+  cwd: /workspace/macs-agent-portal
+  persistent_shell: true
+mcp_servers:
+  composio:
+    url: https://connect.composio.dev/mcp
+    headers:
+      x-consumer-api-key: ${COMPOSIO_CONSUMER_KEY}
+    enabled: true
+  maxx-vault:
+    command: npx
+    args:
+      - -y
+      - '@modelcontextprotocol/server-filesystem'
+      - /workspace/macs-agent-portal/ops/hermes/knowledge
+    enabled: true
+plugins:
+  enabled:
+    - observability/latitude
+security:
+  redact_secrets: true
+  allow_private_urls: false
+platforms:
+  web:
+    streaming: true
+    cors_origins:
+      - https://macs-agent-portal-pi.vercel.app
+      - http://localhost:5173
+training:
+  knowledge_base:
+    - ops/hermes/knowledge/maxx-services.md
+    - ops/hermes/knowledge/maxx-clients.md
+    - ops/hermes/knowledge/maxx-pricing.md

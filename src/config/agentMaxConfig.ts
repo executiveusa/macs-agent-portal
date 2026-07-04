@@ -10,9 +10,13 @@ export const AGENT_MAX_BRAND = {
 } as const;
 
 export const AGENT_MAX_PROVIDERS: Record<ProviderId, { label: string; purpose: string }> = {
+  hermes: {
+    label: "Hermes (NousResearch)",
+    purpose: "Primary — Emerald Tablets™ operator, 60-turn context, Maxx agency persona",
+  },
   openai: {
     label: "ChatGPT API",
-    purpose: "Primary for reliable tool calling and long workflows",
+    purpose: "Reliable tool calling and long workflows",
   },
   openrouter: {
     label: "OpenRouter",
@@ -30,8 +34,8 @@ export const AGENT_MAX_PROFILES: AgentProfile[] = [
     name: "Big Max",
     codename: "Agent 006",
     role: "Complex orchestration and multi-step automations",
-    upstreamBase: "Hermes agent",
-    description: "Coordinates complex workflows, tool calls, and external integrations.",
+    upstreamBase: "NousResearch Hermes (openai/gpt-5.5)",
+    description: "Coordinates complex workflows, tool calls, and external integrations. Runs on Hermes with Emerald Tablets™ protocol.",
     status: "active",
   },
   {
