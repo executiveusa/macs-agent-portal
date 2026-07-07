@@ -13,6 +13,7 @@ const schema = z.object({
   PI_EXECUTABLE: z.string().optional(),
   MAXX_BROWSER_WS_ENDPOINT: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
+  GROQ_API_KEY: z.string().optional(),
   CONTROL_TOWER_ALLOWED_ORIGINS: z.string().default("http://127.0.0.1:4173,http://localhost:4173"),
   MAXX_DEV_AUTH_BYPASS: z.string().optional(),
 });

@@ -8,6 +8,7 @@ import { classifyBrowserAction, type BrowserAction } from "./approval-policy.js"
 import { createIcmRun } from "./icm-runtime.js";
 import { routeModel } from "./model-router.js";
 import { runOpenRouter } from "./openrouter.js";
+import { runGroq } from "./groq.js";
 import { runPiSkill } from "./pi-runner.js";
 import { TRUSTED_SKILLS } from "./skills.js";
 import { createStore, type ControlTowerStore } from "./store.js";
@@ -69,6 +70,11 @@ function dependencies(config: MaxxConfig) {
       status: config.OPENROUTER_API_KEY ? "ready" : "degraded",
       detail: config.OPENROUTER_API_KEY ? "Smart model router ready" : "OPENROUTER_API_KEY is missing",
     },
+    groq: {
+      configured: Boolean(config.GROQ_API_KEY),
+      status: config.GROQ_API_KEY ? "ready" : "degraded",
+      detail: config.GROQ_API_KEY ? "Fast inference engine ready" : "GROQ_API_KEY is missing",
+    },
     pi: {
       configured: Boolean(config.PI_EXECUTABLE),
       status: config.PI_EXECUTABLE ? "ready" : "degraded",
@@ -106,7 +112,7 @@ export function buildApp(options: AppOptions = {}) {
   app.get("/health/live", async () => ({ status: "alive", service: "maxx-control-plane" }));
   app.get("/health/ready", async (_request, reply) => {
     const state = dependencies(config);
-    const ready = state.supabase.configured && state.openrouter.configured;
+    const ready = state.supabase.configured && (state.groq.configured || state.openrouter.configured);
     return reply.code(ready ? 200 : 503).send({ status: ready ? "ready" : "degraded", dependencies: state });
   });
 
@@ -150,7 +156,25 @@ export function buildApp(options: AppOptions = {}) {
   app.post("/v1/chat", async (request, reply) => {
     const input = chatSchema.parse(request.body);
     const decision = routeModel({ message: input.message, manualModel: input.model });
-    const result = await runOpenRouter({ apiKey: config.OPENROUTER_API_KEY, message: input.message, decision });
+
+    // Primary engine + graceful fallback. Groq handles fast task classes;
+    // if it errors, fall back to OpenRouter so the operator still gets a reply.
+    let result;
+    if (decision.provider === "groq" && config.GROQ_API_KEY) {
+      try {
+        result = await runGroq({ apiKey: config.GROQ_API_KEY, message: input.message, decision });
+      } catch (error) {
+        app.log.warn({ error: String(error) }, "Groq failed, falling back to OpenRouter");
+        result = await runOpenRouter({
+          apiKey: config.OPENROUTER_API_KEY,
+          message: input.message,
+          decision: { ...decision, provider: "openrouter" },
+        });
+      }
+    } else {
+      result = await runOpenRouter({ apiKey: config.OPENROUTER_API_KEY, message: input.message, decision });
+    }
+
     const usage = {
       id: randomUUID(),
       runId: input.runId,
@@ -164,6 +188,7 @@ export function buildApp(options: AppOptions = {}) {
       id: randomUUID(),
       text: result.text,
       model: decision.model,
+      provider: decision.provider,
       taskClass: decision.taskClass,
       routingReason: decision.reason,
       approvalState: decision.taskClass === "high_risk" ? "required" : "not_required",

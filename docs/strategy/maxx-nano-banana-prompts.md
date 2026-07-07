@@ -190,3 +190,77 @@ public/og.jpg
 ```
 
 **Total: 17 prompts** covering every visual surface on the site. Each one ties MAXX's action directly to the outcome the surrounding copy promises — a client looking at any card instantly connects the fun secret-agent image to the real business result.
+
+---
+
+# BONUS SET — The New Cards (Pain + Quick-Win Workflows)
+
+These cover the sections the first set didn't: the **three Pain cards** (`#pain`) and the **six Quick-Win workflow cards** (inside `#outcomes`). Same character lock + shared style suffix as above.
+
+## Pain cards — MAXX discovering the leak (`#pain`)
+**Aspect:** 16:11 each
+**Drop into:** add `image` field to `maxxPains[]` in `src/content/maxxOffer.ts`
+
+These are intentionally a touch more dramatic — MAXX caught mid-problem — so the contrast with the outcome cards lands.
+
+### P1. INQUIRIES FALL THROUGH THE CRACKS
+**Prompt:**
+> Agent MAXX, the muscular bulldog in black leather jacket, black "006" cap, and teal neon LED glasses, standing alarmed in front of five glowing teal screens each showing a different missed channel — a phone, an email, a DM, a web form, a voicemail — with golden contact cards slipping down through cracks in the floor between them, his paws reaching to catch them but too many falling at once. Worried furrowed brow, gold ring glinting. Fog swirling at floor level. [shared style suffix]
+
+### P2. THE CRM IS RENTED AND AVOIDED
+**Prompt:**
+> Agent MAXX, the muscular bulldog in black leather jacket and "006" cap with teal neon LED glasses, staring in frustration at a dusty locked glass cabinet labeled "RENTED CRM" full of tangled, duplicated contact cards and cobwebs — a heavy chain and padlock on the cabinet door, a "PROPERTY OF VENDOR" plaque. MAXX has his paws on his hips, unimpressed, one eyebrow raised over his glowing glasses, gold ring catching light. Dust motes in teal light. [shared style suffix]
+
+### P3. THE TEAM IS OVERLOADED
+**Prompt:**
+> Agent MAXX, the muscular bulldog in black leather jacket and "006" cap with teal neon LED glasses, buried at a desk overflowing with stacked papers, sticky notes, coffee cups, and ringing phones, his paws full, looking overwhelmed but determined. A wall clock shows late hours. Teal holographic "OVERDUE" tags piling up. Tired but resolute expression, furrowed brow, gold ring on the hand gripping a pen. Foggy office noir. [shared style suffix]
+
+---
+
+## Quick-Win workflow cards — MAXX running each mission (inside `#outcomes`)
+**Aspect:** 16:10 each
+**Drop into:** add `image` field to `maxxQuickWins[]` in `src/content/maxxOffer.ts`
+
+These show MAXX *doing* each specific workflow — the exact outcome the card sells.
+
+### Q1. MISSED-CALL TEXT-BACK
+**Prompt:**
+> Agent MAXX, the muscular bulldog in black leather jacket and "006" cap with teal neon LED glasses, holding a glowing teal smartphone showing an incoming "MISSED CALL" notification, his other paw tapping a golden holographic reply that auto-drafts a warm compliant text message floating above the screen. A small teal checkmark appears. Confident efficient motion, gold ring visible. [shared style suffix]
+
+### Q2. MISSED-FORM RECOVERY
+**Prompt:**
+> Agent MAXX, the muscular bulldog in black leather jacket and "006" cap with teal neon LED glasses, sorting through a chaotic stack of old glowing teal web-form submission cards, ranking them on a golden triage board with labels "HOT / WARM / COLD", plucking the top one and drafting a follow-up that floats up as golden light. Analytical focused expression, gold ring on the sorting paw. [shared style suffix]
+
+### Q3. DONOR REACTIVATION
+**Prompt:**
+> Agent MAXX, the muscular bulldog in black leather jacket and "006" cap with teal neon LED glasses, writing a warm handwritten-style thank-you note at a desk, a holographic golden donor list behind him with stale entries lighting back up one by one as he writes. Heartfelt focused expression, gold ring on the writing paw, a small donor-portrait floating warmly nearby. [shared style suffix]
+
+### Q4. VOLUNTEER REACTIVATION
+**Prompt:**
+> Agent MAXX, the muscular bulldog in black leather jacket and "006" cap with teal neon LED glasses, extending a friendly golden "WELCOME BACK" handshake hologram toward a queue of faded volunteer silhouettes who brighten and solidify as they step forward. Warm encouraging smile under the glowing glasses, open welcoming paw with gold ring. Community-energy lighting. [shared style suffix]
+
+### Q5. EVENT FOLLOW-UP
+**Prompt:**
+> Agent MAXX, the muscular bulldog in black leather jacket and "006" cap with teal neon LED glasses, standing at a console transforming a scattered crowd of event-attendee silhouettes into neat rows of glowing teal contact cards, each sprouting a small thank-you note, a task tag, and a follow-up reminder. Orchestrator pose, both paws active, gold ring gleaming. [shared style suffix]
+
+### Q6. GRANT TRACKER
+**Prompt:**
+> Agent MAXX, the muscular bulldog in black leather jacket and "006" cap with teal neon LED glasses, reviewing a large noir wall calendar with golden grant-deadline markers, each connected by red string to an owner portrait, an attachment icon, and a draft-checklist glowing teal. He points at the nearest deadline with his gold-ring paw, a calm alert expression. Fog around the calendar's edges. [shared style suffix]
+
+---
+
+## Wiring the new card images
+
+After generating, add an `image` field to each entry and update the card components to render it. The Pain cards are in `PainSection.tsx`; the Quick-Win cards are in `QuickWinsSection.tsx`. Pattern (same in both):
+
+```tsx
+// In maxxOffer.ts:
+export const maxxPains: PainCard[] = [
+  { id: "missed-inquiries", ..., image: "/MUSTANG MAXX/PAIN/maxx-pain-cracks.png" },
+  ...
+];
+// In PainSection.tsx, inside the card <article>:
+{pain.image && <img src={pain.image} alt="" className="mb-4 aspect-[16/11] w-full rounded-2xl object-cover" />}
+```
+
+**New grand total: 26 prompts** — every visual surface on the site, including all nine new cards, each tying MAXX's action to the exact outcome the copy sells.
