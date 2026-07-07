@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from "react";
-import { maxxFinalMissionCards, maxxMotionTiming } from "@/config/maxxStoryConfig";
+import { maxxFinalMissionCards } from "@/content/maxxOffer";
+import { maxxFinalCta } from "@/content/maxxOffer";
+import { maxxMotionTiming } from "@/config/maxxStoryConfig";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -60,12 +62,12 @@ export const FinalMissionScene: React.FC = () => {
 
       <div className="relative mx-auto max-w-7xl">
         <div ref={headlineRef} className="max-w-3xl">
-          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-orange/78">Start Mission</p>
+          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-orange/78">{maxxFinalCta.eyebrow}</p>
           <h2 className="mt-4 text-4xl font-black uppercase leading-[0.92] text-white md:text-6xl">
-            Start with one outcome. Let MAXX build the workflow around it.
+            {maxxFinalCta.headline}
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-white/68 md:text-lg">
-            The story stays focused on the result: less friction, more follow-through, and a cleaner next move.
+            {maxxFinalCta.detail}
           </p>
         </div>
 
@@ -90,17 +92,17 @@ export const FinalMissionScene: React.FC = () => {
           <div className="mt-4 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div className="max-w-3xl">
               <h3 className="text-3xl font-black uppercase leading-none text-white md:text-5xl">
-                Start with one outcome. Let MAXX build the workflow around it.
+                {maxxFinalCta.headline}
               </h3>
               <p className="mt-4 text-sm leading-7 text-white/68 md:text-base">
-                Find leads, create content, follow up, build the system, and recover revenue without losing the thread.
+                {maxxFinalCta.detail}
               </p>
             </div>
             <a
-              href="/dashboard"
+              href="#audit"
               className="inline-flex items-center justify-center border border-maxx-orange/70 bg-maxx-orange px-5 py-3 text-xs font-bold uppercase tracking-[0.36em] text-black transition-colors hover:bg-white"
             >
-              Start Your First Mission
+              {maxxFinalCta.primaryCta}
             </a>
           </div>
         </div>

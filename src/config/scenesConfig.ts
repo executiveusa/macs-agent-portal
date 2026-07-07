@@ -24,20 +24,20 @@ const maxxCarFeatureSpecs: FeatureSpec[] = [
 const maxxTechFeatureSpecs: FeatureSpec[] = [
   {
     id: "websites",
-    label: "Websites & Landing Pages",
-    description: "Ship the pages, funnels, and launch surfaces that carry the message forward.",
+    label: "Intake & Landing Pages",
+    description: "Connect homepage forms, donation pages, and event signups straight into the CRM.",
     original_007_ref: "Tyre Slasher",
   },
   {
     id: "automations",
-    label: "Automations & Workflows",
-    description: "Wire the follow-up, routing, and repetitive work so the team stays focused.",
+    label: "Follow-Up Automations",
+    description: "Missed-call text-back, form replies, donor thank-yous, and volunteer onboarding wired for you.",
     original_007_ref: "Armrest",
   },
   {
     id: "skills",
-    label: "Custom Agent Skills",
-    description: "Package repeatable behaviors into reusable commands the operator can trigger again.",
+    label: "Owned Agent Memory",
+    description: "Your mission, offers, FAQs, and policies become agent context that never starts from zero.",
     original_007_ref: "Number Plate",
   },
 ];

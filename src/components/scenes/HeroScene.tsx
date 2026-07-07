@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { scenesConfig } from "@/config/scenesConfig";
-import { maxxHeroBeats, maxxMotionTiming } from "@/config/maxxStoryConfig";
+import { maxxMotionTiming } from "@/config/maxxStoryConfig";
+import { maxxHero, maxxHeroBeats, maxxBrand } from "@/content/maxxOffer";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -91,17 +92,17 @@ export const HeroScene: React.FC = () => {
         <div ref={textRef} className="relative z-10 max-w-3xl">
           <div className="mb-5 flex items-center gap-3 text-[10px] uppercase tracking-[0.5em] text-white/55">
             <span className="h-px w-12 bg-maxx-orange/80" />
-            {heroConfig.title}
+            {maxxHero.eyebrow}
           </div>
           <h1 className="max-w-5xl text-5xl font-black uppercase leading-[0.88] text-white md:text-7xl xl:text-8xl">
-            1 Agent.
+            {maxxHero.headlineLine1}
             <br />
-            Many Skills.
+            {maxxHero.headlineLine2}
             <br />
-            Maxximum Possibilities.
+            {maxxHero.headlineLine3}
           </h1>
           <p className="mt-6 max-w-2xl text-base font-light leading-7 text-white/72 md:text-xl md:leading-8">
-            Agent MAXX is your AI operator for lead generation, content creation, follow-up, sales support, and business automation.
+            {maxxHero.subhero}
           </p>
 
           <div className="mt-10 grid gap-3 md:max-w-3xl md:grid-cols-3">
@@ -115,17 +116,21 @@ export const HeroScene: React.FC = () => {
             ))}
           </div>
 
-          <div className="mt-10 flex items-center gap-4">
+          <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
             <a
-              href="#briefing"
+              href="#audit"
               className="bg-maxx-orange px-5 py-3 text-xs font-bold uppercase tracking-[0.35em] text-black transition-colors hover:bg-white"
             >
-              See What MAXX Can Do
+              {maxxHero.primaryCta}
             </a>
-            <span className="text-[10px] uppercase tracking-[0.45em] text-white/40">
-              Scroll to unlock the skill stack
-            </span>
+            <a
+              href="#how-it-works"
+              className="border-b border-white/60 pb-1 text-xs uppercase tracking-[0.34em] text-white/80 transition-colors hover:border-maxx-cyan hover:text-maxx-cyan"
+            >
+              {maxxHero.secondaryCta}
+            </a>
           </div>
+          <p className="mt-5 max-w-xl text-xs leading-6 text-white/50">{maxxHero.proofLine}</p>
         </div>
 
         <div ref={imageRef} className="relative mx-auto w-full max-w-[540px] lg:justify-self-end">
@@ -134,7 +139,7 @@ export const HeroScene: React.FC = () => {
             <div className="rounded-[28px] border border-white/10 bg-black/35 p-3">
               <img
                 src={heroConfig.visualContent}
-                alt="Agent MAXX full-body reveal"
+                alt="Agent MAXX, your follow-up recovery operative — full reveal"
                 className="mx-auto h-auto w-full max-w-[460px] object-contain object-bottom drop-shadow-[0_30px_70px_rgba(0,0,0,0.55)]"
                 loading="eager"
                 decoding="async"
@@ -142,8 +147,8 @@ export const HeroScene: React.FC = () => {
               />
             </div>
             <div className="mt-4 flex items-center justify-between gap-4 border-t border-white/10 pt-4 text-[10px] uppercase tracking-[0.45em] text-white/45">
-              <span>Agent Online</span>
-              <span>Skills Armed</span>
+              <span>Recovery Engine Online</span>
+              <span>{maxxBrand.poweredBy}</span>
             </div>
           </div>
         </div>

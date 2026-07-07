@@ -71,10 +71,10 @@ export const TechSpecsScene: React.FC = () => {
         <div className="max-w-3xl">
           <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/78">Build Systems</p>
           <h2 className="mt-4 text-4xl font-black uppercase leading-[0.92] text-white md:text-6xl">
-            Turn repeatable work into an operating system.
+            Turn repeatable follow-up into a system you own.
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-white/68 md:text-lg">
-            Build websites, dashboards, automations, and agent workflows that keep the operation moving after the first conversation.
+            Intake forms, missed-call text-back, donor workflows, and an owned agent memory — built so the operation keeps moving after the first conversation.
           </p>
         </div>
 

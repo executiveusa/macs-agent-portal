@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
-import { maxxDepartmentCards, maxxMotionTiming } from "@/config/maxxStoryConfig";
+import { maxxDepartmentCards } from "@/content/maxxOffer";
+import { maxxMotionTiming } from "@/config/maxxStoryConfig";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -50,10 +51,10 @@ export const OutcomeChaptersScene: React.FC = () => {
         <div className="max-w-3xl">
           <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/78">Run Operations</p>
           <h2 className="mt-4 text-4xl font-black uppercase leading-[0.92] text-white md:text-6xl">
-            Keep every revenue move from falling through the cracks.
+            Keep every donor, volunteer, and inquiry from falling through the cracks.
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-white/68 md:text-lg">
-            One command layer keeps leads, content, follow-up, projects, and tools moving in the same direction.
+            One command layer keeps follow-up, intake, memory, and tools moving in the same direction — so your team stops juggling five tabs.
           </p>
         </div>
 
