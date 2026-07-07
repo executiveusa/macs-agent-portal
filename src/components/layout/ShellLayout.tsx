@@ -130,7 +130,7 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({ children, introActive 
             <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.45em] text-white/45">Agent MAXX</div>
-                <div className="text-base font-black tracking-tight text-white md:text-xl">MAXX Command Surface</div>
+                <div className="text-base font-black tracking-tight text-white md:text-xl">Follow-Up Recovery Operator</div>
               </div>
 
               <div className="hidden items-center gap-5 text-xs uppercase tracking-[0.28em] text-white/65 md:flex">
@@ -149,6 +149,12 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({ children, introActive 
               </div>
 
               <div className="flex items-center gap-2">
+                <a
+                  href="#audit"
+                  className="hidden items-center bg-maxx-orange px-4 py-2 text-[11px] font-bold uppercase tracking-[0.32em] text-black transition-colors hover:bg-white md:inline-flex"
+                >
+                  Book Audit
+                </a>
                 <button
                   type="button"
                   onClick={handleMusicToggle}
@@ -228,9 +234,17 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({ children, introActive 
                           Replay Intro
                         </button>
                       </SheetClose>
+                      <SheetClose asChild>
+                        <a
+                          href="#audit"
+                          className="mt-4 block rounded-2xl bg-maxx-orange px-4 py-3 text-center font-bold uppercase tracking-[0.2em] text-black"
+                        >
+                          Book Recovery Audit
+                        </a>
+                      </SheetClose>
                       <Link
                         to="/signin"
-                        className="mt-4 block rounded-2xl border border-maxx-orange/40 bg-maxx-orange/10 px-4 py-3 text-maxx-orange"
+                        className="mt-2 block rounded-2xl border border-maxx-orange/40 bg-maxx-orange/10 px-4 py-3 text-center text-maxx-orange"
                       >
                         Enter Dashboard
                       </Link>
@@ -294,7 +308,8 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({ children, introActive 
 
       {!introActive && (
         <footer className="border-t border-white/10 bg-black px-6 py-12 text-center text-xs uppercase tracking-[0.32em] text-white/38">
-          <p>Agent MAXX // Leads. Content. Sales. Systems. Operations.</p>
+          <p>Agent MAXX // Recover follow-ups. Own your data. Approve every move.</p>
+          <p className="mt-3 text-[10px] tracking-[0.36em] text-white/25">Powered by Hermes. Managed as MAXX.</p>
         </footer>
       )}
     </div>

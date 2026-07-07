@@ -6,10 +6,11 @@ import LanguageSwitcher from "./LanguageSwitcher";
 
 const homeLinks = [
   { href: "#hero", labelKey: "navHome" as const },
-  { href: "#about", labelKey: "navAbout" as const },
-  { href: "#services", labelKey: "navServices" as const },
+  { href: "#pain", label: "The Problem" },
+  { href: "#outcomes", label: "Outcomes" },
+  { href: "#pricing", label: "Pricing" },
   { href: "/blog", labelKey: "navBlog" as const },
-  { href: "#contact", labelKey: "navContact" as const },
+  { href: "#audit", label: "Book Audit" },
 ];
 
 const dashboardLinks = [

@@ -38,12 +38,15 @@ export const maxxMotionTiming = {
 } as const;
 
 export const missionChapters = [
-  { id: "hero", label: "Meet MAXX", shortLabel: "MAXX" },
-  { id: "briefing", label: "Find Leads", shortLabel: "Leads" },
-  { id: "car-intro", label: "Create Content", shortLabel: "Content" },
-  { id: "car", label: "Close Deals", shortLabel: "Close" },
-  { id: "tech_specs", label: "Build Systems", shortLabel: "Build" },
-  { id: "departments", label: "Run Operations", shortLabel: "Ops" },
+  { id: "hero", label: "The Offer", shortLabel: "Offer" },
+  { id: "pain", label: "The Problem", shortLabel: "Problem" },
+  { id: "briefing", label: "Recovery Audit", shortLabel: "Audit" },
+  { id: "outcomes", label: "Outcomes", shortLabel: "Win" },
+  { id: "how-it-works", label: "How It Works", shortLabel: "How" },
+  { id: "pricing", label: "Pricing", shortLabel: "Price" },
+  { id: "audit", label: "Book Audit", shortLabel: "Book" },
+  { id: "departments", label: "Operations", shortLabel: "Ops" },
+  { id: "tech_specs", label: "The System", shortLabel: "System" },
   { id: "mission", label: "Start Mission", shortLabel: "Start" },
 ] as const;
 
