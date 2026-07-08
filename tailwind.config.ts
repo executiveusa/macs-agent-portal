@@ -11,14 +11,67 @@ export default {
 	],
 	prefix: "",
 	theme: {
+		screens: {
+			'xs': '320px',
+			'sm': '640px',
+			'md': '768px',
+			'lg': '1024px',
+			'xl': '1280px',
+			'2xl': '1536px',
+			'3xl': '1920px',
+			'4xl': '2560px',
+		},
 		container: {
 			center: true,
-			padding: '2rem',
+			padding: {
+				'xs': '1rem',
+				'sm': '1.5rem',
+				'md': '2rem',
+				'lg': '2.5rem',
+				'xl': '3rem',
+				'2xl': '4rem',
+			},
 			screens: {
-				'2xl': '1400px'
+				'sm': '640px',
+				'md': '768px',
+				'lg': '1024px',
+				'xl': '1280px',
+				'2xl': '1536px',
+				'3xl': '1920px',
+				'4xl': '2560px',
 			}
 		},
 		extend: {
+			spacing: {
+				'safe-top': 'max(1rem, env(safe-area-inset-top))',
+				'safe-bottom': 'max(1rem, env(safe-area-inset-bottom))',
+				'safe-left': 'max(1rem, env(safe-area-inset-left))',
+				'safe-right': 'max(1rem, env(safe-area-inset-right))',
+			},
+			fontSize: {
+				'xs': ['clamp(0.75rem, 2vw, 0.875rem)', { lineHeight: '1.5rem' }],
+				'sm': ['clamp(0.875rem, 2vw, 1rem)', { lineHeight: '1.5rem' }],
+				'base': ['clamp(1rem, 2.5vw, 1.125rem)', { lineHeight: '1.75rem' }],
+				'lg': ['clamp(1.125rem, 2.5vw, 1.25rem)', { lineHeight: '1.75rem' }],
+				'xl': ['clamp(1.25rem, 3vw, 1.5rem)', { lineHeight: '2rem' }],
+				'2xl': ['clamp(1.5rem, 3.5vw, 1.875rem)', { lineHeight: '2.25rem' }],
+				'3xl': ['clamp(1.875rem, 4vw, 2.25rem)', { lineHeight: '2.5rem' }],
+				'4xl': ['clamp(2.25rem, 5vw, 3rem)', { lineHeight: '3.5rem' }],
+			},
+			padding: {
+				'xs': 'clamp(0.5rem, 3vw, 1rem)',
+				'sm': 'clamp(0.75rem, 3vw, 1.25rem)',
+				'md': 'clamp(1rem, 4vw, 1.5rem)',
+				'lg': 'clamp(1.5rem, 4vw, 2rem)',
+				'xl': 'clamp(2rem, 5vw, 3rem)',
+			},
+			gap: {
+				'xs': 'clamp(0.5rem, 2vw, 0.75rem)',
+				'sm': 'clamp(0.75rem, 2vw, 1rem)',
+				'md': 'clamp(1rem, 3vw, 1.5rem)',
+				'lg': 'clamp(1.5rem, 3vw, 2rem)',
+				'xl': 'clamp(2rem, 4vw, 3rem)',
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
