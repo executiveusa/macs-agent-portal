@@ -7,34 +7,34 @@
     --background: 222 47% 4%; /* #05070a converted roughly to HSL */
     --foreground: 210 40% 98%;
  
-    --card: 222 47% 6%;
+    --card: 222 47% 10%;
     --card-foreground: 210 40% 98%;
- 
+
     --popover: 222 47% 4%;
     --popover-foreground: 210 40% 98%;
- 
+
     --primary: 194 100% 64%; /* Cyan #46d5ff */
     --primary-foreground: 222 47% 11%;
- 
+
     --secondary: 215 25% 27%;
     --secondary-foreground: 210 40% 98%;
- 
+
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
- 
+
     --accent: 19 100% 62%; /* Orange #ff7a3c */
     --accent-foreground: 210 40% 98%;
- 
+
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
- 
-    --border: 217 33% 17%;
+
+    --border: 217 33% 20%;
     --input: 217 33% 17%;
     --ring: 224 76% 48%;
- 
+
     --radius: 0.5rem;
- 
-    --sidebar-background: 222 47% 5%;
+
+    --sidebar-background: 222 47% 6%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 194 100% 64%;
     --sidebar-primary-foreground: 0 0% 100%;
