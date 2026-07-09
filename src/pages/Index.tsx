@@ -2,7 +2,6 @@ import { Suspense, lazy, useEffect, useState } from "react";
 import { ShellLayout } from "@/components/layout/ShellLayout";
 import { IntroSequence } from "@/components/site/IntroSequence";
 import { HeroScene } from "@/components/scenes/HeroScene";
-import { IntroSequence } from "@/components/site/IntroSequence";
 import { PainSection } from "@/components/scenes/PainSection";
 import { QuickWinsSection } from "@/components/scenes/QuickWinsSection";
 import { HowItWorksSection } from "@/components/scenes/HowItWorksSection";
