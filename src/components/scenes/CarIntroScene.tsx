@@ -139,10 +139,10 @@ export const CarIntroScene: React.FC = () => {
         <div ref={copyRef} className="w-full max-w-4xl">
           <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/80">CONTENT ENGINE // ONLINE</p>
           <h2 className="mt-4 max-w-3xl text-4xl font-black uppercase leading-none text-white md:text-6xl">
-            Turn raw ideas into media that moves.
+            Turn every reply into a relationship.
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 md:text-lg">
-            Agent MAXX turns prompts, videos, notes, offers, and rough ideas into posts, clips, pages, campaigns, and follow-up assets built for the people you want to reach.
+            MAXX turns donor replies, volunteer signups, event lists, and partner messages into drafted thank-yous, follow-ups, and campaigns built for your community — queued for your approval before they ship.
           </p>
           <div className="mt-8 h-px w-full max-w-xl bg-gradient-to-r from-maxx-orange via-maxx-cyan to-transparent" />
         </div>

@@ -64,19 +64,20 @@ export const BriefingScene: React.FC = () => {
        </div>
 
        <div className="flex-1 space-y-8 relative z-10 text-right md:text-left" ref={textRef}>
-          <h2 className="text-4xl md:text-6xl font-bold text-white uppercase tracking-tighter">Find Leads</h2>
+          <p className="text-[10px] uppercase tracking-[0.46em] text-maxx-cyan/80">Mission 01 // Recovery Audit</p>
+          <h2 className="text-4xl md:text-6xl font-bold text-white uppercase tracking-tighter">Find the follow-ups that slipped.</h2>
           <div className="space-y-4 text-gray-400 text-lg leading-relaxed font-light">
             <p>
-              Agent MAXX scans the market, reads the room, and turns scattered prospects into a ranked lead list your team can actually use.
+              MAXX scans every missed call, form, DM, and stale donor reply from the last 90 days and ranks them by how recoverable each one is — before a single message goes out.
             </p>
             <p>
-              From websites, search results, social signals, directories, and CRM notes, MAXX builds the first dossier before the first message goes out.
+              From CRM notes, inboxes, voicemails, and directories, MAXX builds the first dossier: who slipped, why, and the warmest next step.
             </p>
           </div>
           <div className="flex gap-4">
-             <button className="px-8 py-3 bg-maxx-cyan text-black font-bold uppercase hover:bg-white transition-colors">
-               Build Lead Dossier
-             </button>
+             <a href="#audit" className="px-8 py-3 bg-maxx-cyan text-black font-bold uppercase hover:bg-white transition-colors">
+               Book the Audit
+             </a>
           </div>
        </div>
     </section>

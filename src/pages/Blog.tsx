@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
+import { maxxBlogPosts, blogCategoryColors, formatBlogCategory } from "@/content/maxxBlogPosts";
 
 interface BlogPost {
   id: string;
@@ -20,6 +21,7 @@ interface BlogPost {
   category: string;
   tags: string[];
   published_at: string;
+  read_minutes?: number;
 }
 
 const Blog = () => {
@@ -37,9 +39,37 @@ const Blog = () => {
         .order("published_at", { ascending: false });
 
       if (error) throw error;
-      setPosts(data || []);
+      // Merge live posts with seed fallback so the blog is never empty.
+      const live = (data || []) as BlogPost[];
+      const liveSlugs = new Set(live.map((p) => p.slug));
+      const seeds = maxxBlogPosts
+        .filter((p) => !liveSlugs.has(p.slug))
+        .map((p) => ({
+          id: p.id,
+          title: p.title,
+          slug: p.slug,
+          excerpt: p.excerpt,
+          featured_image: null,
+          category: p.category,
+          tags: p.tags,
+          published_at: p.published_at,
+          read_minutes: p.read_minutes,
+        }));
+      setPosts([...live, ...seeds]);
     } catch (error) {
+      // Supabase unavailable: fall back to seeds so the page is useful.
       console.error("Error fetching posts:", error);
+      setPosts(maxxBlogPosts.map((p) => ({
+        id: p.id,
+        title: p.title,
+        slug: p.slug,
+        excerpt: p.excerpt,
+        featured_image: null,
+        category: p.category,
+        tags: p.tags,
+        published_at: p.published_at,
+        read_minutes: p.read_minutes,
+      })));
     } finally {
       setLoading(false);
     }
@@ -54,14 +84,7 @@ const Blog = () => {
   }, [fetchPosts]);
 
   const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      "ai-news": "bg-accent/20 text-accent border-accent/30",
-      tutorials: "bg-primary/20 text-primary border-primary/30",
-      "case-studies": "bg-secondary/20 text-secondary border-secondary/30",
-      branding: "bg-muted text-muted-foreground border-border",
-      tools: "bg-success/20 text-success border-success/30",
-    };
-    return colors[category] || "bg-muted text-muted-foreground border-border";
+    return blogCategoryColors[category] || "bg-white/15 text-white/80 border-white/25";
   };
 
   return (
@@ -76,10 +99,13 @@ const Blog = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                {t("blogTitle")}
+              <p className="text-[10px] uppercase tracking-[0.5em] text-maxx-orange/80 mb-4">Agent MAXX // Field Notes</p>
+              <h1 className="text-4xl md:text-5xl font-black uppercase mb-4">
+                MAXX BLOG
               </h1>
-              <p className="text-lg opacity-90">{t("blogSubtitle")}</p>
+              <p className="text-lg opacity-90 max-w-2xl mx-auto">
+                Follow-up, donor recovery, and owned AI operations for nonprofits and social-purpose teams in Seattle and the Pacific Northwest.
+              </p>
             </motion.div>
           </div>
         </section>
@@ -125,12 +151,18 @@ const Blog = () => {
                       <div className="p-6 flex flex-col flex-1">
                         <div className="flex items-center gap-2 mb-3">
                           <Badge className={getCategoryColor(post.category)}>
-                            {post.category.replace("-", " ")}
+                            {formatBlogCategory(post.category)}
                           </Badge>
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
                             {format(new Date(post.published_at), "MMM d, yyyy")}
                           </span>
+                          {post.read_minutes && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {post.read_minutes} min
+                            </span>
+                          )}
                         </div>
 
                         <h3 className="text-xl font-semibold mb-2 line-clamp-2">

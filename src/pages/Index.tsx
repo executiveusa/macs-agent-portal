@@ -2,20 +2,25 @@ import { Suspense, lazy, useEffect, useState } from "react";
 import { ShellLayout } from "@/components/layout/ShellLayout";
 import { HeroScene } from "@/components/scenes/HeroScene";
 import { IntroSequence } from "@/components/site/IntroSequence";
+import { PainSection } from "@/components/scenes/PainSection";
+import { QuickWinsSection } from "@/components/scenes/QuickWinsSection";
+import { HowItWorksSection } from "@/components/scenes/HowItWorksSection";
+import { PricingSection } from "@/components/scenes/PricingSection";
+import { AuditCtaSection } from "@/components/scenes/AuditCtaSection";
 
 const BriefingScene = lazy(async () => {
   const module = await import("@/components/scenes/BriefingScene");
   return { default: module.BriefingScene };
 });
 
-const MustangScene = lazy(async () => {
-  const module = await import("@/components/scenes/MustangScene");
-  return { default: module.MustangScene };
-});
-
 const CarIntroScene = lazy(async () => {
   const module = await import("@/components/scenes/CarIntroScene");
   return { default: module.CarIntroScene };
+});
+
+const MustangScene = lazy(async () => {
+  const module = await import("@/components/scenes/MustangScene");
+  return { default: module.MustangScene };
 });
 
 const TechSpecsScene = lazy(async () => {
@@ -64,6 +69,22 @@ const SceneFallback = ({
   </section>
 );
 
+/**
+ * Landing page composition.
+ *
+ * Conversion flow (Krug trunk-test friendly):
+ *  1. Hero        — the promise + primary CTA (Book Recovery Audit)
+ *  2. Pain        — name the problem a tired executive director feels
+ *  3. Briefing    — cinematic "find the follow-ups that slipped"
+ *  4. Car / Content — cinematic content engine (preserved brand moment)
+ *  5. Outcomes    — recover / own / approve + quick-win workflows
+ *  6. How it works — five-step mission plan (likelihood proof)
+ *  7. Pricing     — Hormozi grand-slam packages + value equation + risk reversal
+ *  8. Audit CTA   — the single conversion anchor (#audit)
+ *  9. Operations  — cinematic department cards
+ * 10. Tech / Systems — the owned system behind the story
+ * 11. Finale      — close back to the audit CTA
+ */
 const Index = () => {
   const [introComplete, setIntroComplete] = useState(() => window.sessionStorage.getItem("maxx_intro_seen") === "1");
 
@@ -88,22 +109,22 @@ const Index = () => {
     <>
       <ShellLayout introActive={!introComplete}>
         <HeroScene />
+        <PainSection />
         <Suspense fallback={<SceneFallback id="briefing" eyebrow="Find Leads" title="Loading command context." />}>
           <BriefingScene />
         </Suspense>
         <Suspense fallback={<SceneFallback id="car-intro" eyebrow="Create Content" title="Loading the field reveal." height="min-h-screen" />}>
           <CarIntroScene />
         </Suspense>
-        <Suspense fallback={<SceneFallback id="car" eyebrow="Close Deals" title="Loading the MAXX shell." height="min-h-screen" />}>
-          <MustangScene />
+        <QuickWinsSection />
+        <HowItWorksSection />
+        <PricingSection />
+        <AuditCtaSection />
+        <Suspense fallback={<SceneFallback id="departments" eyebrow="Run Operations" title="Loading the revenue engines." />}>
+          <OutcomeChaptersScene />
         </Suspense>
         <Suspense fallback={<SceneFallback id="tech_specs" eyebrow="Build Systems" title="Loading the dossier." />}>
           <TechSpecsScene />
-        </Suspense>
-        <Suspense
-          fallback={<SceneFallback id="departments" eyebrow="Run Operations" title="Loading the revenue engines." />}
-        >
-          <OutcomeChaptersScene />
         </Suspense>
         <Suspense fallback={<SceneFallback id="mission" eyebrow="Start Mission" title="Loading the closing act." />}>
           <FinalMissionScene />

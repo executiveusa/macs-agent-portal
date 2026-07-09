@@ -10,37 +10,45 @@ export type ModelDecision = {
   model: string;
   taskClass: TaskClass;
   costTier: "low" | "standard" | "high";
+  /** Which inference engine runs this task. Groq = fast/cheap, OpenRouter = broad model access. */
+  provider: "groq" | "openrouter";
   reason: string;
 };
 
 const ROUTES: Record<TaskClass, Omit<ModelDecision, "taskClass">> = {
   conversation: {
-    model: "openai/gpt-4.1-mini",
+    model: "llama-3.3-70b-versatile",
+    provider: "groq",
     costTier: "low",
-    reason: "Low-latency model selected for conversation and summarization",
+    reason: "Fast Groq model selected for conversation, summarization, and draft follow-up",
   },
   research: {
     model: "perplexity/sonar-pro",
+    provider: "openrouter",
     costTier: "standard",
     reason: "Research model selected for retrieval-heavy work",
   },
   planning: {
     model: "anthropic/claude-sonnet-4",
+    provider: "openrouter",
     costTier: "standard",
     reason: "Reasoning model selected for planning and synthesis",
   },
   coding: {
     model: "openai/gpt-4.1",
+    provider: "openrouter",
     costTier: "standard",
     reason: "Tool-capable coding model selected for repository work",
   },
   vision_browser: {
     model: "google/gemini-2.5-pro",
+    provider: "openrouter",
     costTier: "standard",
     reason: "Multimodal model selected for browser and visual work",
   },
   high_risk: {
     model: "anthropic/claude-sonnet-4",
+    provider: "openrouter",
     costTier: "high",
     reason: "High-reliability model selected for an approval-gated action",
   },
@@ -63,6 +71,7 @@ export function routeModel(input: { message: string; manualModel?: string }): Mo
       model: input.manualModel,
       taskClass,
       costTier: "standard",
+      provider: "openrouter",
       reason: "Manual operator override",
     };
   }
