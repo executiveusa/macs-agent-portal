@@ -1,0 +1,139 @@
+{
+  "description": "MAXX Platform Claude Code configuration",
+  "version": "1.0.0",
+  "rules": {
+    "architecture": ".claude/rules/architecture.md",
+    "security": ".claude/rules/security.md",
+    "frontend": ".claude/rules/frontend.md (planned)",
+    "backend": ".claude/rules/backend.md (planned)",
+    "testing": ".claude/rules/testing.md (planned)",
+    "deployment": ".claude/rules/deployment.md (planned)"
+  },
+  "hooks": [
+    {
+      "name": "format-after-edit",
+      "description": "Run prettier on TypeScript/JavaScript files after edit",
+      "trigger": "on-edit-*.ts,*.tsx,*.js,*.jsx",
+      "command": "npx prettier --write {file}",
+      "timeout": 5000,
+      "bypassable": true
+    },
+    {
+      "name": "typecheck-after-backend-edit",
+      "description": "Run TypeScript check on control plane after backend changes",
+      "trigger": "on-edit-services/maxx-control-plane/src/**/*.ts",
+      "command": "npm run typecheck:control-plane",
+      "timeout": 15000,
+      "bypassable": true,
+      "note": "Catch type errors before commit"
+    },
+    {
+      "name": "prevent-secret-commit",
+      "description": "Block commits of probable secrets",
+      "trigger": "pre-commit",
+      "command": "scripts/detect-secrets.sh",
+      "timeout": 5000,
+      "bypassable": false,
+      "note": "Prevents accidental exposure; fails if secrets detected"
+    },
+    {
+      "name": "validate-env-example",
+      "description": "Ensure .env.example has no real values",
+      "trigger": "on-edit-.env.example",
+      "command": "scripts/validate-env.sh",
+      "timeout": 2000,
+      "bypassable": true,
+      "note": "Ensures template has placeholders only"
+    }
+  ],
+  "agents": {
+    "architecture-auditor": ".claude/agents/architecture-auditor.md",
+    "backend-engineer": ".claude/agents/backend-engineer.md (planned)",
+    "frontend-engineer": ".claude/agents/frontend-engineer.md (planned)",
+    "security-reviewer": ".claude/agents/security-reviewer.md (planned)",
+    "qa-engineer": ".claude/agents/qa-engineer.md (planned)"
+  },
+  "permissions": {
+    "root": [
+      "file:read",
+      "file:write:docs/",
+      "file:write:.claude/",
+      "file:write:CLAUDE.md",
+      "bash:npm"
+    ],
+    "development": [
+      "file:read",
+      "file:write:src/",
+      "file:write:services/maxx-control-plane/src/",
+      "file:write:services/maxx-control-plane/test/",
+      "bash:npm",
+      "bash:git:checkout",
+      "bash:git:branch",
+      "git:create-pull-request:draft"
+    ],
+    "restricted": [
+      "bash:git:push",
+      "bash:git:force-push",
+      "file:write:supabase/migrations/",
+      "secrets:rotate",
+      "deployment:production"
+    ]
+  },
+  "test-targets": {
+    "frontend": {
+      "command": "npm run test",
+      "directory": ".",
+      "expected": "✓ all tests pass",
+      "timeout": 60000
+    },
+    "backend": {
+      "command": "npm run test:control-plane",
+      "directory": "services/maxx-control-plane",
+      "expected": "18/18 tests pass",
+      "timeout": 30000
+    },
+    "typecheck": {
+      "command": "npm run typecheck:control-plane",
+      "directory": ".",
+      "expected": "no type errors",
+      "timeout": 30000
+    },
+    "build": {
+      "command": "npm run build",
+      "directory": ".",
+      "expected": "dist/ generated",
+      "timeout": 60000
+    }
+  },
+  "automation": {
+    "on-branch-create": [
+      "Verify branch name matches pattern: feat/*, fix/*, docs/*, etc.",
+      "Create draft PR description from branch name",
+      "Link to relevant Phase/Issue in CLAUDE.md"
+    ],
+    "on-commit": [
+      "Verify no secrets in diff (pre-commit hook)",
+      "Suggest test additions if test coverage low",
+      "Remind about DECISIONS.md if architecture change"
+    ],
+    "on-pr-create": [
+      "Verify description follows template",
+      "Suggest Phase reference if multi-file change",
+      "Propose reviewers based on changed files"
+    ],
+    "before-push": [
+      "Run full test suite",
+      "Verify lint passes",
+      "Confirm no uncommitted changes"
+    ]
+  },
+  "skipped-rules-context": {
+    "reason": "Rules exist but are not yet fully implemented",
+    "planned": [
+      ".claude/rules/frontend.md – Phase 1 (complete after architecture review)",
+      ".claude/rules/backend.md – Phase 1 (complete after architecture review)",
+      ".claude/rules/testing.md – Phase 1 (complete after architecture review)",
+      ".claude/rules/deployment.md – Phase 13 (create during deployment setup)"
+    ]
+  }
+}
