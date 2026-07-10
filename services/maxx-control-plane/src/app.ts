@@ -17,6 +17,12 @@ import { createRateLimiters, type RateLimiters } from "./rate-limiter.js";
 import { createProviderCircuitBreakers, type ProviderCircuitBreakers } from "./circuit-breaker.js";
 import { createHermesAdapter, type HermesAdapter } from "./hermes-adapter.js";
 import { createMemoryIndexer, type MemoryIndexer } from "./memory-indexer.js";
+import {
+  OwnerStrategyStore,
+  applyProviderPreference,
+  isActionForbidden,
+  type OwnerStrategyInput,
+} from "./owner-strategy.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -32,7 +38,16 @@ type AppOptions = {
   circuitBreakers?: ProviderCircuitBreakers;
   hermes?: HermesAdapter;
   memory?: MemoryIndexer;
+  ownerStrategies?: OwnerStrategyStore;
 };
+
+const riskToleranceEnum = z.enum(["conservative", "standard", "permissive"]);
+const strategyInputSchema = z.object({
+  preferredProvider: z.enum(["groq", "openrouter"]).optional(),
+  riskTolerance: riskToleranceEnum.optional(),
+  forbiddenActions: z.array(z.string()).optional(),
+  maxCostPerRequestUsd: z.number().positive().optional(),
+});
 
 // Mutating routes locked in production unless MAXX_PRODUCTION_MUTATIONS_ENABLED=true.
 // GET/health checks are always allowed through.
@@ -165,6 +180,7 @@ export function buildApp(options: AppOptions = {}) {
       memoryEnabled: config.featureFlags.MAXX_MEMORY_ENABLED,
       indexPath: config.memoryIndexPath,
     });
+  const ownerStrategies = options.ownerStrategies ?? new OwnerStrategyStore();
   const app = Fastify({
     logger: config.NODE_ENV !== "test" ? { redact: ["req.headers.authorization", "body.audio", "*.apiKey"] } : false,
   });
@@ -258,7 +274,11 @@ export function buildApp(options: AppOptions = {}) {
     }
 
     const input = chatSchema.parse(request.body);
-    const decision = routeModel({ message: input.message, manualModel: input.model });
+    const routed = routeModel({ message: input.message, manualModel: input.model });
+    const decision = applyProviderPreference(routed, ownerStrategies.get(request.operator!.id), {
+      groq: Boolean(config.GROQ_API_KEY),
+      openrouter: Boolean(config.OPENROUTER_API_KEY),
+    });
 
     // Primary engine + graceful fallback. Groq handles fast task classes;
     // if it errors, fall back to OpenRouter so the operator still gets a reply.
@@ -439,6 +459,13 @@ export function buildApp(options: AppOptions = {}) {
     return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
   });
 
+  app.get("/v1/strategy", async (request) => ownerStrategies.get(request.operator!.id));
+
+  app.put("/v1/strategy", async (request) => {
+    const input: OwnerStrategyInput = strategyInputSchema.parse(request.body);
+    return ownerStrategies.set(request.operator!.id, input);
+  });
+
   app.post("/v1/memory/documents", async (request, reply) => {
     if (!config.featureFlags.MAXX_MEMORY_ENABLED) {
       return reply.code(503).send({ status: "unavailable", reason: "MAXX_MEMORY_ENABLED is false" });
@@ -468,6 +495,10 @@ export function buildApp(options: AppOptions = {}) {
 
   app.post("/v1/browser/sessions", async (request, reply) => {
     const input = browserSchema.parse(request.body);
+    const strategy = ownerStrategies.get(request.operator!.id);
+    if (isActionForbidden(`browser:${input.action}`, strategy)) {
+      return reply.code(403).send({ error: "Action is forbidden by operator strategy", action: input.action });
+    }
     const policy = classifyBrowserAction(input.action as BrowserAction);
     if (!config.featureFlags.MAXX_BROWSER_ENABLED || !config.MAXX_BROWSER_WS_ENDPOINT) {
       return reply.code(503).send({ status: "unavailable", reason: "Remote browser is not configured", policy });

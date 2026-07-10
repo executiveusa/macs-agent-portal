@@ -170,3 +170,26 @@ test("memory routes index and search documents when MAXX_MEMORY_ENABLED is true"
   assert.equal(searchResponse.json().results.length, 1);
   await app.close();
 });
+
+test("owner strategy blocks a forbidden browser action with 403", async () => {
+  const config = loadConfig({ NODE_ENV: "test", MAXX_BROWSER_ENABLED: "true", MAXX_BROWSER_WS_ENDPOINT: "wss://browser.internal" });
+  const app = buildApp({
+    config,
+    authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }),
+  });
+
+  const setStrategy = await app.inject({
+    method: "PUT",
+    url: "/v1/strategy",
+    payload: { forbiddenActions: ["browser:navigate"] },
+  });
+  assert.equal(setStrategy.statusCode, 200);
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/browser/sessions",
+    payload: { action: "navigate", target: "https://example.com" },
+  });
+  assert.equal(response.statusCode, 403);
+  await app.close();
+});
