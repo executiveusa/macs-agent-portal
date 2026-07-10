@@ -13,6 +13,8 @@ import { runPiSkill } from "./pi-runner.js";
 import { TRUSTED_SKILLS } from "./skills.js";
 import { createStore, type ControlTowerStore } from "./store.js";
 import type { Operator, UsageRecord } from "./types.js";
+import { createRateLimiters, type RateLimiters } from "./rate-limiter.js";
+import { createProviderCircuitBreakers, type ProviderCircuitBreakers } from "./circuit-breaker.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -24,7 +26,13 @@ type AppOptions = {
   config?: MaxxConfig;
   authenticate?: (request: FastifyRequest) => Promise<Operator | null>;
   store?: ControlTowerStore;
+  rateLimiters?: RateLimiters;
+  circuitBreakers?: ProviderCircuitBreakers;
 };
+
+// Mutating routes locked in production unless MAXX_PRODUCTION_MUTATIONS_ENABLED=true.
+// GET/health checks are always allowed through.
+const PRODUCTION_LOCKED_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
 
 const chatSchema = z.object({
   message: z.string().trim().min(1).max(20_000),
@@ -87,8 +95,10 @@ function dependencies(config: MaxxConfig) {
     },
     voice: {
       configured: false,
-      status: "unavailable",
-      detail: "No server STT/TTS provider configured; browser fallback remains available",
+      status: config.featureFlags.MAXX_VOICE_ENABLED ? "degraded" : "unavailable",
+      detail: config.featureFlags.MAXX_VOICE_ENABLED
+        ? "MAXX_VOICE_ENABLED is set but no server STT/TTS provider is configured; browser fallback remains available"
+        : "MAXX_VOICE_ENABLED is false; browser fallback remains available",
     },
   } as const;
 }
@@ -97,6 +107,8 @@ export function buildApp(options: AppOptions = {}) {
   const config = options.config ?? loadConfig({ NODE_ENV: "test" });
   const authenticate = options.authenticate ?? createAuthenticator(config);
   const store = options.store ?? createStore(config);
+  const rateLimiters = options.rateLimiters ?? createRateLimiters();
+  const circuitBreakers = options.circuitBreakers ?? createProviderCircuitBreakers();
   const app = Fastify({
     logger: config.NODE_ENV !== "test" ? { redact: ["req.headers.authorization", "body.audio", "*.apiKey"] } : false,
   });
@@ -109,11 +121,22 @@ export function buildApp(options: AppOptions = {}) {
     credentials: true,
   });
 
+  app.addHook("onRequest", async (request, reply) => {
+    const correlationId = (request.headers["x-request-id"] as string | undefined) ?? randomUUID();
+    request.headers["x-request-id"] = correlationId;
+    reply.header("x-request-id", correlationId);
+  });
+
   app.get("/health/live", async () => ({ status: "alive", service: "maxx-control-plane" }));
   app.get("/health/ready", async (_request, reply) => {
     const state = dependencies(config);
     const ready = state.supabase.configured && (state.groq.configured || state.openrouter.configured);
-    return reply.code(ready ? 200 : 503).send({ status: ready ? "ready" : "degraded", dependencies: state });
+    return reply.code(ready ? 200 : 503).send({
+      status: ready ? "ready" : "degraded",
+      dependencies: state,
+      featureFlags: config.featureFlags,
+      emergencyDisabled: config.emergencyDisabled,
+    });
   });
 
   app.addHook("preHandler", async (request, reply) => {
@@ -121,6 +144,24 @@ export function buildApp(options: AppOptions = {}) {
     const operator = await authenticate(request);
     if (!operator) return reply.code(401).send({ error: "Stacy operator authentication required" });
     request.operator = operator;
+
+    if (config.emergencyDisabled && PRODUCTION_LOCKED_METHODS.has(request.method)) {
+      return reply.code(503).send({
+        status: "locked",
+        message: "MAXX_EMERGENCY_DISABLE is active. All agent work is paused system-wide.",
+      });
+    }
+
+    if (
+      config.NODE_ENV === "production" &&
+      !config.featureFlags.MAXX_PRODUCTION_MUTATIONS_ENABLED &&
+      PRODUCTION_LOCKED_METHODS.has(request.method)
+    ) {
+      return reply.code(503).send({
+        status: "locked",
+        message: "Production mutations disabled. Set MAXX_PRODUCTION_MUTATIONS_ENABLED=true to proceed.",
+      });
+    }
   });
 
   app.get("/v1/control-tower/bootstrap", async () => {
@@ -154,16 +195,24 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   app.post("/v1/chat", async (request, reply) => {
+    const limitDecision = rateLimiters.chat.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many chat requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
+
     const input = chatSchema.parse(request.body);
     const decision = routeModel({ message: input.message, manualModel: input.model });
 
     // Primary engine + graceful fallback. Groq handles fast task classes;
     // if it errors, fall back to OpenRouter so the operator still gets a reply.
     let result;
-    if (decision.provider === "groq" && config.GROQ_API_KEY) {
+    if (decision.provider === "groq" && config.GROQ_API_KEY && circuitBreakers.groq.canRequest()) {
       try {
         result = await runGroq({ apiKey: config.GROQ_API_KEY, message: input.message, decision });
+        circuitBreakers.groq.recordSuccess();
       } catch (error) {
+        circuitBreakers.groq.recordFailure();
         app.log.warn({ error: String(error) }, "Groq failed, falling back to OpenRouter");
         result = await runOpenRouter({
           apiKey: config.OPENROUTER_API_KEY,
@@ -200,6 +249,11 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   app.post("/v1/missions", async (request, reply) => {
+    const limitDecision = rateLimiters.missions.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many mission creations", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
     const input = missionSchema.parse(request.body);
     const missionId = randomUUID();
     const run = await createIcmRun({
@@ -249,6 +303,11 @@ export function buildApp(options: AppOptions = {}) {
 
   app.get("/v1/skills", async () => ({ skills: TRUSTED_SKILLS }));
   app.post("/v1/skills/:id/run", async (request, reply) => {
+    const limitDecision = rateLimiters.skills.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many skill executions", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
     const skill = TRUSTED_SKILLS.find((item) => item.id === (request.params as { id: string }).id);
     if (!skill) return reply.code(404).send({ error: "Unregistered skill" });
     const input = runSkillSchema.parse(request.body ?? {});
@@ -299,8 +358,15 @@ export function buildApp(options: AppOptions = {}) {
   app.post("/v1/browser/sessions", async (request, reply) => {
     const input = browserSchema.parse(request.body);
     const policy = classifyBrowserAction(input.action as BrowserAction);
-    if (!config.MAXX_BROWSER_WS_ENDPOINT) {
+    if (!config.featureFlags.MAXX_BROWSER_ENABLED || !config.MAXX_BROWSER_WS_ENDPOINT) {
       return reply.code(503).send({ status: "unavailable", reason: "Remote browser is not configured", policy });
+    }
+    if (policy === "approval_required" && !config.featureFlags.MAXX_BROWSER_MUTATIONS_ENABLED) {
+      return reply.code(503).send({
+        status: "unavailable",
+        reason: "Browser mutations disabled. Set MAXX_BROWSER_MUTATIONS_ENABLED=true to proceed.",
+        policy,
+      });
     }
     if (policy === "approval_required") {
       const approval = await store.createApproval({
