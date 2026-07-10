@@ -15,6 +15,7 @@ import { createStore, type ControlTowerStore } from "./store.js";
 import type { Operator, UsageRecord } from "./types.js";
 import { createRateLimiters, type RateLimiters } from "./rate-limiter.js";
 import { createProviderCircuitBreakers, type ProviderCircuitBreakers } from "./circuit-breaker.js";
+import { createHermesAdapter, type HermesAdapter } from "./hermes-adapter.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -28,6 +29,7 @@ type AppOptions = {
   store?: ControlTowerStore;
   rateLimiters?: RateLimiters;
   circuitBreakers?: ProviderCircuitBreakers;
+  hermes?: HermesAdapter;
 };
 
 // Mutating routes locked in production unless MAXX_PRODUCTION_MUTATIONS_ENABLED=true.
@@ -65,6 +67,14 @@ const runSkillSchema = z.object({
   runId: z.string().optional(),
   input: z.record(z.unknown()).default({}),
 });
+const hermesRunSchema = z.object({
+  runId: z.string().trim().min(1),
+  missionId: z.string().trim().min(1),
+  objective: z.string().trim().min(3),
+  workspacePath: z.string().trim().min(1),
+  stage: z.string().trim().min(1).default("hermes"),
+  timeoutMs: z.number().positive().optional(),
+});
 
 function dependencies(config: MaxxConfig) {
   return {
@@ -100,6 +110,19 @@ function dependencies(config: MaxxConfig) {
         ? "MAXX_VOICE_ENABLED is set but no server STT/TTS provider is configured; browser fallback remains available"
         : "MAXX_VOICE_ENABLED is false; browser fallback remains available",
     },
+    hermes: {
+      configured: Boolean(config.featureFlags.MAXX_HERMES_ENABLED && config.MAXX_HERMES_ENDPOINT),
+      status: !config.featureFlags.MAXX_HERMES_ENABLED
+        ? "unavailable"
+        : config.MAXX_HERMES_ENDPOINT
+          ? "ready"
+          : "degraded",
+      detail: !config.featureFlags.MAXX_HERMES_ENABLED
+        ? "MAXX_HERMES_ENABLED is false"
+        : config.MAXX_HERMES_ENDPOINT
+          ? "Hermes endpoint configured"
+          : "MAXX_HERMES_ENABLED is set but MAXX_HERMES_ENDPOINT is missing",
+    },
   } as const;
 }
 
@@ -109,6 +132,12 @@ export function buildApp(options: AppOptions = {}) {
   const store = options.store ?? createStore(config);
   const rateLimiters = options.rateLimiters ?? createRateLimiters();
   const circuitBreakers = options.circuitBreakers ?? createProviderCircuitBreakers();
+  const hermes =
+    options.hermes ??
+    createHermesAdapter({
+      hermesEnabled: config.featureFlags.MAXX_HERMES_ENABLED,
+      hermesEndpoint: config.MAXX_HERMES_ENDPOINT,
+    });
   const app = Fastify({
     logger: config.NODE_ENV !== "test" ? { redact: ["req.headers.authorization", "body.audio", "*.apiKey"] } : false,
   });
@@ -344,6 +373,33 @@ export function buildApp(options: AppOptions = {}) {
       output: result.stdout,
       error: result.stderr,
     });
+  });
+
+  app.post("/v1/hermes/runs", async (request, reply) => {
+    if (!config.featureFlags.MAXX_HERMES_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
+    }
+    const input = hermesRunSchema.parse(request.body);
+    const state = await hermes.startRun(input);
+    await store.addEvent(input.runId, "hermes.run.started", `Hermes run ${state.status}`, { stage: input.stage });
+    return reply.code(state.status === "failed" ? 502 : 202).send(state);
+  });
+
+  app.get("/v1/hermes/runs/:id", async (request, reply) => {
+    if (!config.featureFlags.MAXX_HERMES_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
+    }
+    const state = await hermes.getRunState((request.params as { id: string }).id);
+    return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
+  });
+
+  app.post("/v1/hermes/runs/:id/cancel", async (request, reply) => {
+    if (!config.featureFlags.MAXX_HERMES_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
+    }
+    const state = await hermes.cancelRun((request.params as { id: string }).id);
+    if (state) await store.addEvent(state.runId, "hermes.run.cancelled", "Hermes run cancelled");
+    return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
   });
 
   app.post("/v1/approvals/:id/approve", async (request, reply) => {

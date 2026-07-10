@@ -3,6 +3,7 @@ import test from "node:test";
 import { buildApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
 import { createRateLimiters } from "../src/rate-limiter.js";
+import { StubHermesAdapter } from "../src/hermes-adapter.js";
 
 test("exposes liveness without authentication", async () => {
   const app = buildApp({ authenticate: async () => null });
@@ -81,5 +82,50 @@ test("locks production mutations unless MAXX_PRODUCTION_MUTATIONS_ENABLED is tru
   });
   assert.equal(response.statusCode, 503);
   assert.equal(response.json().status, "locked");
+  await app.close();
+});
+
+test("hermes routes return 503 when MAXX_HERMES_ENABLED is false", async () => {
+  const config = loadConfig({ NODE_ENV: "test" });
+  const app = buildApp({
+    config,
+    authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }),
+    hermes: new StubHermesAdapter(),
+  });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/hermes/runs",
+    payload: {
+      runId: "run-1",
+      missionId: "mission-1",
+      objective: "Draft donor recap",
+      workspacePath: "/workspaces/mission-1",
+      stage: "01_intake",
+    },
+  });
+  assert.equal(response.statusCode, 503);
+  await app.close();
+});
+
+test("hermes routes report an honest failure when enabled but no runtime is reachable", async () => {
+  const config = loadConfig({ NODE_ENV: "test", MAXX_HERMES_ENABLED: "true" });
+  const app = buildApp({
+    config,
+    authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }),
+    hermes: new StubHermesAdapter(),
+  });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/hermes/runs",
+    payload: {
+      runId: "run-1",
+      missionId: "mission-1",
+      objective: "Draft donor recap",
+      workspacePath: "/workspaces/mission-1",
+      stage: "01_intake",
+    },
+  });
+  assert.equal(response.statusCode, 502);
+  assert.equal(response.json().status, "failed");
   await app.close();
 });
