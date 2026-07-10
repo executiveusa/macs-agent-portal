@@ -30,12 +30,16 @@ export type RunEvent = {
   data?: Record<string, unknown>;
 };
 
+export type ApprovalStatus = "pending" | "approved" | "rejected" | "expired";
+
 export type Approval = {
   id: string;
   runId: string;
   action: string;
   summary: string;
-  status: "pending" | "approved" | "rejected";
+  status: ApprovalStatus;
+  createdAt: string;
+  expiresAt: string;
   decidedAt?: string;
   decidedBy?: string;
 };

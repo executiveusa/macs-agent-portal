@@ -25,6 +25,7 @@ const schema = z.object({
   MAXX_SCHEDULER_ENABLED: z.string().optional(),
   MAXX_PRODUCTION_MUTATIONS_ENABLED: z.string().optional(),
   MAXX_EMERGENCY_DISABLE: z.string().optional(),
+  MAXX_APPROVAL_TTL_HOURS: z.coerce.number().positive().default(24),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env) {

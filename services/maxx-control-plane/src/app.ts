@@ -348,11 +348,11 @@ export function buildApp(options: AppOptions = {}) {
 
   app.post("/v1/approvals/:id/approve", async (request, reply) => {
     const approval = await store.decideApproval((request.params as { id: string }).id, "approved", request.operator!.id);
-    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing or already decided" });
+    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing, expired, or already decided" });
   });
   app.post("/v1/approvals/:id/reject", async (request, reply) => {
     const approval = await store.decideApproval((request.params as { id: string }).id, "rejected", request.operator!.id);
-    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing or already decided" });
+    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing, expired, or already decided" });
   });
 
   app.post("/v1/browser/sessions", async (request, reply) => {
