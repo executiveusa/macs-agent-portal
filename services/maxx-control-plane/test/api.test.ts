@@ -193,3 +193,20 @@ test("owner strategy blocks a forbidden browser action with 403", async () => {
   assert.equal(response.statusCode, 403);
   await app.close();
 });
+
+test("scheduler jobs route returns 503 when MAXX_SCHEDULER_ENABLED is false", async () => {
+  const config = loadConfig({ NODE_ENV: "test" });
+  const app = buildApp({ config, authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }) });
+  const response = await app.inject({ method: "GET", url: "/v1/scheduler/jobs" });
+  assert.equal(response.statusCode, 503);
+  await app.close();
+});
+
+test("scheduler jobs route lists the approval-expiry sweep when enabled", async () => {
+  const config = loadConfig({ NODE_ENV: "test", MAXX_SCHEDULER_ENABLED: "true" });
+  const app = buildApp({ config, authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }) });
+  const response = await app.inject({ method: "GET", url: "/v1/scheduler/jobs" });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().jobs[0].id, "approval-expiry-sweep");
+  await app.close();
+});

@@ -23,6 +23,7 @@ import {
   isActionForbidden,
   type OwnerStrategyInput,
 } from "./owner-strategy.js";
+import { Scheduler } from "./scheduler.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -39,6 +40,7 @@ type AppOptions = {
   hermes?: HermesAdapter;
   memory?: MemoryIndexer;
   ownerStrategies?: OwnerStrategyStore;
+  scheduler?: Scheduler;
 };
 
 const riskToleranceEnum = z.enum(["conservative", "standard", "permissive"]);
@@ -159,6 +161,13 @@ function dependencies(config: MaxxConfig) {
         ? `Keyword-indexed mission memory at ${config.memoryIndexPath}`
         : "MAXX_MEMORY_ENABLED is false; memory is in-process only and not persisted",
     },
+    scheduler: {
+      configured: config.featureFlags.MAXX_SCHEDULER_ENABLED,
+      status: config.featureFlags.MAXX_SCHEDULER_ENABLED ? "ready" : "unavailable",
+      detail: config.featureFlags.MAXX_SCHEDULER_ENABLED
+        ? "In-process interval scheduler running (approval expiry sweep)"
+        : "MAXX_SCHEDULER_ENABLED is false",
+    },
   } as const;
 }
 
@@ -181,9 +190,23 @@ export function buildApp(options: AppOptions = {}) {
       indexPath: config.memoryIndexPath,
     });
   const ownerStrategies = options.ownerStrategies ?? new OwnerStrategyStore();
+  const scheduler = options.scheduler ?? new Scheduler();
   const app = Fastify({
     logger: config.NODE_ENV !== "test" ? { redact: ["req.headers.authorization", "body.audio", "*.apiKey"] } : false,
   });
+
+  if (config.featureFlags.MAXX_SCHEDULER_ENABLED) {
+    scheduler.register({
+      id: "approval-expiry-sweep",
+      name: "Expire stale pending approvals",
+      intervalMs: 60_000,
+      handler: async () => {
+        await store.listApprovals();
+      },
+    });
+    scheduler.start();
+    app.addHook("onClose", async () => scheduler.stop());
+  }
 
   app.register(cors, {
     origin: (origin, callback) => {
@@ -457,6 +480,13 @@ export function buildApp(options: AppOptions = {}) {
     const state = await hermes.cancelRun((request.params as { id: string }).id);
     if (state) await store.addEvent(state.runId, "hermes.run.cancelled", "Hermes run cancelled");
     return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
+  });
+
+  app.get("/v1/scheduler/jobs", async (_request, reply) => {
+    if (!config.featureFlags.MAXX_SCHEDULER_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_SCHEDULER_ENABLED is false" });
+    }
+    return reply.send({ jobs: scheduler.list() });
   });
 
   app.get("/v1/strategy", async (request) => ownerStrategies.get(request.operator!.id));
