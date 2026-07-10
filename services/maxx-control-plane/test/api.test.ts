@@ -4,6 +4,7 @@ import { buildApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
 import { createRateLimiters } from "../src/rate-limiter.js";
 import { StubHermesAdapter } from "../src/hermes-adapter.js";
+import { InMemoryMemoryIndexer } from "../src/memory-indexer.js";
 
 test("exposes liveness without authentication", async () => {
   const app = buildApp({ authenticate: async () => null });
@@ -127,5 +128,45 @@ test("hermes routes report an honest failure when enabled but no runtime is reac
   });
   assert.equal(response.statusCode, 502);
   assert.equal(response.json().status, "failed");
+  await app.close();
+});
+
+test("memory routes return 503 when MAXX_MEMORY_ENABLED is false", async () => {
+  const config = loadConfig({ NODE_ENV: "test" });
+  const app = buildApp({
+    config,
+    authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }),
+    memory: new InMemoryMemoryIndexer(),
+  });
+  const response = await app.inject({ method: "GET", url: "/v1/memory/search?q=donor" });
+  assert.equal(response.statusCode, 503);
+  await app.close();
+});
+
+test("memory routes index and search documents when MAXX_MEMORY_ENABLED is true", async () => {
+  const config = loadConfig({ NODE_ENV: "test", MAXX_MEMORY_ENABLED: "true" });
+  const app = buildApp({
+    config,
+    authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }),
+    memory: new InMemoryMemoryIndexer(),
+  });
+
+  const indexResponse = await app.inject({
+    method: "POST",
+    url: "/v1/memory/documents",
+    payload: {
+      runId: "run-1",
+      missionId: "mission-1",
+      source: "test",
+      title: "Donor churn analysis",
+      content: "Donor churn increased in Q3",
+      tags: ["donor"],
+    },
+  });
+  assert.equal(indexResponse.statusCode, 201);
+
+  const searchResponse = await app.inject({ method: "GET", url: "/v1/memory/search?q=donor+churn" });
+  assert.equal(searchResponse.statusCode, 200);
+  assert.equal(searchResponse.json().results.length, 1);
   await app.close();
 });

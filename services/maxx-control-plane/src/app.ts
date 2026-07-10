@@ -16,6 +16,7 @@ import type { Operator, UsageRecord } from "./types.js";
 import { createRateLimiters, type RateLimiters } from "./rate-limiter.js";
 import { createProviderCircuitBreakers, type ProviderCircuitBreakers } from "./circuit-breaker.js";
 import { createHermesAdapter, type HermesAdapter } from "./hermes-adapter.js";
+import { createMemoryIndexer, type MemoryIndexer } from "./memory-indexer.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -30,6 +31,7 @@ type AppOptions = {
   rateLimiters?: RateLimiters;
   circuitBreakers?: ProviderCircuitBreakers;
   hermes?: HermesAdapter;
+  memory?: MemoryIndexer;
 };
 
 // Mutating routes locked in production unless MAXX_PRODUCTION_MUTATIONS_ENABLED=true.
@@ -66,6 +68,18 @@ const browserSchema = z.object({
 const runSkillSchema = z.object({
   runId: z.string().optional(),
   input: z.record(z.unknown()).default({}),
+});
+const memoryDocumentSchema = z.object({
+  runId: z.string().trim().min(1),
+  missionId: z.string().trim().min(1),
+  source: z.string().trim().min(1),
+  title: z.string().trim().min(1).max(200),
+  content: z.string().trim().min(1).max(20_000),
+  tags: z.array(z.string()).default([]),
+});
+const memorySearchSchema = z.object({
+  q: z.string().trim().min(1),
+  limit: z.coerce.number().int().positive().max(50).default(10),
 });
 const hermesRunSchema = z.object({
   runId: z.string().trim().min(1),
@@ -123,6 +137,13 @@ function dependencies(config: MaxxConfig) {
           ? "Hermes endpoint configured"
           : "MAXX_HERMES_ENABLED is set but MAXX_HERMES_ENDPOINT is missing",
     },
+    memory: {
+      configured: config.featureFlags.MAXX_MEMORY_ENABLED,
+      status: config.featureFlags.MAXX_MEMORY_ENABLED ? "ready" : "unavailable",
+      detail: config.featureFlags.MAXX_MEMORY_ENABLED
+        ? `Keyword-indexed mission memory at ${config.memoryIndexPath}`
+        : "MAXX_MEMORY_ENABLED is false; memory is in-process only and not persisted",
+    },
   } as const;
 }
 
@@ -137,6 +158,12 @@ export function buildApp(options: AppOptions = {}) {
     createHermesAdapter({
       hermesEnabled: config.featureFlags.MAXX_HERMES_ENABLED,
       hermesEndpoint: config.MAXX_HERMES_ENDPOINT,
+    });
+  const memory =
+    options.memory ??
+    createMemoryIndexer({
+      memoryEnabled: config.featureFlags.MAXX_MEMORY_ENABLED,
+      indexPath: config.memoryIndexPath,
     });
   const app = Fastify({
     logger: config.NODE_ENV !== "test" ? { redact: ["req.headers.authorization", "body.audio", "*.apiKey"] } : false,
@@ -309,6 +336,16 @@ export function buildApp(options: AppOptions = {}) {
   app.patch("/v1/missions/:id", async (request, reply) => {
     const input = missionPatchSchema.parse(request.body);
     const mission = await store.updateMission((request.params as { id: string }).id, input.status);
+    if (mission && input.status === "completed" && config.featureFlags.MAXX_MEMORY_ENABLED) {
+      await memory.indexDocument({
+        runId: mission.runId,
+        missionId: mission.id,
+        source: "mission.completed",
+        title: mission.objective.slice(0, 200),
+        content: mission.objective,
+        tags: ["mission", "completed"],
+      });
+    }
     return mission ? reply.send(mission) : reply.code(404).send({ error: "Mission not found" });
   });
 
@@ -400,6 +437,24 @@ export function buildApp(options: AppOptions = {}) {
     const state = await hermes.cancelRun((request.params as { id: string }).id);
     if (state) await store.addEvent(state.runId, "hermes.run.cancelled", "Hermes run cancelled");
     return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
+  });
+
+  app.post("/v1/memory/documents", async (request, reply) => {
+    if (!config.featureFlags.MAXX_MEMORY_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_MEMORY_ENABLED is false" });
+    }
+    const input = memoryDocumentSchema.parse(request.body);
+    const document = await memory.indexDocument(input);
+    return reply.code(201).send(document);
+  });
+
+  app.get("/v1/memory/search", async (request, reply) => {
+    if (!config.featureFlags.MAXX_MEMORY_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_MEMORY_ENABLED is false" });
+    }
+    const input = memorySearchSchema.parse(request.query);
+    const results = await memory.search(input.q, input.limit);
+    return reply.send({ results });
   });
 
   app.post("/v1/approvals/:id/approve", async (request, reply) => {
