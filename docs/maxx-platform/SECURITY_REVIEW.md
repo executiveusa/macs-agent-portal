@@ -37,7 +37,7 @@
 
 1. **Backup encryption** — needs a real KMS/vault choice (age, sops, cloud KMS) before this is safe to close. Tracked as RISK in RISK_REGISTER.md.
 2. **Audit logging gaps** on `/v1/browser/sessions` (automatic actions), `/v1/memory/documents`, `/v1/strategy` — low severity (these are read/write-your-own-data or read-only-classified actions, not consequential-action-on-behalf-of-others), but should be closed before Phase 17's audit-trail-immutability tests are written, so the trail is actually complete.
-3. **RLS policies untested against a live database** — this environment cannot reach the configured Supabase host (`SUPABASE_URL` present but unreachable network-wise; confirmed via a live connection timeout during Phase 11 verification). Multi-tenant isolation testing (per `.claude/rules/security.md`) requires a reachable test database and is deferred to Phase 17.
+3. **RLS policies untested against a live database** — this environment cannot reach the configured Supabase host (`SUPABASE_URL` present but unreachable network-wise; confirmed via a live connection timeout during Phase 11 verification). Note corrected in Phase 17: the schema is single-organization (an allowlist of operators sharing one control plane, no `organizations` table or `organization_id` column anywhere), not multi-tenant SaaS — `is_control_tower_operator()` intentionally grants every allowlisted operator full access. There is no cross-tenant boundary to test because there is no second tenant; what remains untested is only that the allowlist itself is enforced correctly against a live Postgres instance (it is unit-tested against the allowlist logic in `auth-policy.test.ts`, just not against a real database).
 4. **No automated dependency/secret scanning configured** (`npm audit` was run manually per-dependency-add, but nothing runs it in CI yet — see Phase 18).
 
 ## Out of Scope for This Audit
@@ -49,4 +49,4 @@
 ---
 
 **Reviewed by**: Claude Sonnet 5 (ZTE execution agent), this session.
-**Next review**: Before production deployment (Phase 13 `MAXX_PRODUCTION_MUTATIONS_ENABLED=true` gate), and again at Phase 17 (multi-tenant isolation testing against a live database).
+**Next review**: Before production deployment (Phase 13 `MAXX_PRODUCTION_MUTATIONS_ENABLED=true` gate), and again if multi-organization support is ever added to the roadmap (see RISK_REGISTER.md R6).
