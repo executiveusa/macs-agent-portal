@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (lint, test, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+
+  control-plane:
+    name: Control plane (typecheck, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/maxx-control-plane
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: services/maxx-control-plane/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      # No Chromium is installed on this runner; the one browser-worker
+      # test that needs a real launch catches the failure and calls
+      # t.skip() rather than failing the suite (see test/browser-worker.test.ts).
+      - run: npm run test
+      - run: npm run build
+
+  client-sdk:
+    name: Client SDK (typecheck, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/client-sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: packages/client-sdk/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+
+  dependency-audit:
+    name: Dependency audit (npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # Report-only for now (R20 in RISK_REGISTER.md): the repo has known
+      # pre-existing transitive advisories that haven't been individually
+      # triaged yet. Flip to a hard failure once that triage is done -
+      # continue-on-error here means "visible in the log" not "blocking".
+      - run: npm audit --audit-level=high
+        continue-on-error: true
+      - run: npm audit --audit-level=high --prefix services/maxx-control-plane
+        continue-on-error: true
+      - run: npm audit --audit-level=high --prefix packages/client-sdk
+        continue-on-error: true
