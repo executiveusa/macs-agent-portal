@@ -14,6 +14,21 @@ test("createBrowserWorker picks the Playwright worker only when browser is enabl
   assert.ok(createBrowserWorker({ browserEnabled: true }) instanceof PlaywrightBrowserWorker);
 });
 
+// Regression test for a real CI failure: close() used to re-await the
+// launch promise unconditionally, so a failed launch (deliberately forced
+// here via a nonexistent executablePath, guaranteed to fail on any
+// machine) made close() re-throw the same rejection a second time -
+// including from a test's `finally` block, which crashed the whole test
+// process with exit code 1 even though every individual test reported ok.
+test("close() never throws, even after a failed launch", async () => {
+  const worker = new PlaywrightBrowserWorker({ headless: true, executablePath: "/nonexistent/chromium-binary" });
+  const result = await worker.execute("navigate", "data:text/html,hi");
+  assert.equal(result.success, false);
+  await assert.doesNotReject(() => worker.close());
+  // Calling close() again after the promise was cleared should also be a no-op.
+  await assert.doesNotReject(() => worker.close());
+});
+
 test("PlaywrightBrowserWorker rejects navigate/extract/screenshot without a target", async () => {
   const worker = new PlaywrightBrowserWorker({ headless: true, executablePath: process.env.MAXX_BROWSER_EXECUTABLE_PATH });
   try {

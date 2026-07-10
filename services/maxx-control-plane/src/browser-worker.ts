@@ -127,9 +127,19 @@ export class PlaywrightBrowserWorker implements BrowserWorker {
 
   async close(): Promise<void> {
     if (!this.browserPromise) return;
-    const browser = await this.browserPromise;
-    await browser.close();
-    this.browserPromise = null;
+    // browserPromise can be a rejected launch/connect attempt (e.g. no
+    // matching Chromium binary) - awaiting it here would re-throw that
+    // same rejection a second time on every close(), including from a
+    // test's `finally` block after the original failure was already
+    // handled. There's nothing to close in that case.
+    try {
+      const browser = await this.browserPromise;
+      await browser.close();
+    } catch {
+      // Launch/connect never succeeded; nothing to close.
+    } finally {
+      this.browserPromise = null;
+    }
   }
 }
 
