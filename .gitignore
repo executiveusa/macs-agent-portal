@@ -24,6 +24,8 @@ dist-ssr
 *.sw?
 .vercel
 .maxx-rollback/
+.maxx-restore-test/
+/backups/
 _reference/
 
 # Provider/runtime secrets and deployment metadata

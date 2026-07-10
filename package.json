@@ -14,6 +14,8 @@
     "preview": "vite preview",
     "maxx:checkpoint": "node scripts/maxx-checkpoint.mjs",
     "maxx:rollback:last": "node scripts/maxx-rollback.mjs --latest",
+    "maxx:backup": "node scripts/maxx-backup.mjs",
+    "maxx:restore": "node scripts/maxx-restore.mjs",
     "maxx:browser-smoke": "node scripts/maxx-browser-smoke.mjs",
     "maxx:opusclip": "node scripts/maxx-opusclip.mjs",
     "maxx:video-dossier": "node scripts/maxx-video-dossier.mjs"
