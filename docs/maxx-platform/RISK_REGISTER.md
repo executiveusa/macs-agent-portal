@@ -61,18 +61,18 @@
 **Target Completion**: Phase 10
 
 ### R8: Supabase RLS Policies Not Full-Scanned
-**Severity**: MEDIUM  
-**Impact**: RLS in place but security audit not completed  
-**Mitigation**: Phase 15 (Security) performs threat model and policy audit  
-**Owner**: Security engineer  
-**Target Completion**: Phase 15
+**Severity**: MEDIUM → **PARTIALLY RESOLVED (Phase 15)**
+**Impact**: RLS in place but security audit not completed
+**Mitigation**: Phase 15 code-reviewed every RLS policy and every route (see SECURITY_REVIEW.md). **Still open**: policies have never been exercised against a live, reachable Postgres instance — this environment's configured Supabase host is not network-reachable. Live multi-tenant isolation testing remains Phase 17.
+**Owner**: Security engineer
+**Target Completion**: Phase 15 (review) / Phase 17 (live testing)
 
 ### R9: No Service-to-Service Authentication
-**Severity**: MEDIUM  
-**Impact**: Hermes, voice, memory, browser adapters will need authentication; currently documented but not implemented  
-**Mitigation**: Phase 3 adds service credentials and mTLS/token auth  
-**Owner**: Backend & security engineer  
-**Target Completion**: Phase 3
+**Severity**: MEDIUM
+**Impact**: Hermes, voice, memory, and browser are currently in-process adapters within the control-plane process (Phases 5, 6, 9, 10), not separate deployable services, so there is no network boundary between them to authenticate across yet. This risk becomes real the moment any of them is split into its own deployed service (e.g., a real Hermes runtime reached over HTTP/MAXX_HERMES_ENDPOINT).
+**Mitigation**: Not yet implemented. Add token-based auth on the control-plane→adapter direction when the first adapter is actually deployed as a separate service.
+**Owner**: Backend & security engineer
+**Target Completion**: Whenever the first adapter is split out (not yet scheduled)
 
 ### R10: No Secret Rotation Procedure
 **Severity**: MEDIUM  
@@ -107,11 +107,11 @@
 **Target Completion**: Phase 3 (document) / Phase 20+ (implement)
 
 ### R14: No Graceful Shutdown
-**Severity**: MEDIUM  
-**Impact**: Control plane kills in-flight requests; long-running ops can break  
-**Mitigation**: Phase 3 implements graceful shutdown with timeout  
-**Owner**: Backend engineer  
-**Target Completion**: Phase 3
+**Severity**: MEDIUM → **RESOLVED (Phase 15)**
+**Impact**: Control plane killed in-flight requests; long-running ops could break
+**Mitigation**: `server.ts` now handles SIGTERM/SIGINT by calling `app.close()` (drains in-flight requests, runs the scheduler/browser `onClose` hooks already registered in `app.ts`) before exiting. **Correction**: this was originally logged as done in Phase 3 in this document; it was not actually implemented until this Phase 15 audit found the gap. Verified live: started the server, sent SIGTERM, confirmed "Received shutdown signal" → "Shutdown complete" in the logs and a clean process exit.
+**Owner**: Backend engineer
+**Target Completion**: Phase 15 (corrected from the original Phase 3 claim)
 
 ### R15: No Rate Limiting on Chat/Skills
 **Severity**: MEDIUM  
@@ -158,6 +158,13 @@
 **Mitigation**: Phase 18 adds `npm audit` and Snyk scanning  
 **Owner**: DevOps & security engineer  
 **Target Completion**: Phase 18
+
+### R21: Backups Are Not Encrypted at Rest
+**Severity**: HIGH
+**Impact**: Phase 14's backup/restore is real and verified (checksum + restore-tested end-to-end), but no KMS/vault is configured in this environment, so backups are plain `tar.gz` files. Anyone with filesystem access to the backup location can read mission objectives, approval history, and any other ICM workspace content.
+**Mitigation**: Choose and wire a real encryption approach (age, sops, or a cloud KMS) before storing backups anywhere other than a local, access-controlled disk. `backupRecordSchema.encryption_key_id` is already `null` rather than fabricated, so this gap is visible in every backup manifest rather than hidden.
+**Owner**: Security & DevOps engineer
+**Target Completion**: Before any backup leaves local disk (not yet scheduled — requires an owner decision on KMS provider)
 
 ---
 

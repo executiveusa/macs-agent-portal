@@ -35,6 +35,70 @@ test("CORS preflight allows PUT for a configured origin (regression: /v1/strateg
   await app.close();
 });
 
+test("rate limits hermes run requests per operator", async () => {
+  const config = loadConfig({ NODE_ENV: "test", MAXX_HERMES_ENABLED: "true" });
+  const app = buildApp({ config, authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }) });
+  let lastStatus = 200;
+  for (let i = 0; i < 6; i += 1) {
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/hermes/runs",
+      payload: { runId: `run-${i}`, missionId: "mission-1", objective: "test", workspacePath: "/tmp", stage: "01" },
+    });
+    lastStatus = response.statusCode;
+  }
+  assert.equal(lastStatus, 429);
+  await app.close();
+});
+
+test("rate limits owner strategy updates per operator", async () => {
+  const config = loadConfig({ NODE_ENV: "test" });
+  const app = buildApp({ config, authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }) });
+  let lastStatus = 200;
+  for (let i = 0; i < 11; i += 1) {
+    const response = await app.inject({ method: "PUT", url: "/v1/strategy", payload: { riskTolerance: "standard" } });
+    lastStatus = response.statusCode;
+  }
+  assert.equal(lastStatus, 429);
+  await app.close();
+});
+
+test("rate limits memory document writes per operator", async () => {
+  const config = loadConfig({ NODE_ENV: "test", MAXX_MEMORY_ENABLED: "true" });
+  const app = buildApp({ config, authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }) });
+  let lastStatus = 200;
+  for (let i = 0; i < 21; i += 1) {
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/memory/documents",
+      payload: { runId: "run-1", missionId: "mission-1", source: "test", title: `doc ${i}`, content: "content" },
+    });
+    lastStatus = response.statusCode;
+  }
+  assert.equal(lastStatus, 429);
+  await app.close();
+});
+
+test("rate limits browser session requests per operator", async () => {
+  const config = loadConfig({ NODE_ENV: "test", MAXX_BROWSER_ENABLED: "true" });
+  const app = buildApp({
+    config,
+    authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }),
+    browser: { execute: async () => ({ success: true, url: null, durationMs: 1 }), close: async () => {} },
+  });
+  let lastStatus = 200;
+  for (let i = 0; i < 11; i += 1) {
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/browser/sessions",
+      payload: { action: "navigate", target: "https://example.com" },
+    });
+    lastStatus = response.statusCode;
+  }
+  assert.equal(lastStatus, 429);
+  await app.close();
+});
+
 test("rejects protected control-tower requests without an operator", async () => {
   const app = buildApp({ authenticate: async () => null });
   const response = await app.inject({ method: "GET", url: "/v1/control-tower/bootstrap" });

@@ -28,11 +28,18 @@ export class RateLimiter {
   }
 }
 
-// Limits from .claude/rules/security.md "Request Limits > Rate Limiting"
+// Limits from .claude/rules/security.md "Request Limits > Rate Limiting".
+// hermes/memory/browser/strategy were added in the Phase 15 security audit
+// after finding they had no rate limit despite being mutating,
+// operator-triggered routes like chat/skills/missions.
 export const RATE_LIMITS = {
   chat: { windowMs: 60_000, max: 10 },
   skills: { windowMs: 60_000, max: 3 },
   missions: { windowMs: 3_600_000, max: 5 },
+  hermes: { windowMs: 60_000, max: 5 },
+  memory: { windowMs: 60_000, max: 20 },
+  browser: { windowMs: 60_000, max: 10 },
+  strategy: { windowMs: 60_000, max: 10 },
 } as const;
 
 export function createRateLimiters() {
@@ -40,6 +47,10 @@ export function createRateLimiters() {
     chat: new RateLimiter(RATE_LIMITS.chat.windowMs, RATE_LIMITS.chat.max),
     skills: new RateLimiter(RATE_LIMITS.skills.windowMs, RATE_LIMITS.skills.max),
     missions: new RateLimiter(RATE_LIMITS.missions.windowMs, RATE_LIMITS.missions.max),
+    hermes: new RateLimiter(RATE_LIMITS.hermes.windowMs, RATE_LIMITS.hermes.max),
+    memory: new RateLimiter(RATE_LIMITS.memory.windowMs, RATE_LIMITS.memory.max),
+    browser: new RateLimiter(RATE_LIMITS.browser.windowMs, RATE_LIMITS.browser.max),
+    strategy: new RateLimiter(RATE_LIMITS.strategy.windowMs, RATE_LIMITS.strategy.max),
   };
 }
 

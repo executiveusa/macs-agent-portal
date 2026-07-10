@@ -504,6 +504,11 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   app.post("/v1/hermes/runs", async (request, reply) => {
+    const limitDecision = rateLimiters.hermes.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many Hermes run requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
     if (!config.featureFlags.MAXX_HERMES_ENABLED) {
       return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
     }
@@ -539,12 +544,22 @@ export function buildApp(options: AppOptions = {}) {
 
   app.get("/v1/strategy", async (request) => ownerStrategies.get(request.operator!.id));
 
-  app.put("/v1/strategy", async (request) => {
+  app.put("/v1/strategy", async (request, reply) => {
+    const limitDecision = rateLimiters.strategy.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many strategy updates", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
     const input: OwnerStrategyInput = strategyInputSchema.parse(request.body);
     return ownerStrategies.set(request.operator!.id, input);
   });
 
   app.post("/v1/memory/documents", async (request, reply) => {
+    const limitDecision = rateLimiters.memory.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many memory writes", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
     if (!config.featureFlags.MAXX_MEMORY_ENABLED) {
       return reply.code(503).send({ status: "unavailable", reason: "MAXX_MEMORY_ENABLED is false" });
     }
@@ -572,6 +587,11 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   app.post("/v1/browser/sessions", async (request, reply) => {
+    const limitDecision = rateLimiters.browser.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many browser session requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
     const input = browserSchema.parse(request.body);
     const strategy = ownerStrategies.get(request.operator!.id);
     if (isActionForbidden(`browser:${input.action}`, strategy)) {
