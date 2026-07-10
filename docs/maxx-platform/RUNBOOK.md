@@ -16,6 +16,19 @@ MAXX_DEV_AUTH_BYPASS=true npm run dev
 ```
 `MAXX_DEV_AUTH_BYPASS=true` skips Supabase JWT verification — every request is treated as the first allowlisted operator (or `local-stacy`/`stacy@local` if none configured). Never set this in production (`config.devAuthBypass` is force-disabled when `NODE_ENV=production`).
 
+### Loading `services/maxx-control-plane/.env` for a real (non-bypass) run
+`config.ts` reads straight from `process.env` — there is no `dotenv` dependency, so a `.env` file in that directory is **not** loaded automatically by `npm run dev`/`npm start`. Load it explicitly with Node's native flag (Node 20.6+, matches this package's `engines.node`):
+```sh
+node --env-file=.env dist/server.js         # after npm run build
+# or, for tsx watch during development:
+npx tsx --env-file=.env watch src/server.ts
+```
+Two things that will break config validation if you edit `.env` by hand:
+- **Blank is not the same as unset.** `SUPABASE_URL:z.string().url().optional()` (and `MAXX_HERMES_ENDPOINT`/`MAXX_STT_ENDPOINT`/`MAXX_TTS_ENDPOINT`) reject an empty string outright — `KEY=` with nothing after the `=` throws a ZodError at startup. Omit the line entirely to leave it unset, don't leave it blank.
+- `MAXX_ICM_ROOT` has a `.default(...)`, which only applies when the key is *absent* — `MAXX_ICM_ROOT=` (blank) silently sets it to `""` instead of the intended default. Omit the line to get the default.
+
+`npm start`/`npm run dev` are intentionally left as-is (not wired to `--env-file`) so Docker/Coolify deployments — which inject env vars directly, not via a `.env` file baked into the image — keep working unchanged.
+
 ### Start the frontend
 ```sh
 npm install
