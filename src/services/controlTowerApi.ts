@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { ChatResponse, ControlTowerBootstrap, Mission } from "@/types/controlTower";
+import type { ChatResponse, ControlTowerBootstrap, Mission, OwnerStrategy } from "@/types/controlTower";
 
 const baseUrl = (import.meta.env.VITE_CONTROL_TOWER_API_URL ?? "http://127.0.0.1:8787").replace(/\/$/, "");
 
@@ -43,4 +43,11 @@ export const controlTowerApi = {
       method: "POST",
       body: JSON.stringify({ action, target }),
     }),
+  getStrategy: () => request<OwnerStrategy>("/v1/strategy"),
+  setStrategy: (input: Partial<Omit<OwnerStrategy, "operatorId" | "updatedAt">>) =>
+    request<OwnerStrategy>("/v1/strategy", { method: "PUT", body: JSON.stringify(input) }),
+  searchMemory: (query: string) =>
+    request<{ results: Array<{ document: { id: string; title: string; content: string; createdAt: string }; score: number }> }>(
+      `/v1/memory/search?q=${encodeURIComponent(query)}`,
+    ),
 };

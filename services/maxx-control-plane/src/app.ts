@@ -259,6 +259,7 @@ export function buildApp(options: AppOptions = {}) {
       callback(new Error("Origin is not allowed"), false);
     },
     credentials: true,
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
   });
 
   app.addHook("onRequest", async (request, reply) => {
@@ -331,6 +332,8 @@ export function buildApp(options: AppOptions = {}) {
         currentUrl: null,
         recentActions: [],
       },
+      featureFlags: config.featureFlags,
+      emergencyDisabled: config.emergencyDisabled,
     };
   });
 

@@ -15,6 +15,26 @@ test("exposes liveness without authentication", async () => {
   await app.close();
 });
 
+test("CORS preflight allows PUT for a configured origin (regression: /v1/strategy)", async () => {
+  const config = loadConfig({
+    NODE_ENV: "test",
+    CONTROL_TOWER_ALLOWED_ORIGINS: "http://127.0.0.1:5173",
+  });
+  const app = buildApp({ config, authenticate: async () => null });
+  const response = await app.inject({
+    method: "OPTIONS",
+    url: "/v1/strategy",
+    headers: {
+      origin: "http://127.0.0.1:5173",
+      "access-control-request-method": "PUT",
+      "access-control-request-headers": "content-type",
+    },
+  });
+  assert.equal(response.statusCode, 204);
+  assert.match(response.headers["access-control-allow-methods"] as string, /PUT/);
+  await app.close();
+});
+
 test("rejects protected control-tower requests without an operator", async () => {
   const app = buildApp({ authenticate: async () => null });
   const response = await app.inject({ method: "GET", url: "/v1/control-tower/bootstrap" });

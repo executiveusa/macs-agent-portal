@@ -45,6 +45,16 @@ const emptyBootstrap: ControlTowerBootstrap = {
   skills: [],
   usage: { promptTokens: 0, completionTokens: 0, estimatedCostUsd: 0, requests: 0 },
   browser: { state: "unavailable", currentUrl: null, recentActions: [] },
+  featureFlags: {
+    MAXX_HERMES_ENABLED: false,
+    MAXX_VOICE_ENABLED: false,
+    MAXX_BROWSER_ENABLED: false,
+    MAXX_BROWSER_MUTATIONS_ENABLED: false,
+    MAXX_MEMORY_ENABLED: false,
+    MAXX_SCHEDULER_ENABLED: false,
+    MAXX_PRODUCTION_MUTATIONS_ENABLED: false,
+  },
+  emergencyDisabled: false,
 };
 
 function Panel({
@@ -688,7 +698,107 @@ function CrmView() {
   );
 }
 
+function OwnerStrategyPanel() {
+  const queryClient = useQueryClient();
+  const strategyQuery = useQuery({ queryKey: ["owner-strategy"], queryFn: controlTowerApi.getStrategy });
+  const [forbiddenInput, setForbiddenInput] = useState("");
+  const setStrategy = useMutation({
+    mutationFn: (input: Parameters<typeof controlTowerApi.setStrategy>[0]) => controlTowerApi.setStrategy(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["owner-strategy"] }),
+  });
+  const strategy = strategyQuery.data;
+
+  return (
+    <Panel className="mt-5 p-6">
+      <p className="text-sm font-semibold">Owner strategy</p>
+      <p className="mt-1 text-xs leading-5 text-black/42">
+        Operator-level preferences layered on top of MAXX's model routing and browser approval policy. Never bypasses approval gates.
+      </p>
+      {strategyQuery.isLoading && <p className="mt-4 text-xs text-black/40">Loading strategy...</p>}
+      {strategy && (
+        <div className="mt-5 space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-xs font-medium text-black/55">Preferred provider</span>
+            <select
+              value={strategy.preferredProvider ?? ""}
+              onChange={(event) =>
+                setStrategy.mutate({ preferredProvider: (event.target.value || undefined) as "groq" | "openrouter" | undefined })
+              }
+              className="rounded-full border border-black/10 bg-[#f7f7f5] px-3 py-2 text-xs text-black/70 outline-none"
+            >
+              <option value="">No preference (auto-routed)</option>
+              <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-xs font-medium text-black/55">Risk tolerance</span>
+            <select
+              value={strategy.riskTolerance}
+              onChange={(event) =>
+                setStrategy.mutate({ riskTolerance: event.target.value as "conservative" | "standard" | "permissive" })
+              }
+              className="rounded-full border border-black/10 bg-[#f7f7f5] px-3 py-2 text-xs text-black/70 outline-none"
+            >
+              <option value="conservative">Conservative</option>
+              <option value="standard">Standard</option>
+              <option value="permissive">Permissive</option>
+            </select>
+          </div>
+          <div>
+            <span className="text-xs font-medium text-black/55">Forbidden actions</span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {strategy.forbiddenActions.map((action) => (
+                <span key={action} className="flex items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-[10px] font-medium text-red-700">
+                  {action}
+                  <button
+                    onClick={() =>
+                      setStrategy.mutate({ forbiddenActions: strategy.forbiddenActions.filter((item) => item !== action) })
+                    }
+                    aria-label={`Remove ${action}`}
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              ))}
+              {!strategy.forbiddenActions.length && <span className="text-xs text-black/32">None — every classified action follows default policy.</span>}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <input
+                value={forbiddenInput}
+                onChange={(event) => setForbiddenInput(event.target.value)}
+                placeholder="e.g. browser:purchase"
+                className="flex-1 rounded-xl border border-black/10 bg-[#f7f7f5] px-3 py-2 text-xs text-black/70 outline-none placeholder:text-black/28"
+              />
+              <button
+                onClick={() => {
+                  if (!forbiddenInput.trim()) return;
+                  setStrategy.mutate({ forbiddenActions: [...strategy.forbiddenActions, forbiddenInput.trim()] });
+                  setForbiddenInput("");
+                }}
+                className="rounded-xl border border-black/10 px-4 py-2 text-xs font-semibold"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {strategyQuery.isError && <p className="mt-4 text-xs text-red-600">Strategy is unavailable. The control plane may be offline.</p>}
+    </Panel>
+  );
+}
+
 function SettingsView({ data }: { data: ControlTowerBootstrap }) {
+  const flagLabels: Record<keyof ControlTowerBootstrap["featureFlags"], string> = {
+    MAXX_HERMES_ENABLED: "Hermes agent runtime",
+    MAXX_VOICE_ENABLED: "Server voice (STT/TTS)",
+    MAXX_BROWSER_ENABLED: "Browser worker",
+    MAXX_BROWSER_MUTATIONS_ENABLED: "Browser mutations",
+    MAXX_MEMORY_ENABLED: "Memory indexer",
+    MAXX_SCHEDULER_ENABLED: "Scheduler",
+    MAXX_PRODUCTION_MUTATIONS_ENABLED: "Production mutations",
+  };
   return (
     <>
       <SectionHeading
@@ -696,6 +806,14 @@ function SettingsView({ data }: { data: ControlTowerBootstrap }) {
         title="Private system configuration"
         description="Runtime values belong in the VPS or Coolify vault. This page reports configuration state without revealing secret values."
       />
+      {data.emergencyDisabled && (
+        <Panel className="mb-5 border-red-200 bg-red-50 p-5">
+          <div className="flex items-center gap-3">
+            <ShieldAlert size={18} className="text-red-700" />
+            <p className="text-sm font-semibold text-red-700">MAXX_EMERGENCY_DISABLE is active — all mutating routes are blocked.</p>
+          </div>
+        </Panel>
+      )}
       <Panel className="overflow-hidden">
         {Object.entries(data.dependencies).map(([name, dependency], index) => (
           <div key={name} className={`flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between ${index ? "border-t border-black/[0.06]" : ""}`}>
@@ -707,6 +825,21 @@ function SettingsView({ data }: { data: ControlTowerBootstrap }) {
           </div>
         ))}
       </Panel>
+      <Panel className="mt-5 overflow-hidden">
+        <div className="p-5 pb-0">
+          <p className="text-sm font-semibold">Feature flags</p>
+          <p className="mt-1 text-xs text-black/40">Safe-rollout switches. All default to off until explicitly enabled in the control plane's environment.</p>
+        </div>
+        <div className="mt-4">
+          {Object.entries(data.featureFlags).map(([key, enabled], index) => (
+            <div key={key} className={`flex items-center justify-between px-5 py-3.5 ${index ? "border-t border-black/[0.06]" : ""}`}>
+              <span className="text-xs font-medium text-black/60">{flagLabels[key as keyof ControlTowerBootstrap["featureFlags"]] ?? key}</span>
+              <StatusPill status={enabled ? "ready" : "unavailable"} />
+            </div>
+          ))}
+        </div>
+      </Panel>
+      <OwnerStrategyPanel />
       <Panel className="mt-5 p-6">
         <div className="flex items-start gap-3">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-600" />
