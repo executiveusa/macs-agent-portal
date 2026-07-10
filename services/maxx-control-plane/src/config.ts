@@ -32,6 +32,7 @@ const schema = z.object({
   MAXX_STT_API_KEY: z.string().optional(),
   MAXX_TTS_ENDPOINT: z.string().url().optional(),
   MAXX_TTS_API_KEY: z.string().optional(),
+  MAXX_BROWSER_EXECUTABLE_PATH: z.string().optional(),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env) {

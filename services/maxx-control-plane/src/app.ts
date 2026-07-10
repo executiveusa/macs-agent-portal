@@ -25,6 +25,7 @@ import {
 } from "./owner-strategy.js";
 import { Scheduler } from "./scheduler.js";
 import { createVoiceGateway, type VoiceProvider } from "./voice-gateway.js";
+import { createBrowserWorker, type BrowserWorker } from "./browser-worker.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -43,6 +44,7 @@ type AppOptions = {
   ownerStrategies?: OwnerStrategyStore;
   scheduler?: Scheduler;
   voice?: { stt: VoiceProvider; tts: VoiceProvider };
+  browser?: BrowserWorker;
 };
 
 const riskToleranceEnum = z.enum(["conservative", "standard", "permissive"]);
@@ -140,9 +142,13 @@ function dependencies(config: MaxxConfig) {
       detail: config.PI_EXECUTABLE ? "Pi executable configured" : "PI_EXECUTABLE is missing",
     },
     browser: {
-      configured: Boolean(config.MAXX_BROWSER_WS_ENDPOINT),
-      status: config.MAXX_BROWSER_WS_ENDPOINT ? "ready" : "degraded",
-      detail: config.MAXX_BROWSER_WS_ENDPOINT ? "Remote browser configured" : "MAXX_BROWSER_WS_ENDPOINT is missing",
+      configured: config.featureFlags.MAXX_BROWSER_ENABLED,
+      status: config.featureFlags.MAXX_BROWSER_ENABLED ? "ready" : "unavailable",
+      detail: !config.featureFlags.MAXX_BROWSER_ENABLED
+        ? "MAXX_BROWSER_ENABLED is false"
+        : config.MAXX_BROWSER_WS_ENDPOINT
+          ? "Remote browser (CDP) configured"
+          : "Local Playwright Chromium (no MAXX_BROWSER_WS_ENDPOINT set)",
     },
     voice: {
       configured: Boolean(
@@ -222,9 +228,17 @@ export function buildApp(options: AppOptions = {}) {
       ttsEndpoint: config.MAXX_TTS_ENDPOINT,
       ttsApiKey: config.MAXX_TTS_API_KEY,
     });
+  const browser =
+    options.browser ??
+    createBrowserWorker({
+      browserEnabled: config.featureFlags.MAXX_BROWSER_ENABLED,
+      wsEndpoint: config.MAXX_BROWSER_WS_ENDPOINT,
+      executablePath: config.MAXX_BROWSER_EXECUTABLE_PATH,
+    });
   const app = Fastify({
     logger: config.NODE_ENV !== "test" ? { redact: ["req.headers.authorization", "body.audio", "*.apiKey"] } : false,
   });
+  app.addHook("onClose", async () => browser.close());
 
   if (config.featureFlags.MAXX_SCHEDULER_ENABLED) {
     scheduler.register({
@@ -561,8 +575,8 @@ export function buildApp(options: AppOptions = {}) {
       return reply.code(403).send({ error: "Action is forbidden by operator strategy", action: input.action });
     }
     const policy = classifyBrowserAction(input.action as BrowserAction);
-    if (!config.featureFlags.MAXX_BROWSER_ENABLED || !config.MAXX_BROWSER_WS_ENDPOINT) {
-      return reply.code(503).send({ status: "unavailable", reason: "Remote browser is not configured", policy });
+    if (!config.featureFlags.MAXX_BROWSER_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_BROWSER_ENABLED is false", policy });
     }
     if (policy === "approval_required" && !config.featureFlags.MAXX_BROWSER_MUTATIONS_ENABLED) {
       return reply.code(503).send({
@@ -579,7 +593,8 @@ export function buildApp(options: AppOptions = {}) {
       });
       return reply.code(202).send({ status: "approval_required", approval });
     }
-    return reply.send({ status: "accepted", policy, target: input.target ?? null });
+    const result = await browser.execute(input.action as BrowserAction, input.target);
+    return reply.code(result.success ? 200 : 502).send({ status: result.success ? "completed" : "failed", policy, ...result });
   });
 
   app.post("/v1/voice/transcribe", async (request, reply) => {

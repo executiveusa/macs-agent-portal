@@ -236,3 +236,43 @@ test("voice transcribe reports the honest reason when enabled but unconfigured",
   assert.match(response.json().reason, /not configured/);
   await app.close();
 });
+
+test("browser session route executes an automatic action via the injected worker", async () => {
+  const config = loadConfig({ NODE_ENV: "test", MAXX_BROWSER_ENABLED: "true" });
+  const app = buildApp({
+    config,
+    authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }),
+    browser: {
+      execute: async (action, target) => ({ success: true, url: target ?? null, durationMs: 5 }),
+      close: async () => {},
+    },
+  });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/browser/sessions",
+    payload: { action: "navigate", target: "https://example.com" },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().status, "completed");
+  await app.close();
+});
+
+test("browser session route returns 502 when the worker reports failure", async () => {
+  const config = loadConfig({ NODE_ENV: "test", MAXX_BROWSER_ENABLED: "true" });
+  const app = buildApp({
+    config,
+    authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }),
+    browser: {
+      execute: async () => ({ success: false, url: null, error: "boom", durationMs: 5 }),
+      close: async () => {},
+    },
+  });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/browser/sessions",
+    payload: { action: "navigate", target: "https://example.com" },
+  });
+  assert.equal(response.statusCode, 502);
+  assert.equal(response.json().status, "failed");
+  await app.close();
+});
