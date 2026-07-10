@@ -28,6 +28,10 @@ const schema = z.object({
   MAXX_APPROVAL_TTL_HOURS: z.coerce.number().positive().default(24),
   MAXX_HERMES_ENDPOINT: z.string().url().optional(),
   MAXX_MEMORY_INDEX_PATH: z.string().optional(),
+  MAXX_STT_ENDPOINT: z.string().url().optional(),
+  MAXX_STT_API_KEY: z.string().optional(),
+  MAXX_TTS_ENDPOINT: z.string().url().optional(),
+  MAXX_TTS_API_KEY: z.string().optional(),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env) {

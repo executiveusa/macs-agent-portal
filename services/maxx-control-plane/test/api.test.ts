@@ -210,3 +210,29 @@ test("scheduler jobs route lists the approval-expiry sweep when enabled", async 
   assert.equal(response.json().jobs[0].id, "approval-expiry-sweep");
   await app.close();
 });
+
+test("voice transcribe returns 503 with a browser fallback hint when MAXX_VOICE_ENABLED is false", async () => {
+  const config = loadConfig({ NODE_ENV: "test" });
+  const app = buildApp({ config, authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }) });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/voice/transcribe",
+    payload: { audioBase64: "abc", mimeType: "audio/wav" },
+  });
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.json().fallback, "browser_speech_recognition");
+  await app.close();
+});
+
+test("voice transcribe reports the honest reason when enabled but unconfigured", async () => {
+  const config = loadConfig({ NODE_ENV: "test", MAXX_VOICE_ENABLED: "true" });
+  const app = buildApp({ config, authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }) });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/voice/transcribe",
+    payload: { audioBase64: "abc", mimeType: "audio/wav" },
+  });
+  assert.equal(response.statusCode, 503);
+  assert.match(response.json().reason, /not configured/);
+  await app.close();
+});

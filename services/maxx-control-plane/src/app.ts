@@ -24,6 +24,7 @@ import {
   type OwnerStrategyInput,
 } from "./owner-strategy.js";
 import { Scheduler } from "./scheduler.js";
+import { createVoiceGateway, type VoiceProvider } from "./voice-gateway.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -41,6 +42,7 @@ type AppOptions = {
   memory?: MemoryIndexer;
   ownerStrategies?: OwnerStrategyStore;
   scheduler?: Scheduler;
+  voice?: { stt: VoiceProvider; tts: VoiceProvider };
 };
 
 const riskToleranceEnum = z.enum(["conservative", "standard", "permissive"]);
@@ -85,6 +87,14 @@ const browserSchema = z.object({
 const runSkillSchema = z.object({
   runId: z.string().optional(),
   input: z.record(z.unknown()).default({}),
+});
+const voiceTranscribeSchema = z.object({
+  audioBase64: z.string().min(1),
+  mimeType: z.string().min(1),
+});
+const voiceSynthesizeSchema = z.object({
+  text: z.string().trim().min(1).max(5_000),
+  voiceId: z.string().optional(),
 });
 const memoryDocumentSchema = z.object({
   runId: z.string().trim().min(1),
@@ -135,11 +145,23 @@ function dependencies(config: MaxxConfig) {
       detail: config.MAXX_BROWSER_WS_ENDPOINT ? "Remote browser configured" : "MAXX_BROWSER_WS_ENDPOINT is missing",
     },
     voice: {
-      configured: false,
-      status: config.featureFlags.MAXX_VOICE_ENABLED ? "degraded" : "unavailable",
-      detail: config.featureFlags.MAXX_VOICE_ENABLED
-        ? "MAXX_VOICE_ENABLED is set but no server STT/TTS provider is configured; browser fallback remains available"
-        : "MAXX_VOICE_ENABLED is false; browser fallback remains available",
+      configured: Boolean(
+        config.featureFlags.MAXX_VOICE_ENABLED &&
+          config.MAXX_STT_ENDPOINT &&
+          config.MAXX_STT_API_KEY &&
+          config.MAXX_TTS_ENDPOINT &&
+          config.MAXX_TTS_API_KEY,
+      ),
+      status: !config.featureFlags.MAXX_VOICE_ENABLED
+        ? "unavailable"
+        : config.MAXX_STT_ENDPOINT && config.MAXX_TTS_ENDPOINT
+          ? "ready"
+          : "degraded",
+      detail: !config.featureFlags.MAXX_VOICE_ENABLED
+        ? "MAXX_VOICE_ENABLED is false; browser fallback remains available"
+        : config.MAXX_STT_ENDPOINT && config.MAXX_TTS_ENDPOINT
+          ? "Server STT/TTS endpoints configured"
+          : "MAXX_VOICE_ENABLED is set but no server STT/TTS endpoint is configured; browser fallback remains available",
     },
     hermes: {
       configured: Boolean(config.featureFlags.MAXX_HERMES_ENABLED && config.MAXX_HERMES_ENDPOINT),
@@ -191,6 +213,15 @@ export function buildApp(options: AppOptions = {}) {
     });
   const ownerStrategies = options.ownerStrategies ?? new OwnerStrategyStore();
   const scheduler = options.scheduler ?? new Scheduler();
+  const voice =
+    options.voice ??
+    createVoiceGateway({
+      voiceEnabled: config.featureFlags.MAXX_VOICE_ENABLED,
+      sttEndpoint: config.MAXX_STT_ENDPOINT,
+      sttApiKey: config.MAXX_STT_API_KEY,
+      ttsEndpoint: config.MAXX_TTS_ENDPOINT,
+      ttsApiKey: config.MAXX_TTS_API_KEY,
+    });
   const app = Fastify({
     logger: config.NODE_ENV !== "test" ? { redact: ["req.headers.authorization", "body.audio", "*.apiKey"] } : false,
   });
@@ -551,12 +582,38 @@ export function buildApp(options: AppOptions = {}) {
     return reply.send({ status: "accepted", policy, target: input.target ?? null });
   });
 
-  app.post("/v1/voice/transcribe", async (_request, reply) =>
-    reply.code(503).send({ status: "unavailable", fallback: "browser_speech_recognition" }),
-  );
-  app.post("/v1/voice/synthesize", async (_request, reply) =>
-    reply.code(503).send({ status: "unavailable", fallback: "browser_speech_synthesis" }),
-  );
+  app.post("/v1/voice/transcribe", async (request, reply) => {
+    if (!config.featureFlags.MAXX_VOICE_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", fallback: "browser_speech_recognition" });
+    }
+    const input = voiceTranscribeSchema.parse(request.body);
+    try {
+      const result = await voice.stt.transcribe(input);
+      return reply.send(result);
+    } catch (error) {
+      return reply.code(503).send({
+        status: "unavailable",
+        fallback: "browser_speech_recognition",
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+  app.post("/v1/voice/synthesize", async (request, reply) => {
+    if (!config.featureFlags.MAXX_VOICE_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", fallback: "browser_speech_synthesis" });
+    }
+    const input = voiceSynthesizeSchema.parse(request.body);
+    try {
+      const result = await voice.tts.synthesize(input);
+      return reply.send(result);
+    } catch (error) {
+      return reply.code(503).send({
+        status: "unavailable",
+        fallback: "browser_speech_synthesis",
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
   app.get("/v1/usage/summary", async () => summarizeUsage(await store.listUsage()));
 
   app.setErrorHandler((error, _request, reply) => {
