@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { Approval, Mission, RunEvent, UsageRecord } from "./types.js";
 import type { MaxxConfig } from "./config.js";
 
+export type CreateApprovalInput = { runId: string; action: string; summary: string };
+
 export interface ControlTowerStore {
   listMissions(): Promise<Mission[]>;
   createMission(input: Omit<Mission, "createdAt" | "updatedAt"> & { workspacePath: string }): Promise<Mission>;
@@ -9,7 +11,10 @@ export interface ControlTowerStore {
   addEvent(runId: string, type: string, message: string, data?: Record<string, unknown>): Promise<RunEvent>;
   listEvents(runId: string): Promise<RunEvent[]>;
   listApprovals(): Promise<Approval[]>;
-  createApproval(input: Omit<Approval, "id" | "status">): Promise<Approval>;
+  createApproval(input: CreateApprovalInput): Promise<Approval>;
+  // Anti-replay: only a "pending" approval can transition. A once-decided
+  // approval (approved/rejected) or an expired one always returns undefined,
+  // so a caller replaying an old token gets a 409, never a second execution.
   decideApproval(
     id: string,
     decision: "approved" | "rejected",
@@ -19,11 +24,23 @@ export interface ControlTowerStore {
   listUsage(): Promise<UsageRecord[]>;
 }
 
+const DEFAULT_APPROVAL_TTL_HOURS = 24;
+
 export class MemoryStore implements ControlTowerStore {
   private missions: Mission[] = [];
   private approvals: Approval[] = [];
   private usage: UsageRecord[] = [];
   private events = new Map<string, RunEvent[]>();
+
+  constructor(private readonly approvalTtlHours: number = DEFAULT_APPROVAL_TTL_HOURS) {}
+
+  private expireStaleApprovals(now = new Date()) {
+    for (const approval of this.approvals) {
+      if (approval.status === "pending" && new Date(approval.expiresAt).getTime() <= now.getTime()) {
+        approval.status = "expired";
+      }
+    }
+  }
 
   async listMissions() {
     return [...this.missions];
@@ -58,11 +75,19 @@ export class MemoryStore implements ControlTowerStore {
   }
 
   async listApprovals() {
+    this.expireStaleApprovals();
     return [...this.approvals];
   }
 
-  async createApproval(input: Omit<Approval, "id" | "status">): Promise<Approval> {
-    const approval = { ...input, id: randomUUID(), status: "pending" as const };
+  async createApproval(input: CreateApprovalInput): Promise<Approval> {
+    const now = new Date();
+    const approval: Approval = {
+      ...input,
+      id: randomUUID(),
+      status: "pending",
+      createdAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + this.approvalTtlHours * 3_600_000).toISOString(),
+    };
     this.approvals.unshift(approval);
     return approval;
   }
@@ -72,6 +97,7 @@ export class MemoryStore implements ControlTowerStore {
     decision: "approved" | "rejected",
     operatorId: string,
   ): Promise<Approval | undefined> {
+    this.expireStaleApprovals();
     const approval = this.approvals.find((item) => item.id === id);
     if (!approval || approval.status !== "pending") return undefined;
     approval.status = decision;
@@ -93,6 +119,7 @@ export class SupabaseStore implements ControlTowerStore {
   constructor(
     private readonly url: string,
     private readonly serviceRoleKey: string,
+    private readonly approvalTtlHours: number = DEFAULT_APPROVAL_TTL_HOURS,
   ) {}
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -170,13 +197,15 @@ export class SupabaseStore implements ControlTowerStore {
   }
 
   async listApprovals(): Promise<Approval[]> {
+    await this.expireStaleApprovals();
     const rows = await this.request<Array<Record<string, unknown>>>(
       "maxx_approvals?select=*&order=created_at.desc",
     );
     return rows.map(mapApproval);
   }
 
-  async createApproval(input: Omit<Approval, "id" | "status">): Promise<Approval> {
+  async createApproval(input: CreateApprovalInput): Promise<Approval> {
+    const expiresAt = new Date(Date.now() + this.approvalTtlHours * 3_600_000).toISOString();
     const rows = await this.request<Array<Record<string, unknown>>>("maxx_approvals", {
       method: "POST",
       body: JSON.stringify({
@@ -184,6 +213,7 @@ export class SupabaseStore implements ControlTowerStore {
         action: input.action,
         summary: input.summary,
         evidence: {},
+        expires_at: expiresAt,
       }),
     });
     return mapApproval(rows[0]);
@@ -194,8 +224,11 @@ export class SupabaseStore implements ControlTowerStore {
     decision: "approved" | "rejected",
     operatorId: string,
   ): Promise<Approval | undefined> {
+    // Anti-replay + expiration are enforced together: the WHERE clause only
+    // matches a row that is still "pending" AND has not passed expires_at,
+    // so a replayed or expired token can never flip status a second time.
     const rows = await this.request<Array<Record<string, unknown>>>(
-      `maxx_approvals?id=eq.${id}&status=eq.pending`,
+      `maxx_approvals?id=eq.${id}&status=eq.pending&expires_at=gt.${encodeURIComponent(new Date().toISOString())}`,
       {
         method: "PATCH",
         body: JSON.stringify({
@@ -206,6 +239,13 @@ export class SupabaseStore implements ControlTowerStore {
       },
     );
     return rows[0] ? mapApproval(rows[0]) : undefined;
+  }
+
+  private async expireStaleApprovals(): Promise<void> {
+    await this.request(
+      `maxx_approvals?status=eq.pending&expires_at=lte.${encodeURIComponent(new Date().toISOString())}`,
+      { method: "PATCH", body: JSON.stringify({ status: "expired" }) },
+    );
   }
 
   async addUsage(input: UsageRecord): Promise<void> {
@@ -241,9 +281,9 @@ export class SupabaseStore implements ControlTowerStore {
 
 export function createStore(config: MaxxConfig): ControlTowerStore {
   if (config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY) {
-    return new SupabaseStore(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
+    return new SupabaseStore(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, config.MAXX_APPROVAL_TTL_HOURS);
   }
-  return new MemoryStore();
+  return new MemoryStore(config.MAXX_APPROVAL_TTL_HOURS);
 }
 
 function mapMission(row: Record<string, unknown>): Mission {
@@ -275,6 +315,8 @@ function mapApproval(row: Record<string, unknown>): Approval {
     action: String(row.action),
     summary: String(row.summary),
     status: row.status as Approval["status"],
+    createdAt: String(row.created_at),
+    expiresAt: String(row.expires_at),
     decidedAt: row.decided_at ? String(row.decided_at) : undefined,
     decidedBy: row.decided_by ? String(row.decided_by) : undefined,
   };

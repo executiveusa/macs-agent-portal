@@ -37,6 +37,25 @@ export type UsageSummary = {
   requests: number;
 };
 
+export type FeatureFlags = {
+  MAXX_HERMES_ENABLED: boolean;
+  MAXX_VOICE_ENABLED: boolean;
+  MAXX_BROWSER_ENABLED: boolean;
+  MAXX_BROWSER_MUTATIONS_ENABLED: boolean;
+  MAXX_MEMORY_ENABLED: boolean;
+  MAXX_SCHEDULER_ENABLED: boolean;
+  MAXX_PRODUCTION_MUTATIONS_ENABLED: boolean;
+};
+
+export type OwnerStrategy = {
+  operatorId: string;
+  preferredProvider?: "groq" | "openrouter";
+  riskTolerance: "conservative" | "standard" | "permissive";
+  forbiddenActions: string[];
+  maxCostPerRequestUsd?: number;
+  updatedAt: string;
+};
+
 export type ControlTowerBootstrap = {
   agent: {
     name: string;
@@ -53,6 +72,8 @@ export type ControlTowerBootstrap = {
     currentUrl: string | null;
     recentActions: Array<{ label: string; createdAt: string }>;
   };
+  featureFlags: FeatureFlags;
+  emergencyDisabled: boolean;
 };
 
 export type ChatResponse = {

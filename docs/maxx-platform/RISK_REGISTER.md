@@ -47,11 +47,11 @@
 ## High Risks (Phase 1 → Phase 10)
 
 ### R6: Multi-Tenant Isolation Not Validated
-**Severity**: HIGH  
-**Impact**: Schema supports multi-tenant but RLS policies not tested  
-**Mitigation**: Phase 17 includes cross-client isolation tests  
-**Owner**: Security engineer  
-**Target Completion**: Phase 17
+**Severity**: HIGH → **CORRECTED (Phase 17)**
+**Impact**: This entry assumed a multi-organization schema exists. It doesn't: `supabase/migrations/*.sql` has no `organizations` table and no `organization_id` column anywhere. `is_control_tower_operator()` intentionally grants full read/write access to every row to *any* allowlisted operator (checked against `STACY_ALLOWED_EMAILS`) — this is a single-organization, shared command-center design (the MACS Digital Media team), not multi-tenant SaaS. There is no cross-tenant boundary to leak across, because there is no second tenant.
+**Mitigation**: No code change needed for the system as currently scoped. If multi-organization support is ever added (a real `organizations` table, `organization_id` columns, per-org RLS), *that* work must ship with its own isolation tests before going live — this entry should be reopened at that point, not before.
+**Owner**: Architecture (re-scope if multi-org is ever built)
+**Target Completion**: N/A unless multi-org support is added to the roadmap
 
 ### R7: No Browser Mutation Execution Validation
 **Severity**: MEDIUM  
@@ -61,18 +61,18 @@
 **Target Completion**: Phase 10
 
 ### R8: Supabase RLS Policies Not Full-Scanned
-**Severity**: MEDIUM  
-**Impact**: RLS in place but security audit not completed  
-**Mitigation**: Phase 15 (Security) performs threat model and policy audit  
-**Owner**: Security engineer  
-**Target Completion**: Phase 15
+**Severity**: MEDIUM → **PARTIALLY RESOLVED (Phase 15)**
+**Impact**: RLS in place but security audit not completed
+**Mitigation**: Phase 15 code-reviewed every RLS policy and every route (see SECURITY_REVIEW.md). **Still open**: policies have never been exercised against a live, reachable Postgres instance — this environment's configured Supabase host is not network-reachable. Live multi-tenant isolation testing remains Phase 17.
+**Owner**: Security engineer
+**Target Completion**: Phase 15 (review) / Phase 17 (live testing)
 
 ### R9: No Service-to-Service Authentication
-**Severity**: MEDIUM  
-**Impact**: Hermes, voice, memory, browser adapters will need authentication; currently documented but not implemented  
-**Mitigation**: Phase 3 adds service credentials and mTLS/token auth  
-**Owner**: Backend & security engineer  
-**Target Completion**: Phase 3
+**Severity**: MEDIUM
+**Impact**: Hermes, voice, memory, and browser are currently in-process adapters within the control-plane process (Phases 5, 6, 9, 10), not separate deployable services, so there is no network boundary between them to authenticate across yet. This risk becomes real the moment any of them is split into its own deployed service (e.g., a real Hermes runtime reached over HTTP/MAXX_HERMES_ENDPOINT).
+**Mitigation**: Not yet implemented. Add token-based auth on the control-plane→adapter direction when the first adapter is actually deployed as a separate service.
+**Owner**: Backend & security engineer
+**Target Completion**: Whenever the first adapter is split out (not yet scheduled)
 
 ### R10: No Secret Rotation Procedure
 **Severity**: MEDIUM  
@@ -107,11 +107,11 @@
 **Target Completion**: Phase 3 (document) / Phase 20+ (implement)
 
 ### R14: No Graceful Shutdown
-**Severity**: MEDIUM  
-**Impact**: Control plane kills in-flight requests; long-running ops can break  
-**Mitigation**: Phase 3 implements graceful shutdown with timeout  
-**Owner**: Backend engineer  
-**Target Completion**: Phase 3
+**Severity**: MEDIUM → **RESOLVED (Phase 15)**
+**Impact**: Control plane killed in-flight requests; long-running ops could break
+**Mitigation**: `server.ts` now handles SIGTERM/SIGINT by calling `app.close()` (drains in-flight requests, runs the scheduler/browser `onClose` hooks already registered in `app.ts`) before exiting. **Correction**: this was originally logged as done in Phase 3 in this document; it was not actually implemented until this Phase 15 audit found the gap. Verified live: started the server, sent SIGTERM, confirmed "Received shutdown signal" → "Shutdown complete" in the logs and a clean process exit.
+**Owner**: Backend engineer
+**Target Completion**: Phase 15 (corrected from the original Phase 3 claim)
 
 ### R15: No Rate Limiting on Chat/Skills
 **Severity**: MEDIUM  
@@ -159,6 +159,13 @@
 **Owner**: DevOps & security engineer  
 **Target Completion**: Phase 18
 
+### R21: Backups Are Not Encrypted at Rest
+**Severity**: HIGH
+**Impact**: Phase 14's backup/restore is real and verified (checksum + restore-tested end-to-end), but no KMS/vault is configured in this environment, so backups are plain `tar.gz` files. Anyone with filesystem access to the backup location can read mission objectives, approval history, and any other ICM workspace content.
+**Mitigation**: Choose and wire a real encryption approach (age, sops, or a cloud KMS) before storing backups anywhere other than a local, access-controlled disk. `backupRecordSchema.encryption_key_id` is already `null` rather than fabricated, so this gap is visible in every backup manifest rather than hidden.
+**Owner**: Security & DevOps engineer
+**Target Completion**: Before any backup leaves local disk (not yet scheduled — requires an owner decision on KMS provider)
+
 ---
 
 ## Resolved Risks (Baseline)
@@ -202,7 +209,7 @@
 **Phase 13**: Deployment hardening, Docker pinning, monitoring (R5, R19)  
 **Phase 14**: Backup & restore validation (R4)  
 **Phase 15**: Security audit, threat model, incident response (R8, R10)  
-**Phase 17**: Multi-tenant isolation tests (R6)  
+**Phase 17**: R6 reclassified (no multi-org schema exists; see corrected entry) — focus shifted to end-to-end lifecycle testing  
 **Phase 18**: CI/CD & dependency scanning (R5, R20)  
 
 ### By Owner
@@ -246,7 +253,7 @@ Each phase must close associated risks before proceeding:
 - **Phase 13**: R5 Coolify deployment works; R19 Docker pins version; monitoring live
 - **Phase 14**: R4 backup tested; restore succeeds
 - **Phase 15**: R8 RLS audit passed; R10 rotation procedure documented
-- **Phase 17**: R6 multi-tenant tests pass
+- **Phase 17**: End-to-end mission lifecycle test passes (R6 reclassified as not applicable to the current single-organization schema)
 - **Phase 18**: R20 CI scanning enabled
 
 ---

@@ -24,6 +24,8 @@ dist-ssr
 *.sw?
 .vercel
 .maxx-rollback/
+.maxx-restore-test/
+/backups/
 _reference/
 
 # Provider/runtime secrets and deployment metadata
@@ -48,4 +50,5 @@ master.secrets.json
 /public/MUSTANG MAXX/5e7e1e4ed1213b2eb688f491_007-Logo-C.svg
 /public/MUSTANG MAXX/**/*.zip
 /workspaces/maxx/runs/
+services/maxx-control-plane/workspaces/
 .env*

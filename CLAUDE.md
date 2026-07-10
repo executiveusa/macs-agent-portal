@@ -86,25 +86,27 @@
 | Phase | Focus | Owner | Status |
 |-------|-------|-------|--------|
 | 0 | Audit, baseline | Architecture | ✅ Complete |
-| 1 | CLAUDE.md, agents, rules | Architecture | ← You are here |
-| 2 | Shared contracts, types | Backend | Blocked on Phase 1 |
-| 3 | Control-plane hardening | Backend + Security | Phase 2 complete |
-| 4 | Approval engine | Backend + Security | Phase 3 complete |
-| 5 | Hermes integration | AI-agent engineer | Phase 4 complete |
-| 6 | Memory indexer | Backend + AI | Phase 5 complete |
-| 7 | Owner strategy overlay | Architecture | Phase 6 complete |
-| 8 | Scheduler | Backend + DevOps | Phase 7 complete |
-| 9 | Voice infrastructure | Voice engineer | Phase 8 complete |
-| 10 | Browser worker | Backend | Phase 9 complete |
-| 11 | Full dashboard | Frontend | Phase 10 complete |
-| 12 | Data model extension | Backend | Phase 11 complete |
-| 13 | Deployment setup | DevOps | Phase 12 complete |
-| 14 | Backup & restore | DevOps | Phase 13 complete |
-| 15 | Security hardening | Security | Phase 14 complete |
-| 16 | Client package | DevOps | Phase 15 complete |
-| 17 | Test suite | QA | Phase 16 complete |
-| 18 | CI/CD pipeline | DevOps | Phase 17 complete |
-| 19 | Documentation & runbooks | Tech writer | Phase 18 complete |
+| 1 | CLAUDE.md, agents, rules | Architecture | ✅ Complete |
+| 2 | Shared contracts, types | Backend | ✅ Complete |
+| 3 | Control-plane hardening | Backend + Security | ✅ Complete |
+| 4 | Approval engine | Backend + Security | ✅ Complete |
+| 5 | Hermes integration | AI-agent engineer | ✅ Complete (adapter + stub; real runtime not connected — see RISK_REGISTER.md) |
+| 6 | Memory indexer | Backend + AI | ✅ Complete (keyword search, local file-backed) |
+| 7 | Owner strategy overlay | Architecture | ✅ Complete |
+| 8 | Scheduler | Backend + DevOps | ✅ Complete (in-process, fixed-interval) |
+| 9 | Voice infrastructure | Voice engineer | ✅ Complete (gateway + generic HTTP provider; no vendor wired — see RISK_REGISTER.md) |
+| 10 | Browser worker | Backend | ✅ Complete (local Playwright, real end-to-end verified) |
+| 11 | Full dashboard | Frontend | ✅ Complete |
+| 12 | Data model extension | Backend | ✅ Complete (migration written, not applied) |
+| 13 | Deployment setup | DevOps | ✅ Complete (Docker/Coolify config; live deploy gated) |
+| 14 | Backup & restore | DevOps | ✅ Complete (local filesystem, verified end-to-end) |
+| 15 | Security hardening | Security | ✅ Complete — see SECURITY_REVIEW.md |
+| 16 | Client package | DevOps | ✅ Complete (@maxx/client-sdk) |
+| 17 | Test suite | QA | ✅ Complete (90.58% coverage, acceptance tests) |
+| 18 | CI/CD pipeline | DevOps | ✅ Complete (GitHub Actions, verified green) |
+| 19 | Documentation & runbooks | Tech writer | ← You are here |
+
+See `docs/maxx-platform/IMPLEMENTATION_STATUS.md` for full phase-by-phase deliverables and `docs/maxx-platform/RISK_REGISTER.md` for what remains open (backup encryption, live Hermes/voice vendor integration, live RLS testing).
 
 ## Running Tasks
 
@@ -266,5 +268,5 @@ export MAXX_EMERGENCY_DISABLE=true
 ---
 
 **Last Updated**: 2026-07-10  
-**Status**: Phase 1 (CLAUDE.md established)  
-**Next**: Phase 1 continues with .claude/ directory creation
+**Status**: Phases 0-18 complete. Phase 19 (documentation & runbooks) in progress.  
+**Next**: Close remaining Phase 19 documentation, then address the open items in RISK_REGISTER.md (backup encryption, live Hermes/voice vendor integration) before production deployment.

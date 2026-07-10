@@ -1,471 +1,212 @@
 # MAXX Platform Implementation Status
 
 **Last Updated**: 2026-07-10  
-**Current Phase**: 2 Complete, Phase 3 Pending  
+**Current Phase**: 0-18 complete, 19 (this document) in progress  
 **Branch**: claude/code-master-build-prompt-5xvfmn  
 
 ---
 
 ## Executive Summary
 
-The MAXX Agent Portal has evolved from a Vercel frontend + Fastify control plane foundation into a fully architectured, policy-governed platform. Three phases are now complete:
+The MAXX Agent Portal has grown from a Vercel frontend + Fastify control plane foundation into a fully hardened, policy-governed platform with real (not stubbed) implementations across control-plane hardening, approval governance, memory, scheduling, browser automation, a client SDK, and CI/CD. Phases 0 through 18 are complete; this document (Phase 19) is the final documentation pass.
 
-- **Phase 0**: Audit & baseline documentation (✅ Complete)
-- **Phase 1**: Claude Code operating system (✅ Complete)
-- **Phase 2**: Shared type contracts (✅ Complete)
-
-The system is **stable and production-ready** for its current feature set. Core gaps (Hermes integration, voice, memory, scheduler, self-hosted deployment) are identified and will be addressed in phases 3-14.
+**What "complete" means here**: every phase below shipped real code with real tests, not placeholders. Where a phase depends on infrastructure this environment doesn't have (a live Hermes runtime, a chosen voice vendor, a KMS for backup encryption, a reachable production database), the phase shipped the honest interface/adapter and marked the gap explicitly in `RISK_REGISTER.md` rather than faking it. See that file for the current list of what's genuinely still open.
 
 ---
 
-## Completed Work
+## Completed Work by Phase
 
 ### Phase 0: Audit & Safety Baseline ✅
-
-**Deliverables**:
-- `docs/maxx-platform/CURRENT_STATE.md` – Comprehensive system audit
-- `docs/maxx-platform/ARCHITECTURE.md` – Detailed component overview (8000+ words)
-- `docs/maxx-platform/RISK_REGISTER.md` – 20 identified risks with mitigation strategy
-- `docs/maxx-platform/DECISIONS.md` – 10 ratified architectural decisions
-
-**Key Findings**:
-- ✅ Frontend builds (944 KB production bundle, 293 KB gzipped)
-- ✅ Frontend tests pass (3/3)
-- ✅ Control plane tests pass (18/18)
-- ✅ Control plane typecheck succeeds
-- ✅ Supabase RLS policies in place
-- ✅ Approval gates functional for browser/skill actions
-- ✅ ICM workspace isolation working
-- ✅ Model routing with graceful fallback implemented
-- ⚠️ Voice system unavailable (fallback only)
-- ⚠️ Hermes integration not yet implemented
-- ⚠️ Self-hosted deployment untested
-
-**Baseline Test Results**:
-| Component | Tests | Pass Rate | Status |
-|-----------|-------|-----------|--------|
-| Frontend (lib) | 3 | 100% | ✅ Passing |
-| Control Plane | 18 | 100% | ✅ Passing |
-| TypeCheck | n/a | 0 errors | ✅ Passing |
-| Build | n/a | succeeds | ✅ Passing |
-| Lint | n/a | 8 warnings | ⚠️ Non-blocking |
-
-**Key Decisions Ratified**:
-1. **AD-001**: System boundary (browser never touches provider APIs)
-2. **AD-002**: ICM-first workspace architecture
-3. **AD-003**: Approval-first action governance
-4. **AD-004**: Graceful degradation for optional services
-5. **AD-005**: Vercel frontend + self-hosted control plane
-6. **AD-006**: Browser fallback for voice (server voice in Phase 9)
-7. **AD-007**: Model routing with Groq/OpenRouter fallback
-8. **AD-008**: Supabase RLS for multi-tenant safety
-9. **AD-009**: Additive-only database migrations
-10. **AD-010**: No plaintext secrets in code/logs
-
----
+- `CURRENT_STATE.md`, `ARCHITECTURE.md`, `RISK_REGISTER.md`, `DECISIONS.md` — baseline audit and 10 ratified architectural decisions.
 
 ### Phase 1: Claude Code Operating System ✅
-
-**Deliverables**:
-- `CLAUDE.md` – Root operating instructions (200 lines)
-- `.claude/rules/architecture.md` – System design rules
-- `.claude/rules/security.md` – Auth, approval, audit rules
-- `.claude/settings.json` – Hook configuration and permissions
-- `.claude/agents/backend-engineer.md` – Specialized agent definition
-
-**Purpose**:
-Establish Claude Code as the repository's operating system, enabling consistent, policy-enforced development across 19 phases.
-
-**Enables**:
-- Enforcement of system boundary principles
-- Automated security checks (pre-commit hooks)
-- Specialized agent behaviors for different specialties
-- Type-checked, permission-scoped work
-
-**Key Rules Established**:
-- Browser frontend cannot access provider APIs directly
-- All external calls flow through authenticated control plane
-- Secrets never committed; always in environment
-- Approval gates required for high-risk actions
-- Audit logging on all consequential actions
-- RLS policies protect multi-tenant data
-- Path traversal prevention in ICM workspaces
-- Graceful degradation when services unavailable
-
-**Architecture Rules**:
-- Clear component boundaries (frontend, control plane, ICM, adapters)
-- Backward compatibility in API versioning
-- Error handling patterns (4xx client, 5xx server)
-- Testing strategy (unit, integration, acceptance)
-- Dependency management (approved libraries, license review)
-
-**Security Rules**:
-- JWT verification on protected routes
-- Operator allowlist (case-insensitive email)
-- RLS policies for multi-tenant isolation
-- Action classification (read-only vs. approval-required)
-- Budget tracking and cost limiting
-- Audit trail immutability
-- Emergency disable switches
-
----
+- `CLAUDE.md`, `.claude/rules/architecture.md`, `.claude/rules/security.md`, `.claude/settings.json`, `.claude/agents/backend-engineer.md`.
 
 ### Phase 2: Monorepo Contracts ✅
+- `packages/shared-types/` — Zod schemas for operators, missions, approvals, events, usage, agents, voice, browser, deployment.
 
-**Deliverables**:
-- `packages/shared-types/` – Core type package with Zod schemas
-  - `operators.ts` – Operator identity, organization
-  - `missions.ts` – Mission definition, ICM metadata
-  - `approvals.ts` – Approval requests and decisions
-  - `events.ts` – Immutable audit trail
-  - `usage.ts` – Token tracking, cost aggregation
-  - `agents.ts` – Agent run state, tool calls
-  - `voice.ts` – Voice sessions, STT/TTS contracts
-  - `browser.ts` – Browser actions and sessions
-  - `deployment.ts` – Releases, backups, feature flags
+### Phase 3: Control Plane Hardening ✅
+- `feature-flags.ts` — 7 safe-rollout flags, all default `false`.
+- `rate-limiter.ts` — per-operator limits on every mutating route (chat, missions, skills, hermes, memory, browser, strategy).
+- `circuit-breaker.ts` — trips after 5 consecutive Groq failures, 30s cooldown.
+- `health-checker.ts` — timeout-bounded provider probes.
+- `MAXX_EMERGENCY_DISABLE` kill switch; production mutation lock; request correlation IDs.
 
-**Purpose**:
-Define versioned contracts for all inter-service communication using Zod for runtime validation + TypeScript type extraction.
+### Phase 4: Approval Engine ✅
+- Approval expiration (`MAXX_APPROVAL_TTL_HOURS`, default 24h), lazy expiry, anti-replay confirmed end-to-end (a decided or expired approval can never be re-decided).
+- Additive Supabase migration for `expires_at`.
 
-**Benefits**:
-- Single source of truth for types (no manual sync)
-- Runtime validation catches mismatches early
-- TypeScript compile-time safety
-- Backward compatibility by design (additive only)
-- Clear versioning strategy (semantic version)
+### Phase 5: Hermes Adapter ✅ (CREDENTIAL_GATE)
+- `hermes-adapter.ts` — `HermesAdapter` interface, `StubHermesAdapter` (honest failure when unconfigured), `HttpHermesAdapter` (real HTTP client, tested against a fake fetch only).
+- **Open**: no live Hermes runtime is reachable from this environment. Set `MAXX_HERMES_ENABLED=true` and `MAXX_HERMES_ENDPOINT` once one exists.
 
-**Integration Patterns**:
-```typescript
-// Frontend calls control plane
-const missionInput = createMissionSchema.parse(formData);
+### Phase 6: Memory Indexer ✅
+- `memory-indexer.ts` — keyword (term-frequency) search over mission history, `FileMemoryIndexer` (JSONL) or `InMemoryMemoryIndexer`. Auto-indexes on mission completion.
+- Not semantic search — no embedding provider key is configured. Contract is embedding-swappable later.
 
-// Control plane validates and saves
-const missionData = missionSchema.parse(await store.createMission(input));
+### Phase 7: Owner Strategy Overlay ✅
+- `owner-strategy.ts` — per-operator provider preference, risk tolerance, forbidden-actions hard-block (403 before approval classification even runs).
 
-// Hermes adapter validates inputs
-const agentRun = agentRunInputSchema.parse(heroesMessage);
-```
+### Phase 8: Scheduler ✅
+- `scheduler.ts` — fixed-interval, in-process job scheduler. Runs an approval-expiry sweep every 60s when `MAXX_SCHEDULER_ENABLED=true`.
 
-**Enables Future Phases**:
-- Phase 5: Hermes adapter can validate agent inputs
-- Phase 6: Memory indexer uses standardized event contracts
-- Phase 9: Voice gateway uses voiceSessionSchema
-- Phase 13: Deployment uses releaseManifestSchema
+### Phase 9: Voice Gateway ✅ (CREDENTIAL_GATE)
+- `voice-gateway.ts` — `VoiceProvider` interface, `UnavailableVoiceProvider`, generic `HttpVoiceProvider` (not bound to any specific vendor's API shape).
+- **Open**: no STT/TTS vendor or credentials chosen yet.
+
+### Phase 10: Browser Worker ✅
+- `browser-worker.ts` — real local Playwright Chromium automation for navigate/extract/screenshot, verified with an actual headless browser launch against a `data:` URL in this session. Mutating actions (purchase, submit_form, etc.) honestly return `success: false` — no generic-safe way to execute those without a target-specific integration.
+- Dockerfile updated to install Alpine's native Chromium (Playwright's own bundled download doesn't run on musl libc) — **unverified**, no Docker daemon in this environment.
+
+### Phase 11: Dashboard Enhancements ✅
+- Feature flags, owner strategy, and all new dependency entries surface on the Settings page. Verified live in a browser (dev control plane + Vite dev server) — found and fixed two real bugs during that verification: invisible form text (missing color class) and a CORS preflight bug (`@fastify/cors` wasn't allowing `PUT`).
+
+### Phase 12: Data Model Extension ✅
+- Additive migration for `maxx_owner_strategies`, `maxx_memory_documents`, `maxx_hermes_runs`. **Not applied** — per `CLAUDE.md` guardrails, migrations require explicit operator confirmation before running.
+
+### Phase 13: Deployment ✅
+- Existing Dockerfile/`compose.coolify.yml`/`COOLIFY_MIGRATION.md` preserved; fixed the browser-worker container gap (see Phase 10). Live deployment remains gated behind `MAXX_PRODUCTION_MUTATIONS_ENABLED` and explicit approval.
+
+### Phase 14: Backup & Restore ✅
+- `scripts/maxx-backup.mjs` / `scripts/maxx-restore.mjs` — local filesystem tar + SHA-256 checksum, verified end-to-end (backup → restore → `diff -r` byte-identical; tampered-checksum rejection; refuses to restore onto the live root).
+- **Open**: not encrypted at rest — no KMS in this environment. See RISK_REGISTER.md R21.
+
+### Phase 15: Security Hardening ✅
+- Full audit against `.claude/rules/security.md`'s checklist — see `SECURITY_REVIEW.md`.
+- Found and fixed: the CORS `PUT` bug (also caught independently in Phase 11), missing rate limits on 4 routes, graceful shutdown that had been claimed done in Phase 3 but never actually implemented.
+- `SECURITY_INCIDENT.md` created (procedure + append-only log, currently empty — no incidents have occurred).
+
+### Phase 16: Client SDK ✅
+- `packages/client-sdk/` (`@maxx/client-sdk`) — typed HTTP client for external integrations, independent of the dashboard's Supabase-session-coupled API client. Verified against a real running control plane end-to-end, not just mocked tests.
+
+### Phase 17: Test Suite ✅
+- `test/acceptance.test.ts` — full mission lifecycle exercised across modules together (create → chat → approval → skill → complete → memory search → bootstrap), something no other test file did.
+- Measured coverage: **90.58% line / 87.15% branch / 92.31% function** across `services/maxx-control-plane/src`, meeting the CLAUDE.md ≥90% target.
+- Corrected a documentation error found while planning this phase: R6 ("multi-tenant isolation") assumed a multi-organization schema that doesn't exist — this is a single-organization shared command center by design.
+
+### Phase 18: CI/CD Pipeline ✅
+- `.github/workflows/ci.yml` — frontend (lint/test/build), control-plane (typecheck/test/build), client-sdk (typecheck/test/build), dependency-audit (`npm audit`, report-only).
+- **Verified genuinely green**, not just written: the first run caught two real bugs (a bash `globstar`-dependent test glob that worked in this sandbox's shell but not GitHub Actions' `bash -e`, and a `PlaywrightBrowserWorker.close()` bug that re-threw a failed launch's rejection from inside a test's `finally` block). Both reproduced in isolation, fixed, and confirmed via `bash -e -c 'npm run test'` locally before push. Run #3 (commit `9cd8fed`) is the first fully green run.
+
+### Phase 19: Documentation & Runbooks ← this document
+- `CLAUDE.md` phase table corrected to reflect actual completion status.
+- This file rewritten for phases 0-18.
+- `docs/maxx-platform/RUNBOOK.md` (operations runbook, see below).
 
 ---
 
 ## Current Architecture
 
-### Production Setup (Today)
 ```
 Browser (Vercel)
-    ↓ HTTPS/JWT
-Control Plane (Local/Laptop)
-    ├→ Supabase (Auth + Database)
-    ├→ OpenRouter (Capability, fallback)
-    └→ Groq (Speed, primary)
-```
+    ↓ HTTPS/JWT (Supabase-issued token, operator allowlist enforced)
+Control Plane (Fastify, services/maxx-control-plane)
+    ├→ Supabase (Auth + Database, RLS-enforced for the operator allowlist)
+    ├→ Groq (fast lane) / OpenRouter (broad model access) — circuit-breaker protected
+    ├→ Hermes adapter (stub; real runtime not connected)
+    ├→ Voice gateway (stub; no vendor wired)
+    ├→ Memory indexer (real, local keyword search)
+    ├→ Browser worker (real, local Playwright)
+    └→ Scheduler (real, in-process)
 
-### Planned Architecture (Phases 3-14)
-```
-Browser (Vercel)
-    ↓ HTTPS/JWT
-Control Plane (Fastify)
-    ├→ Supabase (Managed)
-    ├→ Hermes (Agent runtime)
-    ├→ Voice Gateway (STT/TTS)
-    ├→ Memory Indexer (Knowledge system)
-    ├→ Browser Worker (Playwright)
-    ├→ Scheduler (Jobs)
-    └→ Models (OpenRouter + Groq + local)
-```
-
-### Deployment Topology (Production)
-```
-Vercel Frontend
-    ↓ (proxy to)
-Coolify Control Plane + Services
-    ├─ Fastify (control plane)
-    ├─ Hermes (agent)
-    ├─ Voice gateway
-    ├─ Memory indexer
-    ├─ Browser worker
-    └─ Scheduler
-    ↓
-PostgreSQL (Supabase or self-hosted)
-/srv/maxx/ (persistent volumes)
-    ├─ workspaces/ (ICM missions)
-    ├─ second-brain/ (knowledge)
-    ├─ voice-models/ (local STT/TTS)
-    ├─ backups/ (encrypted)
-    └─ audit/ (event logs)
+External integrations → @maxx/client-sdk → same /v1/* API
 ```
 
 ---
 
-## Test & Build Status
-
-### Passing Tests
-```bash
-$ npm run test
-✓ src/lib/controlTower.test.ts (3 tests)
-  Duration: 480ms
-```
+## Test & Build Status (verified this session)
 
 ```bash
-$ npm run test:control-plane
-18 tests passing (model routing, approval gates, ICM isolation, auth)
-  Duration: 1.3s
-```
+$ npm run test                                    # frontend
+✓ 3/3 passing
 
-### Passing Checks
-```bash
-$ npm run build
-✓ vite build (944 KB main bundle)
-  Duration: 25.93s
+$ npm run test --prefix services/maxx-control-plane
+✓ 91/91 (90 pass, 1 environment-dependent skip)
 
-$ npm run typecheck:control-plane
-✓ TypeScript compilation
-  Duration: <1s
+$ npm run test --prefix packages/client-sdk
+✓ 6/6 passing
+
+$ npm run build                                   # frontend
+✓ succeeds
+
+$ npm run build --prefix services/maxx-control-plane
+✓ succeeds
 
 $ npm run lint
-8 warnings (non-blocking, fast-refresh in UI libs)
-  Duration: <1s
+8 warnings (pre-existing baseline, non-blocking)
 ```
 
-### Test Coverage by Phase
-| Phase | Component | Status | Coverage |
-|-------|-----------|--------|----------|
-| 0 | Baseline | ✅ Documented | 100% |
-| 1 | Claude Code | ✅ Defined | 100% |
-| 2 | Type Contracts | ✅ Defined | 100% |
-| 3-4 | Control Plane | 📋 Planned | Pending |
-| 5-14 | Adapters | 📋 Planned | Pending |
-| 17 | Full Suite | 📋 Planned | Pending |
+GitHub Actions CI (`.github/workflows/ci.yml`): all 4 jobs green as of commit `9cd8fed` (run #3).
 
 ---
 
 ## Files & Structure
 
-### Documentation (docs/maxx-platform/)
 ```
-docs/maxx-platform/
-├── CURRENT_STATE.md             (audit, status, gaps)
-├── ARCHITECTURE.md              (system design, components)
-├── RISK_REGISTER.md             (20 risks + mitigation)
-├── DECISIONS.md                 (10 ratified + 4 pending)
-├── IMPLEMENTATION_STATUS.md     (this file)
-└── (phases 3-19 docs planned)
-```
-
-### Repository Structure
-```
-.claude/
-├── rules/
-│   ├── architecture.md          (✅ Phase 1)
-│   ├── security.md              (✅ Phase 1)
-│   ├── frontend.md              (📋 Phase 1)
-│   ├── backend.md               (📋 Phase 1)
-│   ├── testing.md               (📋 Phase 1)
-│   └── deployment.md            (📋 Phase 13)
-├── agents/
-│   ├── backend-engineer.md      (✅ Phase 1)
-│   ├── architecture-auditor.md  (📋 Phase 1)
-│   ├── frontend-engineer.md     (📋 Phase 1)
-│   ├── voice-engineer.md        (📋 Phase 9)
-│   ├── security-reviewer.md     (📋 Phase 15)
-│   └── deployment-engineer.md   (📋 Phase 13)
-└── settings.json                (✅ Phase 1)
-
+.claude/                          (Phase 1)
 packages/
-└── shared-types/                (✅ Phase 2)
-    ├── src/
-    │   ├── operators.ts
-    │   ├── missions.ts
-    │   ├── approvals.ts
-    │   ├── events.ts
-    │   ├── usage.ts
-    │   ├── agents.ts
-    │   ├── voice.ts
-    │   ├── browser.ts
-    │   ├── deployment.ts
-    │   └── index.ts
-    └── package.json
-
-src/                             (✅ Existing, maintained)
-└── (frontend: React, Vite)
-
-services/maxx-control-plane/     (✅ Existing, extended)
-└── (backend: Fastify)
-
-supabase/                        (✅ Existing)
-├── migrations/
-└── config.toml
-
-CLAUDE.md                        (✅ Phase 1, root instructions)
+├── shared-types/                 (Phase 2)
+└── client-sdk/                   (Phase 16)
+services/maxx-control-plane/
+├── src/
+│   ├── app.ts                    Route handlers
+│   ├── feature-flags.ts          (Phase 3)
+│   ├── rate-limiter.ts           (Phase 3, 15)
+│   ├── circuit-breaker.ts        (Phase 3)
+│   ├── health-checker.ts         (Phase 3)
+│   ├── store.ts                  Data layer (Memory + Supabase)
+│   ├── hermes-adapter.ts         (Phase 5)
+│   ├── memory-indexer.ts         (Phase 6)
+│   ├── owner-strategy.ts         (Phase 7)
+│   ├── scheduler.ts              (Phase 8)
+│   ├── voice-gateway.ts          (Phase 9)
+│   ├── browser-worker.ts         (Phase 10)
+│   └── server.ts                 Graceful shutdown (Phase 15)
+├── Dockerfile                    (Phase 13, browser worker fix)
+└── test/                         91 tests, 90.58% coverage
+scripts/
+├── maxx-backup.mjs                (Phase 14)
+└── maxx-restore.mjs               (Phase 14)
+supabase/migrations/
+├── 20260625090000_maxx_control_tower.sql
+├── 20260710120000_maxx_approval_expiration.sql   (Phase 4)
+└── 20260710130000_maxx_phase12_data_model.sql    (Phase 12, not applied)
+.github/workflows/ci.yml           (Phase 18)
+docs/maxx-platform/
+├── SECURITY_REVIEW.md             (Phase 15)
+├── RUNBOOK.md                     (Phase 19)
+└── IMPLEMENTATION_STATUS.md       (this file)
+SECURITY_INCIDENT.md               (Phase 15)
+src/                                (frontend, extended Phase 11)
 ```
 
 ---
 
-## What's Next: Phase 3
+## What Remains Open
 
-**Phase 3: Control Plane Hardening** (estimated 3-5 days)
+See `RISK_REGISTER.md` for the full, current list. The headline items before production deployment:
 
-### Critical Tasks
-1. Add service-to-service authentication (mTLS or tokens)
-2. Implement feature flags (MAXX_HERMES_ENABLED, MAXX_VOICE_ENABLED, etc.)
-3. Add rate limiting (per endpoint, per operator)
-4. Implement circuit breaker (provider failure detection)
-5. Add graceful shutdown (drain in-flight requests)
-6. Implement request correlation IDs and tracing
-7. Add automatic provider health checks
+1. **R21 — Backup encryption**: backups are checksum-verified and restore-tested but not encrypted at rest. Requires an owner decision on a KMS/vault approach.
+2. **R5 (Hermes) / R9-adjacent (Voice)**: adapters are real and tested against fakes; no live vendor is connected. Requires choosing and provisioning a Hermes runtime and an STT/TTS vendor.
+3. **RLS never tested against a live database**: this environment cannot reach the configured Supabase host. Policies are code-reviewed, not live-tested.
+4. **Audit logging gaps**: `/v1/browser/sessions`, `/v1/memory/documents`, `/v1/strategy` don't yet write to the events table.
+5. **`MAXX_PRODUCTION_MUTATIONS_ENABLED=true`**: still requires explicit operator approval per CLAUDE.md guardrails — no phase in this build set it.
 
-### New Files
-- `services/maxx-control-plane/src/feature-flags.ts`
-- `services/maxx-control-plane/src/rate-limiter.ts`
-- `services/maxx-control-plane/src/circuit-breaker.ts`
-- `services/maxx-control-plane/src/tracing.ts`
-- `services/maxx-control-plane/src/health-checker.ts`
-
-### Risk Mitigation
-- R3: Production mutations lock (MAXX_PRODUCTION_MUTATIONS_ENABLED=false by default)
-- R9: Service credentials generated and stored
-- R14: Graceful shutdown prevents request loss
-- R15: Rate limits prevent quota exhaustion
-- R18: Health checks detect provider failures
-
-### Testing
-- Add health check tests
-- Add feature flag tests
-- Add rate limiting tests
-- Add circuit breaker tests
-
-### Commit Message
-```
-Phase 3: Control Plane Hardening
-
-- Feature flags for safe rollout (MAXX_HERMES_ENABLED, MAXX_VOICE_ENABLED, etc.)
-- Rate limiting (10 req/min chat, 3 req/min skills)
-- Circuit breaker for provider resilience
-- Service-to-service authentication
-- Graceful shutdown with timeout
-- Request correlation IDs and tracing
-- Health checks on external providers
-- Production mutation lock by default
-
-All new features tested; existing tests still passing.
-Status: Phase 3 ready for Phase 4 (approval engine).
-```
+None of these block continued development; all of them should be resolved (or explicitly accepted) before flipping the production mutation lock.
 
 ---
 
-## Phases 4-19 (Summary)
+## References
 
-| Phase | Focus | Owner | Estimated Days |
-|-------|-------|-------|-----------------|
-| 3 | Control plane hardening | Backend + DevOps | 3-5 |
-| 4 | Approval engine | Backend + Security | 3-5 |
-| 5 | Hermes integration | AI-agent | 5-7 |
-| 6 | Memory indexer | Backend + AI | 4-6 |
-| 7 | Owner strategy overlay | Architecture | 2-3 |
-| 8 | Scheduler | Backend + DevOps | 3-5 |
-| 9 | Voice infrastructure | Voice | 5-7 |
-| 10 | Browser worker | Backend | 3-5 |
-| 11 | Dashboard enhancements | Frontend | 3-5 |
-| 12 | Data model extension | Backend | 2-3 |
-| 13 | Deployment setup | DevOps | 4-6 |
-| 14 | Backup & restore | DevOps | 3-4 |
-| 15 | Security hardening | Security | 4-5 |
-| 16 | Client package | DevOps | 3-4 |
-| 17 | Test suite | QA | 5-7 |
-| 18 | CI/CD pipeline | DevOps | 3-4 |
-| 19 | Documentation | Tech writer | 3-4 |
-| **Total** | | | **60-90 days** |
+- `CLAUDE.md` — root instructions, phase roadmap
+- `docs/maxx-platform/RISK_REGISTER.md` — every tracked risk, current status
+- `docs/maxx-platform/SECURITY_REVIEW.md` — Phase 15 audit
+- `docs/maxx-platform/RUNBOOK.md` — operator procedures
+- `SECURITY_INCIDENT.md` — incident response procedure
+- `packages/client-sdk/README.md` — external integration guide
 
 ---
 
-## How to Proceed
-
-### Immediate Next Steps
-1. Review this status document and the phase docs
-2. Push branch to GitHub for team review
-3. Create draft PR for Phase 0-2 work
-4. Begin Phase 3 implementation
-5. Schedule reviews of architecture, security, and design decisions
-
-### For Phase 3 Implementation
-1. Branch from `claude/code-master-build-prompt-5xvfmn`
-2. Create feature branches for each Phase 3 task
-3. Implement with tests
-4. Run full test suite
-5. Commit to main branch
-6. Deploy to staging for validation
-
-### For Ongoing Development
-1. Use `.claude/agents/` specialized agents for complex tasks
-2. Follow architecture rules in `.claude/rules/`
-3. Use shared-types from `packages/shared-types/`
-4. Document decisions in `.claude/rules/DECISIONS.md`
-5. Test thoroughly before committing
-6. Run: `npm run test && npm run build && npm run lint` before push
-
----
-
-## Key Metrics
-
-**Code Organization**:
-- Frontend: 72 component files, 1824 LOC in App.tsx
-- Control Plane: 14 TypeScript files, 300-1000 LOC each
-- Shared Types: 9 contract files with Zod schemas
-- Documentation: 8 detailed markdown docs (20+ KB)
-
-**Testing**:
-- 21 tests passing (3 frontend, 18 backend)
-- 0 test failures
-- 18/18 control plane tests pass
-
-**Dependencies**:
-- Frontend: 40 packages (React, Vite, shadcn, Tailwind)
-- Control Plane: 5 packages (Fastify, Zod, Jose)
-- All licenses: MIT, Apache-2.0, ISC (permissive)
-
-**Security**:
-- JWT verification: ✅ Implemented
-- Operator allowlist: ✅ Implemented
-- CORS validation: ✅ Strict origins
-- Approval gates: ✅ Browser/skill actions
-- RLS policies: ✅ Multi-tenant isolation
-- Path traversal: ✅ Validated
-- Secrets redaction: ✅ In logs
-
----
-
-## References & Links
-
-**Documentation**:
-- `docs/maxx-platform/CURRENT_STATE.md` – System audit
-- `docs/maxx-platform/ARCHITECTURE.md` – Detailed design
-- `docs/maxx-platform/RISK_REGISTER.md` – Risk tracking
-- `docs/maxx-platform/DECISIONS.md` – Decision log
-
-**Operating Instructions**:
-- `CLAUDE.md` – Root instructions
-- `.claude/rules/architecture.md` – Design rules
-- `.claude/rules/security.md` – Security rules
-- `.claude/agents/backend-engineer.md` – Agent template
-
-**Type Contracts**:
-- `packages/shared-types/` – All shared types
-- `packages/README.md` – Package documentation
-
-**Source Code**:
-- `services/maxx-control-plane/src/app.ts` – Route handlers
-- `services/maxx-control-plane/src/store.ts` – Data layer
-- `src/pages/Dashboard.tsx` – Frontend control center
-
----
-
-**Status**: Phase 2 Complete ✅  
-**Next Phase**: Phase 3 (Control Plane Hardening)  
+**Status**: Phases 0-18 complete, Phase 19 in progress  
 **Branch**: claude/code-master-build-prompt-5xvfmn  
-**Last Updated**: 2026-07-10  
+**Last Updated**: 2026-07-10

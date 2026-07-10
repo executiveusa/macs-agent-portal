@@ -13,6 +13,19 @@ import { runPiSkill } from "./pi-runner.js";
 import { TRUSTED_SKILLS } from "./skills.js";
 import { createStore, type ControlTowerStore } from "./store.js";
 import type { Operator, UsageRecord } from "./types.js";
+import { createRateLimiters, type RateLimiters } from "./rate-limiter.js";
+import { createProviderCircuitBreakers, type ProviderCircuitBreakers } from "./circuit-breaker.js";
+import { createHermesAdapter, type HermesAdapter } from "./hermes-adapter.js";
+import { createMemoryIndexer, type MemoryIndexer } from "./memory-indexer.js";
+import {
+  OwnerStrategyStore,
+  applyProviderPreference,
+  isActionForbidden,
+  type OwnerStrategyInput,
+} from "./owner-strategy.js";
+import { Scheduler } from "./scheduler.js";
+import { createVoiceGateway, type VoiceProvider } from "./voice-gateway.js";
+import { createBrowserWorker, type BrowserWorker } from "./browser-worker.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -24,7 +37,27 @@ type AppOptions = {
   config?: MaxxConfig;
   authenticate?: (request: FastifyRequest) => Promise<Operator | null>;
   store?: ControlTowerStore;
+  rateLimiters?: RateLimiters;
+  circuitBreakers?: ProviderCircuitBreakers;
+  hermes?: HermesAdapter;
+  memory?: MemoryIndexer;
+  ownerStrategies?: OwnerStrategyStore;
+  scheduler?: Scheduler;
+  voice?: { stt: VoiceProvider; tts: VoiceProvider };
+  browser?: BrowserWorker;
 };
+
+const riskToleranceEnum = z.enum(["conservative", "standard", "permissive"]);
+const strategyInputSchema = z.object({
+  preferredProvider: z.enum(["groq", "openrouter"]).optional(),
+  riskTolerance: riskToleranceEnum.optional(),
+  forbiddenActions: z.array(z.string()).optional(),
+  maxCostPerRequestUsd: z.number().positive().optional(),
+});
+
+// Mutating routes locked in production unless MAXX_PRODUCTION_MUTATIONS_ENABLED=true.
+// GET/health checks are always allowed through.
+const PRODUCTION_LOCKED_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
 
 const chatSchema = z.object({
   message: z.string().trim().min(1).max(20_000),
@@ -57,6 +90,34 @@ const runSkillSchema = z.object({
   runId: z.string().optional(),
   input: z.record(z.unknown()).default({}),
 });
+const voiceTranscribeSchema = z.object({
+  audioBase64: z.string().min(1),
+  mimeType: z.string().min(1),
+});
+const voiceSynthesizeSchema = z.object({
+  text: z.string().trim().min(1).max(5_000),
+  voiceId: z.string().optional(),
+});
+const memoryDocumentSchema = z.object({
+  runId: z.string().trim().min(1),
+  missionId: z.string().trim().min(1),
+  source: z.string().trim().min(1),
+  title: z.string().trim().min(1).max(200),
+  content: z.string().trim().min(1).max(20_000),
+  tags: z.array(z.string()).default([]),
+});
+const memorySearchSchema = z.object({
+  q: z.string().trim().min(1),
+  limit: z.coerce.number().int().positive().max(50).default(10),
+});
+const hermesRunSchema = z.object({
+  runId: z.string().trim().min(1),
+  missionId: z.string().trim().min(1),
+  objective: z.string().trim().min(3),
+  workspacePath: z.string().trim().min(1),
+  stage: z.string().trim().min(1).default("hermes"),
+  timeoutMs: z.number().positive().optional(),
+});
 
 function dependencies(config: MaxxConfig) {
   return {
@@ -81,14 +142,59 @@ function dependencies(config: MaxxConfig) {
       detail: config.PI_EXECUTABLE ? "Pi executable configured" : "PI_EXECUTABLE is missing",
     },
     browser: {
-      configured: Boolean(config.MAXX_BROWSER_WS_ENDPOINT),
-      status: config.MAXX_BROWSER_WS_ENDPOINT ? "ready" : "degraded",
-      detail: config.MAXX_BROWSER_WS_ENDPOINT ? "Remote browser configured" : "MAXX_BROWSER_WS_ENDPOINT is missing",
+      configured: config.featureFlags.MAXX_BROWSER_ENABLED,
+      status: config.featureFlags.MAXX_BROWSER_ENABLED ? "ready" : "unavailable",
+      detail: !config.featureFlags.MAXX_BROWSER_ENABLED
+        ? "MAXX_BROWSER_ENABLED is false"
+        : config.MAXX_BROWSER_WS_ENDPOINT
+          ? "Remote browser (CDP) configured"
+          : "Local Playwright Chromium (no MAXX_BROWSER_WS_ENDPOINT set)",
     },
     voice: {
-      configured: false,
-      status: "unavailable",
-      detail: "No server STT/TTS provider configured; browser fallback remains available",
+      configured: Boolean(
+        config.featureFlags.MAXX_VOICE_ENABLED &&
+          config.MAXX_STT_ENDPOINT &&
+          config.MAXX_STT_API_KEY &&
+          config.MAXX_TTS_ENDPOINT &&
+          config.MAXX_TTS_API_KEY,
+      ),
+      status: !config.featureFlags.MAXX_VOICE_ENABLED
+        ? "unavailable"
+        : config.MAXX_STT_ENDPOINT && config.MAXX_TTS_ENDPOINT
+          ? "ready"
+          : "degraded",
+      detail: !config.featureFlags.MAXX_VOICE_ENABLED
+        ? "MAXX_VOICE_ENABLED is false; browser fallback remains available"
+        : config.MAXX_STT_ENDPOINT && config.MAXX_TTS_ENDPOINT
+          ? "Server STT/TTS endpoints configured"
+          : "MAXX_VOICE_ENABLED is set but no server STT/TTS endpoint is configured; browser fallback remains available",
+    },
+    hermes: {
+      configured: Boolean(config.featureFlags.MAXX_HERMES_ENABLED && config.MAXX_HERMES_ENDPOINT),
+      status: !config.featureFlags.MAXX_HERMES_ENABLED
+        ? "unavailable"
+        : config.MAXX_HERMES_ENDPOINT
+          ? "ready"
+          : "degraded",
+      detail: !config.featureFlags.MAXX_HERMES_ENABLED
+        ? "MAXX_HERMES_ENABLED is false"
+        : config.MAXX_HERMES_ENDPOINT
+          ? "Hermes endpoint configured"
+          : "MAXX_HERMES_ENABLED is set but MAXX_HERMES_ENDPOINT is missing",
+    },
+    memory: {
+      configured: config.featureFlags.MAXX_MEMORY_ENABLED,
+      status: config.featureFlags.MAXX_MEMORY_ENABLED ? "ready" : "unavailable",
+      detail: config.featureFlags.MAXX_MEMORY_ENABLED
+        ? `Keyword-indexed mission memory at ${config.memoryIndexPath}`
+        : "MAXX_MEMORY_ENABLED is false; memory is in-process only and not persisted",
+    },
+    scheduler: {
+      configured: config.featureFlags.MAXX_SCHEDULER_ENABLED,
+      status: config.featureFlags.MAXX_SCHEDULER_ENABLED ? "ready" : "unavailable",
+      detail: config.featureFlags.MAXX_SCHEDULER_ENABLED
+        ? "In-process interval scheduler running (approval expiry sweep)"
+        : "MAXX_SCHEDULER_ENABLED is false",
     },
   } as const;
 }
@@ -97,9 +203,55 @@ export function buildApp(options: AppOptions = {}) {
   const config = options.config ?? loadConfig({ NODE_ENV: "test" });
   const authenticate = options.authenticate ?? createAuthenticator(config);
   const store = options.store ?? createStore(config);
+  const rateLimiters = options.rateLimiters ?? createRateLimiters();
+  const circuitBreakers = options.circuitBreakers ?? createProviderCircuitBreakers();
+  const hermes =
+    options.hermes ??
+    createHermesAdapter({
+      hermesEnabled: config.featureFlags.MAXX_HERMES_ENABLED,
+      hermesEndpoint: config.MAXX_HERMES_ENDPOINT,
+    });
+  const memory =
+    options.memory ??
+    createMemoryIndexer({
+      memoryEnabled: config.featureFlags.MAXX_MEMORY_ENABLED,
+      indexPath: config.memoryIndexPath,
+    });
+  const ownerStrategies = options.ownerStrategies ?? new OwnerStrategyStore();
+  const scheduler = options.scheduler ?? new Scheduler();
+  const voice =
+    options.voice ??
+    createVoiceGateway({
+      voiceEnabled: config.featureFlags.MAXX_VOICE_ENABLED,
+      sttEndpoint: config.MAXX_STT_ENDPOINT,
+      sttApiKey: config.MAXX_STT_API_KEY,
+      ttsEndpoint: config.MAXX_TTS_ENDPOINT,
+      ttsApiKey: config.MAXX_TTS_API_KEY,
+    });
+  const browser =
+    options.browser ??
+    createBrowserWorker({
+      browserEnabled: config.featureFlags.MAXX_BROWSER_ENABLED,
+      wsEndpoint: config.MAXX_BROWSER_WS_ENDPOINT,
+      executablePath: config.MAXX_BROWSER_EXECUTABLE_PATH,
+    });
   const app = Fastify({
     logger: config.NODE_ENV !== "test" ? { redact: ["req.headers.authorization", "body.audio", "*.apiKey"] } : false,
   });
+  app.addHook("onClose", async () => browser.close());
+
+  if (config.featureFlags.MAXX_SCHEDULER_ENABLED) {
+    scheduler.register({
+      id: "approval-expiry-sweep",
+      name: "Expire stale pending approvals",
+      intervalMs: 60_000,
+      handler: async () => {
+        await store.listApprovals();
+      },
+    });
+    scheduler.start();
+    app.addHook("onClose", async () => scheduler.stop());
+  }
 
   app.register(cors, {
     origin: (origin, callback) => {
@@ -107,13 +259,25 @@ export function buildApp(options: AppOptions = {}) {
       callback(new Error("Origin is not allowed"), false);
     },
     credentials: true,
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
+  });
+
+  app.addHook("onRequest", async (request, reply) => {
+    const correlationId = (request.headers["x-request-id"] as string | undefined) ?? randomUUID();
+    request.headers["x-request-id"] = correlationId;
+    reply.header("x-request-id", correlationId);
   });
 
   app.get("/health/live", async () => ({ status: "alive", service: "maxx-control-plane" }));
   app.get("/health/ready", async (_request, reply) => {
     const state = dependencies(config);
     const ready = state.supabase.configured && (state.groq.configured || state.openrouter.configured);
-    return reply.code(ready ? 200 : 503).send({ status: ready ? "ready" : "degraded", dependencies: state });
+    return reply.code(ready ? 200 : 503).send({
+      status: ready ? "ready" : "degraded",
+      dependencies: state,
+      featureFlags: config.featureFlags,
+      emergencyDisabled: config.emergencyDisabled,
+    });
   });
 
   app.addHook("preHandler", async (request, reply) => {
@@ -121,6 +285,24 @@ export function buildApp(options: AppOptions = {}) {
     const operator = await authenticate(request);
     if (!operator) return reply.code(401).send({ error: "Stacy operator authentication required" });
     request.operator = operator;
+
+    if (config.emergencyDisabled && PRODUCTION_LOCKED_METHODS.has(request.method)) {
+      return reply.code(503).send({
+        status: "locked",
+        message: "MAXX_EMERGENCY_DISABLE is active. All agent work is paused system-wide.",
+      });
+    }
+
+    if (
+      config.NODE_ENV === "production" &&
+      !config.featureFlags.MAXX_PRODUCTION_MUTATIONS_ENABLED &&
+      PRODUCTION_LOCKED_METHODS.has(request.method)
+    ) {
+      return reply.code(503).send({
+        status: "locked",
+        message: "Production mutations disabled. Set MAXX_PRODUCTION_MUTATIONS_ENABLED=true to proceed.",
+      });
+    }
   });
 
   app.get("/v1/control-tower/bootstrap", async () => {
@@ -150,20 +332,34 @@ export function buildApp(options: AppOptions = {}) {
         currentUrl: null,
         recentActions: [],
       },
+      featureFlags: config.featureFlags,
+      emergencyDisabled: config.emergencyDisabled,
     };
   });
 
   app.post("/v1/chat", async (request, reply) => {
+    const limitDecision = rateLimiters.chat.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many chat requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
+
     const input = chatSchema.parse(request.body);
-    const decision = routeModel({ message: input.message, manualModel: input.model });
+    const routed = routeModel({ message: input.message, manualModel: input.model });
+    const decision = applyProviderPreference(routed, ownerStrategies.get(request.operator!.id), {
+      groq: Boolean(config.GROQ_API_KEY),
+      openrouter: Boolean(config.OPENROUTER_API_KEY),
+    });
 
     // Primary engine + graceful fallback. Groq handles fast task classes;
     // if it errors, fall back to OpenRouter so the operator still gets a reply.
     let result;
-    if (decision.provider === "groq" && config.GROQ_API_KEY) {
+    if (decision.provider === "groq" && config.GROQ_API_KEY && circuitBreakers.groq.canRequest()) {
       try {
         result = await runGroq({ apiKey: config.GROQ_API_KEY, message: input.message, decision });
+        circuitBreakers.groq.recordSuccess();
       } catch (error) {
+        circuitBreakers.groq.recordFailure();
         app.log.warn({ error: String(error) }, "Groq failed, falling back to OpenRouter");
         result = await runOpenRouter({
           apiKey: config.OPENROUTER_API_KEY,
@@ -200,6 +396,11 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   app.post("/v1/missions", async (request, reply) => {
+    const limitDecision = rateLimiters.missions.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many mission creations", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
     const input = missionSchema.parse(request.body);
     const missionId = randomUUID();
     const run = await createIcmRun({
@@ -226,6 +427,16 @@ export function buildApp(options: AppOptions = {}) {
   app.patch("/v1/missions/:id", async (request, reply) => {
     const input = missionPatchSchema.parse(request.body);
     const mission = await store.updateMission((request.params as { id: string }).id, input.status);
+    if (mission && input.status === "completed" && config.featureFlags.MAXX_MEMORY_ENABLED) {
+      await memory.indexDocument({
+        runId: mission.runId,
+        missionId: mission.id,
+        source: "mission.completed",
+        title: mission.objective.slice(0, 200),
+        content: mission.objective,
+        tags: ["mission", "completed"],
+      });
+    }
     return mission ? reply.send(mission) : reply.code(404).send({ error: "Mission not found" });
   });
 
@@ -249,6 +460,11 @@ export function buildApp(options: AppOptions = {}) {
 
   app.get("/v1/skills", async () => ({ skills: TRUSTED_SKILLS }));
   app.post("/v1/skills/:id/run", async (request, reply) => {
+    const limitDecision = rateLimiters.skills.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many skill executions", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
     const skill = TRUSTED_SKILLS.find((item) => item.id === (request.params as { id: string }).id);
     if (!skill) return reply.code(404).send({ error: "Unregistered skill" });
     const input = runSkillSchema.parse(request.body ?? {});
@@ -287,20 +503,110 @@ export function buildApp(options: AppOptions = {}) {
     });
   });
 
+  app.post("/v1/hermes/runs", async (request, reply) => {
+    const limitDecision = rateLimiters.hermes.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many Hermes run requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
+    if (!config.featureFlags.MAXX_HERMES_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
+    }
+    const input = hermesRunSchema.parse(request.body);
+    const state = await hermes.startRun(input);
+    await store.addEvent(input.runId, "hermes.run.started", `Hermes run ${state.status}`, { stage: input.stage });
+    return reply.code(state.status === "failed" ? 502 : 202).send(state);
+  });
+
+  app.get("/v1/hermes/runs/:id", async (request, reply) => {
+    if (!config.featureFlags.MAXX_HERMES_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
+    }
+    const state = await hermes.getRunState((request.params as { id: string }).id);
+    return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
+  });
+
+  app.post("/v1/hermes/runs/:id/cancel", async (request, reply) => {
+    if (!config.featureFlags.MAXX_HERMES_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
+    }
+    const state = await hermes.cancelRun((request.params as { id: string }).id);
+    if (state) await store.addEvent(state.runId, "hermes.run.cancelled", "Hermes run cancelled");
+    return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
+  });
+
+  app.get("/v1/scheduler/jobs", async (_request, reply) => {
+    if (!config.featureFlags.MAXX_SCHEDULER_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_SCHEDULER_ENABLED is false" });
+    }
+    return reply.send({ jobs: scheduler.list() });
+  });
+
+  app.get("/v1/strategy", async (request) => ownerStrategies.get(request.operator!.id));
+
+  app.put("/v1/strategy", async (request, reply) => {
+    const limitDecision = rateLimiters.strategy.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many strategy updates", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
+    const input: OwnerStrategyInput = strategyInputSchema.parse(request.body);
+    return ownerStrategies.set(request.operator!.id, input);
+  });
+
+  app.post("/v1/memory/documents", async (request, reply) => {
+    const limitDecision = rateLimiters.memory.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many memory writes", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
+    if (!config.featureFlags.MAXX_MEMORY_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_MEMORY_ENABLED is false" });
+    }
+    const input = memoryDocumentSchema.parse(request.body);
+    const document = await memory.indexDocument(input);
+    return reply.code(201).send(document);
+  });
+
+  app.get("/v1/memory/search", async (request, reply) => {
+    if (!config.featureFlags.MAXX_MEMORY_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_MEMORY_ENABLED is false" });
+    }
+    const input = memorySearchSchema.parse(request.query);
+    const results = await memory.search(input.q, input.limit);
+    return reply.send({ results });
+  });
+
   app.post("/v1/approvals/:id/approve", async (request, reply) => {
     const approval = await store.decideApproval((request.params as { id: string }).id, "approved", request.operator!.id);
-    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing or already decided" });
+    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing, expired, or already decided" });
   });
   app.post("/v1/approvals/:id/reject", async (request, reply) => {
     const approval = await store.decideApproval((request.params as { id: string }).id, "rejected", request.operator!.id);
-    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing or already decided" });
+    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing, expired, or already decided" });
   });
 
   app.post("/v1/browser/sessions", async (request, reply) => {
+    const limitDecision = rateLimiters.browser.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many browser session requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
     const input = browserSchema.parse(request.body);
+    const strategy = ownerStrategies.get(request.operator!.id);
+    if (isActionForbidden(`browser:${input.action}`, strategy)) {
+      return reply.code(403).send({ error: "Action is forbidden by operator strategy", action: input.action });
+    }
     const policy = classifyBrowserAction(input.action as BrowserAction);
-    if (!config.MAXX_BROWSER_WS_ENDPOINT) {
-      return reply.code(503).send({ status: "unavailable", reason: "Remote browser is not configured", policy });
+    if (!config.featureFlags.MAXX_BROWSER_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_BROWSER_ENABLED is false", policy });
+    }
+    if (policy === "approval_required" && !config.featureFlags.MAXX_BROWSER_MUTATIONS_ENABLED) {
+      return reply.code(503).send({
+        status: "unavailable",
+        reason: "Browser mutations disabled. Set MAXX_BROWSER_MUTATIONS_ENABLED=true to proceed.",
+        policy,
+      });
     }
     if (policy === "approval_required") {
       const approval = await store.createApproval({
@@ -310,15 +616,42 @@ export function buildApp(options: AppOptions = {}) {
       });
       return reply.code(202).send({ status: "approval_required", approval });
     }
-    return reply.send({ status: "accepted", policy, target: input.target ?? null });
+    const result = await browser.execute(input.action as BrowserAction, input.target);
+    return reply.code(result.success ? 200 : 502).send({ status: result.success ? "completed" : "failed", policy, ...result });
   });
 
-  app.post("/v1/voice/transcribe", async (_request, reply) =>
-    reply.code(503).send({ status: "unavailable", fallback: "browser_speech_recognition" }),
-  );
-  app.post("/v1/voice/synthesize", async (_request, reply) =>
-    reply.code(503).send({ status: "unavailable", fallback: "browser_speech_synthesis" }),
-  );
+  app.post("/v1/voice/transcribe", async (request, reply) => {
+    if (!config.featureFlags.MAXX_VOICE_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", fallback: "browser_speech_recognition" });
+    }
+    const input = voiceTranscribeSchema.parse(request.body);
+    try {
+      const result = await voice.stt.transcribe(input);
+      return reply.send(result);
+    } catch (error) {
+      return reply.code(503).send({
+        status: "unavailable",
+        fallback: "browser_speech_recognition",
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+  app.post("/v1/voice/synthesize", async (request, reply) => {
+    if (!config.featureFlags.MAXX_VOICE_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", fallback: "browser_speech_synthesis" });
+    }
+    const input = voiceSynthesizeSchema.parse(request.body);
+    try {
+      const result = await voice.tts.synthesize(input);
+      return reply.send(result);
+    } catch (error) {
+      return reply.code(503).send({
+        status: "unavailable",
+        fallback: "browser_speech_synthesis",
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
   app.get("/v1/usage/summary", async () => summarizeUsage(await store.listUsage()));
 
   app.setErrorHandler((error, _request, reply) => {
