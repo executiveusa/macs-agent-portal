@@ -11,6 +11,14 @@ This repo follows the Emerald Tablets™ operating protocol.
 - Prefer reusable systems over one-off fixes.
 - Verify with real commands, browser checks, or deployment evidence before claiming completion.
 
+## Canonical MAXX suite boundary
+
+This repository is the Agent MAXX interaction surface. The canonical portfolio map, product-analysis gate, durable data/process authority, and suite-wide architecture live in `executiveusa/maxx-migrations-agentic-systems` under `icm/maxx-suite/`.
+
+For a new MAXX product, repo, model, workflow, integration, salvage/merge decision, or high-level architecture task, load `icm/maxx-suite/00_router/CONTEXT.md` from that backend repo and only the smallest relevant context folder. Do not autoload or duplicate the full suite catalog here.
+
+This repository already contains substantial tested control-plane code. Treat it as consolidation source material, not justification for a second permanent backend. Preserve useful tests, contracts, adapters and `packages/client-sdk`; move or wrap durable process/data authority behind MAXX Migrations only after equivalent behavior is proven.
+
 ## SYNTHIA™ 3.0 Systems Rules
 
 - Treat architecture as stocks, flows, and feedback loops.
