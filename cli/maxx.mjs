@@ -4,7 +4,7 @@ const API = (process.env.MAXX_API_URL || "http://127.0.0.1:8787").replace(/\/$/,
 const API_KEY = process.env.MAXX_API_KEY;
 const MAXX_MODE_MARKER = "[[MAXX_MODE:POWER]]";
 
-async function call(path, options = {}, auth = true) {
+async function call(path, options = {}, auth = true, allowNon2xx = false) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (auth) {
     if (!API_KEY) throw new Error("MAXX_API_KEY is required for machine calls");
@@ -12,8 +12,8 @@ async function call(path, options = {}, auth = true) {
   }
   const response = await fetch(`${API}${path}`, { ...options, headers });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || payload.message || `MAXX returned ${response.status}`);
-  return payload;
+  if (!response.ok && !allowNon2xx) throw new Error(payload.error || payload.message || `MAXX returned ${response.status}`);
+  return { ...payload, httpStatus: response.status };
 }
 
 function usage() {
@@ -26,7 +26,9 @@ try {
   if (!command || command === "help" || command === "--help") {
     usage();
   } else if (command === "status") {
-    console.log(JSON.stringify(await call("/health/ready", {}, false), null, 2));
+    const status = await call("/health/ready", {}, false, true);
+    console.log(JSON.stringify(status, null, 2));
+    if (status.status !== "ready") process.exitCode = 2;
   } else if (command === "chat" || command === "max") {
     const message = args.join(" ").trim();
     if (!message) throw new Error("A message is required");
