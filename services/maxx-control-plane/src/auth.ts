@@ -18,12 +18,14 @@ export function createAuthenticator(config: MaxxConfig) {
     : null;
 
   return async (request: FastifyRequest): Promise<Operator | null> => {
-    if (config.devAuthBypass) return { id: "local-stacy", email: config.allowedEmails[0] ?? "stacy@local" };
+    if (config.devAuthBypass) {
+      return { id: "local-stacy", email: config.allowedEmails[0] ?? "stacy@local", principal: "human" };
+    }
 
     const machineKey = request.headers["x-maxx-api-key"];
     const machineValue = Array.isArray(machineKey) ? machineKey[0] : machineKey;
     if (safeMatches(machineValue, config.MAXX_API_KEY)) {
-      return { id: "maxx-machine-client", email: "machine@maxx.local" };
+      return { id: "maxx-machine-client", email: "machine@maxx.local", principal: "machine" };
     }
 
     if (!jwks || !config.SUPABASE_URL) return null;
@@ -39,7 +41,7 @@ export function createAuthenticator(config: MaxxConfig) {
       });
       const email = typeof payload.email === "string" ? payload.email : undefined;
       if (!isAllowedOperator(email, config.allowedEmails)) return null;
-      return { id: String(payload.sub), email: email! };
+      return { id: String(payload.sub), email: email!, principal: "human" };
     } catch {
       return null;
     }
