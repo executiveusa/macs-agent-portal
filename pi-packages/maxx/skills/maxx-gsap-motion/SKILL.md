@@ -1,48 +1,49 @@
-# SKILL: maxx-gsap-motion
-
-**When to use:** Before changing any animation duration, scroll pin length, scrub value, or GSAP timeline in this project. All timing constants are in `src/config/maxxStoryConfig.ts` — edit there, not inside scene components.
-
+---
+name: maxx-gsap-motion
+description: Maintain the public 006/MAXX story motion system without leaking experimental animation into Stacy's private chat UI.
 ---
 
-## Scene Timing Reference
+# MAXX public-story motion
 
-| Scene | Key | Default |
-|---|---|---|
-| Intro overlay | `intro.durationMs` | 4000ms |
-| Intro countdown frames | `intro.countdownFrames` | 4 |
-| Hero parallax | `hero.textDriftY` | `50%` |
-| Briefing slide-in | `briefing.slideInDuration` | 1.5s |
-| Briefing scrub | `briefing.scrubAmount` | 1 |
-| Car intro pin length | `carIntro.pinLength` | `+=150%` |
-| Car intro scrub | `carIntro.scrubAmount` | 1.2 |
-| Car intro overlay start | `carIntro.overlayOpacityStart` | 0.9 |
-| Car intro overlay end | `carIntro.overlayOpacityEnd` | 0.15 |
-| Mustang pin length | `mustang.pinLength` | `+=300%` |
-| Mustang scrub | `mustang.scrubAmount` | 1 |
+Use only for the public Agent 006 landing/story experience. Stacy's private `/dashboard` is intentionally restrained and should not inherit cinematic scroll/pin behavior.
 
----
+## Canonical timing source
+
+Read `src/config/maxxStoryConfig.ts` before changing scene timing. Current keys live primarily under `maxxMotionTiming` rather than hard-coded component durations.
+
+Important current values include:
+
+- `introFrameDuration`
+- `introExitDuration`
+- `heroTextShift`
+- `briefingStart`, `briefingEnd`, `briefingScrub`
+- `carIntroEnd`, `carIntroScrub`
+- `mustangEnd`, `mustangScrub`
+- `techSpecsStart`, `techSpecsEnd`, `techSpecsScrub`
+- `chapterStart`, `chapterDuration`, `chapterStagger`
+- `finaleStart`, `finaleCopyDuration`, `finaleCardDuration`
+
+Do not rely on an old timing table; inspect the current config first.
 
 ## Rules
 
-1. **Change `maxxStoryConfig.ts` first.** If it feels too fast or slow, the fix is always in the config, not in a component.
-2. **Never use `duration` directly in a `ScrollTrigger` — use `scrub`.** Duration conflicts with scrub.
-3. **`anticipatePin: 1`** must be present on all pinned sections or you'll see a jump on iOS.
-4. **Always call `ctx.revert()`** in the `useEffect` cleanup to avoid duplicate triggers on hot reload.
-5. **Test at 0.5×, 1×, and 1.5× scroll speeds** before marking a timing task complete.
-6. **Mobile:** Pin length `+=150%` reads as 150% of viewport height. On mobile this is shorter in absolute pixels — verify at < 768px viewport.
+1. Change the central config before scattering numeric timing changes through scene components.
+2. For GSAP React effects, scope animations and clean them up on unmount/re-render.
+3. Pinned sections must be tested for jump/reflow behavior on desktop and mobile.
+4. ScrollTrigger scrub/pin decisions should not block keyboard navigation or the primary CTA.
+5. Motion must respect `prefers-reduced-motion`; important information and CTAs remain available without scroll choreography.
+6. Image motion must preserve the approved subject/car framing at representative mobile and desktop viewports.
+7. Do not add glow/neon/cyberpunk effects merely because MAXX is an AI character. The product direction is cinematic but grounded.
+8. MAXX Mode animation belongs to the private avatar state and uses its own restrained component transition; do not couple it to public GSAP timelines.
 
----
+## Verification
 
-## Common Fixes
+After a motion change:
 
-**Scene feels too fast on scroll:**  
-Increase `scrubAmount` (e.g. 1 → 2) or increase `pinLength` (e.g. `+=150%` → `+=250%`).
+- `npm run build` must pass;
+- run `maxx-browser-verify` on the affected public scenes;
+- inspect at roughly 390px mobile and 1280px+ desktop;
+- test reduced-motion behavior where the changed component participates in scroll animation;
+- report exactly which viewports/paths were actually exercised.
 
-**Scene feels too slow / viewer has to scroll forever:**  
-Decrease `pinLength`.
-
-**Overlay doesn't lift cleanly:**  
-Check `overlayOpacityEnd` — lower values (0.05–0.1) give a more dramatic reveal.
-
-**Text fades in before the car is visible:**  
-Increase the GSAP timeline position offset on the title animation (currently `0.4`).
+A smooth local scroll recording is not sufficient proof if the production build or mobile route was not tested.
