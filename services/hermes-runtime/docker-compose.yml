@@ -23,6 +23,8 @@ services:
       XAI_API_KEY: "${XAI_API_KEY:-}"
       NCA_TOOLKIT_URL: "${NCA_TOOLKIT_URL:-}"
       NCA_TOOLKIT_API_KEY: "${NCA_TOOLKIT_API_KEY:-}"
+      OPUSCLIP_API_KEY: "${OPUSCLIP_API_KEY:-}"
+      OPUSCLIP_BASE_URL: "${OPUSCLIP_BASE_URL:-https://api.opus.pro/api}"
     volumes:
       - "${MAXX_HERMES_DATA_DIR:-./.runtime/hermes}:/opt/data"
     healthcheck:
