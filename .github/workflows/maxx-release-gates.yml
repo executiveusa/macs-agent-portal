@@ -53,7 +53,9 @@ jobs:
           if git grep -n 'executiveusa/pauli-hermes-agent' -- \
             '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs' '*.py' '*.sh' '*.yml' '*.yaml' \
             'Dockerfile*' 'package.json' 'package-lock.json' 'pnpm-lock.yaml' 'yarn.lock' \
-            ':!*.md' ':!services/hermes-runtime/UPSTREAM.lock'; then
+            ':!*.md' \
+            ':!services/hermes-runtime/UPSTREAM.lock' \
+            ':!.github/workflows/maxx-release-gates.yml'; then
             echo 'Bambu personal Hermes must not appear in executable/runtime dependency files.' >&2
             exit 1
           fi
