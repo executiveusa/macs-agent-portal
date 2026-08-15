@@ -23,6 +23,9 @@ cp -R "$SEED_DIR/profile/skills/." "$DATA_DIR/skills/"
 if [[ -d "$SEED_DIR/repo-skills" ]]; then
   cp -R "$SEED_DIR/repo-skills/." "$DATA_DIR/skills/"
 fi
+if [[ -d "$SEED_DIR/maxx-specialist-skills" ]]; then
+  cp -R "$SEED_DIR/maxx-specialist-skills/." "$DATA_DIR/skills/"
+fi
 
 # ICM contracts track the tested image and are read progressively by skills.
 rm -rf "$CONTEXT_DIR/icm"
