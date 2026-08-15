@@ -12,6 +12,11 @@ function safeMatches(candidate: string | undefined, expected: string | undefined
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+function machineRouteAllowed(request: FastifyRequest) {
+  const path = request.url.split("?", 1)[0];
+  return request.method === "POST" && (path === "/v1/chat" || path === "/v1/missions");
+}
+
 export function createAuthenticator(config: MaxxConfig) {
   const jwks = config.SUPABASE_URL
     ? createRemoteJWKSet(new URL(`${config.SUPABASE_URL}/auth/v1/.well-known/jwks.json`))
@@ -25,6 +30,7 @@ export function createAuthenticator(config: MaxxConfig) {
     const machineKey = request.headers["x-maxx-api-key"];
     const machineValue = Array.isArray(machineKey) ? machineKey[0] : machineKey;
     if (safeMatches(machineValue, config.MAXX_API_KEY)) {
+      if (!machineRouteAllowed(request)) return null;
       return { id: "maxx-machine-client", email: "machine@maxx.local", principal: "machine" };
     }
 
