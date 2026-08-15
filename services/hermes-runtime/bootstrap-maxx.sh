@@ -17,15 +17,15 @@ if [[ ! -f "$DATA_DIR/config.yaml" ]]; then
   cp "$SCRIPT_DIR/profile/config.yaml" "$DATA_DIR/config.yaml"
 fi
 
-# Product skills and reusable repo skills are versioned code. Overlay them into
-# the isolated MAXX skill directory without deleting customer-local skills.
-cp -R "$SCRIPT_DIR/profile/skills/." "$DATA_DIR/skills/"
+# Preserve customer-local skills and overlay product skills in authority order:
+# generic repo skills -> legacy MAXX specialists -> current profile skills.
 if [[ -d "$REPO_ROOT/skills" ]]; then
   cp -R "$REPO_ROOT/skills/." "$DATA_DIR/skills/"
 fi
 if [[ -d "$REPO_ROOT/pi-packages/maxx/skills" ]]; then
   cp -R "$REPO_ROOT/pi-packages/maxx/skills/." "$DATA_DIR/skills/"
 fi
+cp -R "$SCRIPT_DIR/profile/skills/." "$DATA_DIR/skills/"
 
 # ICM contracts are synced with the tested product revision.
 cp "$REPO_ROOT/CONTEXT.md" "$CONTEXT_DIR/CONTEXT.md"
