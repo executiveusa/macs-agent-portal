@@ -27,8 +27,8 @@ jobs:
           python -m json.tool services/vision-gateway/UPSTREAM.lock >/dev/null
           python -m json.tool services/longrun-worker/UPSTREAM.lock >/dev/null
 
-      - name: Validate second-brain worker syntax
-        run: python -m py_compile services/second-brain-worker/worker.py
+      - name: Test second-brain ICM and OKF worker
+        run: python -m unittest services/second-brain-worker/test_worker.py -v
 
       - name: Validate shell entrypoints
         run: |
