@@ -5,7 +5,7 @@ const API_KEY = process.env.MAXX_API_KEY;
 const MAXX_MODE_MARKER = "[[MAXX_MODE:POWER]]";
 let buffer = "";
 
-async function maxx(path, options = {}, auth = true) {
+async function maxx(path, options = {}, auth = true, allowNon2xx = false) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (auth) {
     if (!API_KEY) throw new Error("MAXX_API_KEY is required");
@@ -13,8 +13,8 @@ async function maxx(path, options = {}, auth = true) {
   }
   const response = await fetch(`${API}${path}`, { ...options, headers });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || payload.message || `MAXX returned ${response.status}`);
-  return payload;
+  if (!response.ok && !allowNon2xx) throw new Error(payload.error || payload.message || `MAXX returned ${response.status}`);
+  return { ...payload, httpStatus: response.status };
 }
 
 function write(value) {
@@ -66,7 +66,7 @@ async function handle(message) {
           },
           {
             name: "maxx_status",
-            description: "Read the MAXX control-plane health/dependency state.",
+            description: "Read the MAXX control-plane health/dependency state, including degraded readiness details.",
             inputSchema: { type: "object", properties: {} },
           },
           {
@@ -86,7 +86,7 @@ async function handle(message) {
     const name = params.name;
     const args = params.arguments || {};
     if (name === "maxx_status") {
-      const payload = await maxx("/health/ready", {}, false);
+      const payload = await maxx("/health/ready", {}, false, true);
       return result(id, payload, payload);
     }
     if (name === "maxx_chat") {
