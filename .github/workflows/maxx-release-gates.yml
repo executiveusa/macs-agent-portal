@@ -1,0 +1,56 @@
+name: MAXX release gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  packaging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Root secret file must not be tracked
+        run: |
+          test ! -f .env
+          ! git ls-files --error-unmatch .env >/dev/null 2>&1
+
+      - name: Validate JSON manifests and locks
+        run: |
+          python -m json.tool public/manifest.webmanifest >/dev/null
+          python -m json.tool services/hermes-runtime/UPSTREAM.lock >/dev/null
+          python -m json.tool services/nca-toolkit/UPSTREAM.lock >/dev/null
+          python -m json.tool services/vision-gateway/UPSTREAM.lock >/dev/null
+          python -m json.tool services/longrun-worker/UPSTREAM.lock >/dev/null
+
+      - name: Validate second-brain worker syntax
+        run: python -m py_compile services/second-brain-worker/worker.py
+
+      - name: Validate shell entrypoints
+        run: |
+          bash -n services/hermes-runtime/maxx-entrypoint.sh
+          bash -n services/hermes-runtime/bootstrap-maxx.sh
+          bash -n services/nca-toolkit/bootstrap.sh
+          bash -n deploy/maxx/verify.sh
+
+      - name: Validate full Coolify compose expansion
+        env:
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role
+          STACY_ALLOWED_EMAILS: stacy@example.com
+          MAXX_API_KEY: 0123456789abcdef0123456789abcdef
+          MAXX_HERMES_API_KEY: abcdef0123456789abcdef0123456789
+          NCA_TOOLKIT_API_KEY: 11111111111111112222222222222222
+          CONTROL_TOWER_ALLOWED_ORIGINS: https://maxx.example.com
+        run: docker compose -f services/maxx-control-plane/compose.coolify.yml config --quiet
+
+      - name: Enforce personal Hermes isolation
+        run: |
+          matches=$(git grep -l 'executiveusa/pauli-hermes-agent' -- ':!ops/reports/*' || true)
+          expected=$(printf '%s\n' CONTEXT.md icm/maxx/01_identity/CONTEXT.md icm/maxx/03_runtime/CONTEXT.md icm/maxx/_shared/architecture-boundaries.md services/hermes-runtime/UPSTREAM.lock | sort)
+          actual=$(printf '%s\n' "$matches" | sed '/^$/d' | sort)
+          test "$actual" = "$expected"
