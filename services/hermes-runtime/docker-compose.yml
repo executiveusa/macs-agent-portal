@@ -1,11 +1,6 @@
 services:
   maxx-hermes:
-    build:
-      context: ../..
-      dockerfile: services/hermes-runtime/Dockerfile.maxx
-      args:
-        HERMES_IMAGE: "${HERMES_IMAGE:-nousresearch/hermes-agent:latest}"
-    image: maxx-hermes:local
+    image: "${MAXX_HERMES_IMAGE:?run build-pinned-image.sh and set MAXX_HERMES_IMAGE}"
     container_name: maxx-hermes
     restart: unless-stopped
     ports:
