@@ -13,7 +13,7 @@ class FakeHermes implements HermesAdapter {
     return {
       text: "MAXX completed the Hermes turn",
       model: "hermes-agent",
-      usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15, estimatedCostUsd: 0 },
+      usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15, estimatedCostUsd: 0, latencyMs: 1 },
     };
   }
 
