@@ -49,16 +49,29 @@ export interface HermesAdapter {
   cancelRun(runId: string): Promise<HermesRunState | undefined>;
 }
 
+export const MAXX_MODE_MARKER = "[[MAXX_MODE:POWER]]";
+
 const MAXX_SYSTEM_PROMPT = [
-  "You are Agent MAXX, powered by Hermes Agent.",
+  "You are Agent MAXX 006, powered by a dedicated Hermes Agent runtime.",
   "Load and follow the installed agent-maxx skill as your operating contract.",
   "The customer speaks in outcomes, not agent topology. Infer the smallest safe plan, route through installed skills/tools, and do the machine work underneath.",
   "Use ICM discipline: inspect before changing, load only relevant context, preserve owner control, keep consequential actions approval-gated, verify before claiming success, and maintain rollback.",
+  "Be direct and non-sycophantic. Recommend what is most likely to work rather than what is most flattering.",
   "Do not expose internal orchestration noise unless the customer asks for operational detail.",
+  "You are not Bambu's personal Hermes and must not rely on that agent's identity, memory, secrets, or sessions.",
 ].join("\n");
 
 function normalizeEndpoint(endpoint: string) {
   return endpoint.replace(/\/+$/, "");
+}
+
+function normalizeChatMessage(message: string) {
+  const trimmed = message.trimStart();
+  const maxMode = trimmed.startsWith(MAXX_MODE_MARKER);
+  return {
+    maxMode,
+    message: maxMode ? trimmed.slice(MAXX_MODE_MARKER.length).trimStart() : message,
+  };
 }
 
 function isoFromUnknown(value: unknown): string | null {
@@ -173,18 +186,23 @@ export class HttpHermesAdapter implements HermesAdapter {
 
   async chat(input: { message: string; sessionId?: string }): Promise<HermesChatResult> {
     const started = Date.now();
+    const normalized = normalizeChatMessage(input.message);
     const sessionHeaders: Record<string, string> = input.sessionId
       ? { "X-Hermes-Session-Id": input.sessionId, "X-Hermes-Session-Key": input.sessionId }
       : {};
+    const systemPrompt = normalized.maxMode
+      ? `${MAXX_SYSTEM_PROMPT}\nMAXX Mode is ACTIVE for this turn. Increase reasoning depth, challenge assumptions, and verify more aggressively. Do not relax safety or approval policy.`
+      : MAXX_SYSTEM_PROMPT;
     const response = await this.fetchImpl(`${this.endpoint}/v1/chat/completions`, {
       method: "POST",
       headers: this.headers(sessionHeaders),
       body: JSON.stringify({
         model: "hermes-agent",
         stream: false,
+        ...(normalized.maxMode ? { model_options: { reasoning_effort: "high" } } : {}),
         messages: [
-          { role: "system", content: MAXX_SYSTEM_PROMPT },
-          { role: "user", content: input.message },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: normalized.message },
         ],
       }),
     });
