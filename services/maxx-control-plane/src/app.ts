@@ -15,7 +15,7 @@ import { createStore, type ControlTowerStore } from "./store.js";
 import type { Operator, UsageRecord } from "./types.js";
 import { createRateLimiters, type RateLimiters } from "./rate-limiter.js";
 import { createProviderCircuitBreakers, type ProviderCircuitBreakers } from "./circuit-breaker.js";
-import { createHermesAdapter, type HermesAdapter } from "./hermes-adapter.js";
+import { createHermesAdapter, type HermesAdapter, type HermesApprovalChoice } from "./hermes-adapter.js";
 import { createMemoryIndexer, type MemoryIndexer } from "./memory-indexer.js";
 import {
   OwnerStrategyStore,
@@ -55,8 +55,6 @@ const strategyInputSchema = z.object({
   maxCostPerRequestUsd: z.number().positive().optional(),
 });
 
-// Mutating routes locked in production unless MAXX_PRODUCTION_MUTATIONS_ENABLED=true.
-// GET/health checks are always allowed through.
 const PRODUCTION_LOCKED_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
 
 const chatSchema = z.object({
@@ -118,8 +116,17 @@ const hermesRunSchema = z.object({
   stage: z.string().trim().min(1).default("hermes"),
   timeoutMs: z.number().positive().optional(),
 });
+const hermesApprovalSchema = z.object({
+  choice: z.enum(["once", "session", "always", "deny"]),
+});
+const hermesSteerSchema = z.object({
+  message: z.string().trim().min(1).max(20_000),
+});
 
 function dependencies(config: MaxxConfig) {
+  const hermesConfigured = Boolean(
+    config.featureFlags.MAXX_HERMES_ENABLED && config.MAXX_HERMES_ENDPOINT && config.MAXX_HERMES_API_KEY,
+  );
   return {
     supabase: {
       configured: Boolean(config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY),
@@ -129,17 +136,17 @@ function dependencies(config: MaxxConfig) {
     openrouter: {
       configured: Boolean(config.OPENROUTER_API_KEY),
       status: config.OPENROUTER_API_KEY ? "ready" : "degraded",
-      detail: config.OPENROUTER_API_KEY ? "Smart model router ready" : "OPENROUTER_API_KEY is missing",
+      detail: config.OPENROUTER_API_KEY ? "Direct fallback model router ready" : "OPENROUTER_API_KEY is missing",
     },
     groq: {
       configured: Boolean(config.GROQ_API_KEY),
       status: config.GROQ_API_KEY ? "ready" : "degraded",
-      detail: config.GROQ_API_KEY ? "Fast inference engine ready" : "GROQ_API_KEY is missing",
+      detail: config.GROQ_API_KEY ? "Direct fallback fast inference ready" : "GROQ_API_KEY is missing",
     },
     pi: {
       configured: Boolean(config.PI_EXECUTABLE),
       status: config.PI_EXECUTABLE ? "ready" : "degraded",
-      detail: config.PI_EXECUTABLE ? "Pi executable configured" : "PI_EXECUTABLE is missing",
+      detail: config.PI_EXECUTABLE ? "Legacy Pi executable configured" : "PI_EXECUTABLE is missing",
     },
     browser: {
       configured: config.featureFlags.MAXX_BROWSER_ENABLED,
@@ -170,17 +177,19 @@ function dependencies(config: MaxxConfig) {
           : "MAXX_VOICE_ENABLED is set but no server STT/TTS endpoint is configured; browser fallback remains available",
     },
     hermes: {
-      configured: Boolean(config.featureFlags.MAXX_HERMES_ENABLED && config.MAXX_HERMES_ENDPOINT),
+      configured: hermesConfigured,
       status: !config.featureFlags.MAXX_HERMES_ENABLED
         ? "unavailable"
-        : config.MAXX_HERMES_ENDPOINT
+        : hermesConfigured
           ? "ready"
           : "degraded",
       detail: !config.featureFlags.MAXX_HERMES_ENABLED
         ? "MAXX_HERMES_ENABLED is false"
-        : config.MAXX_HERMES_ENDPOINT
-          ? "Hermes endpoint configured"
-          : "MAXX_HERMES_ENABLED is set but MAXX_HERMES_ENDPOINT is missing",
+        : !config.MAXX_HERMES_ENDPOINT
+          ? "MAXX_HERMES_ENABLED is set but MAXX_HERMES_ENDPOINT is missing"
+          : !config.MAXX_HERMES_API_KEY
+            ? "Hermes endpoint is set but MAXX_HERMES_API_KEY is missing"
+            : "Hermes Agent API configured as MAXX primary orchestrator",
     },
     memory: {
       configured: config.featureFlags.MAXX_MEMORY_ENABLED,
@@ -210,6 +219,7 @@ export function buildApp(options: AppOptions = {}) {
     createHermesAdapter({
       hermesEnabled: config.featureFlags.MAXX_HERMES_ENABLED,
       hermesEndpoint: config.MAXX_HERMES_ENDPOINT,
+      hermesApiKey: config.MAXX_HERMES_API_KEY,
     });
   const memory =
     options.memory ??
@@ -271,7 +281,7 @@ export function buildApp(options: AppOptions = {}) {
   app.get("/health/live", async () => ({ status: "alive", service: "maxx-control-plane" }));
   app.get("/health/ready", async (_request, reply) => {
     const state = dependencies(config);
-    const ready = state.supabase.configured && (state.groq.configured || state.openrouter.configured);
+    const ready = state.supabase.configured && (state.hermes.configured || state.groq.configured || state.openrouter.configured);
     return reply.code(ready ? 200 : 503).send({
       status: ready ? "ready" : "degraded",
       dependencies: state,
@@ -351,47 +361,95 @@ export function buildApp(options: AppOptions = {}) {
       openrouter: Boolean(config.OPENROUTER_API_KEY),
     });
 
-    // Primary engine + graceful fallback. Groq handles fast task classes;
-    // if it errors, fall back to OpenRouter so the operator still gets a reply.
-    let result;
-    if (decision.provider === "groq" && config.GROQ_API_KEY && circuitBreakers.groq.canRequest()) {
+    let result: {
+      text: string;
+      usage: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens?: number;
+        estimatedCostUsd: number;
+        latencyMs: number;
+      };
+      degraded?: boolean;
+    };
+    let effectiveProvider = decision.provider as string;
+    let effectiveModel = decision.model;
+    let routingReason = decision.reason;
+    let degraded = false;
+
+    const hermesPrimary = Boolean(
+      config.featureFlags.MAXX_HERMES_ENABLED && config.MAXX_HERMES_ENDPOINT && config.MAXX_HERMES_API_KEY,
+    );
+
+    if (hermesPrimary) {
       try {
-        result = await runGroq({ apiKey: config.GROQ_API_KEY, message: input.message, decision });
-        circuitBreakers.groq.recordSuccess();
+        const hermesResult = await hermes.chat({ message: input.message, sessionId: input.runId });
+        result = hermesResult;
+        effectiveProvider = "hermes";
+        effectiveModel = hermesResult.model;
+        routingReason = "Hermes Agent is the primary MAXX orchestrator; installed MAXX skills/tools are available beneath the conversational surface.";
       } catch (error) {
-        circuitBreakers.groq.recordFailure();
-        app.log.warn({ error: String(error) }, "Groq failed, falling back to OpenRouter");
-        result = await runOpenRouter({
-          apiKey: config.OPENROUTER_API_KEY,
-          message: input.message,
-          decision: { ...decision, provider: "openrouter" },
-        });
+        degraded = true;
+        app.log.warn({ error: String(error) }, "Hermes chat failed; falling back to direct model routing");
+        result = await runDirectFallback();
       }
     } else {
-      result = await runOpenRouter({ apiKey: config.OPENROUTER_API_KEY, message: input.message, decision });
+      result = await runDirectFallback();
+    }
+
+    async function runDirectFallback() {
+      if (decision.provider === "groq" && config.GROQ_API_KEY && circuitBreakers.groq.canRequest()) {
+        try {
+          const groqResult = await runGroq({ apiKey: config.GROQ_API_KEY, message: input.message, decision });
+          circuitBreakers.groq.recordSuccess();
+          effectiveProvider = decision.provider;
+          effectiveModel = decision.model;
+          return groqResult;
+        } catch (error) {
+          circuitBreakers.groq.recordFailure();
+          app.log.warn({ error: String(error) }, "Groq failed, falling back to OpenRouter");
+          effectiveProvider = "openrouter";
+          return runOpenRouter({
+            apiKey: config.OPENROUTER_API_KEY,
+            message: input.message,
+            decision: { ...decision, provider: "openrouter" },
+          });
+        }
+      }
+      effectiveProvider = "openrouter";
+      return runOpenRouter({ apiKey: config.OPENROUTER_API_KEY, message: input.message, decision });
     }
 
     const usage = {
       id: randomUUID(),
       runId: input.runId,
-      model: decision.model,
+      model: effectiveModel,
       ...result.usage,
       createdAt: new Date().toISOString(),
     };
     await store.addUsage(usage);
-    if (input.runId) await store.addEvent(input.runId, "assistant.message", result.text, { model: decision.model });
+    if (input.runId) {
+      await store.addEvent(input.runId, "assistant.message", result.text, {
+        model: effectiveModel,
+        provider: effectiveProvider,
+      });
+    }
     return reply.send({
       id: randomUUID(),
       text: result.text,
-      model: decision.model,
-      provider: decision.provider,
+      model: effectiveModel,
+      provider: effectiveProvider,
       taskClass: decision.taskClass,
-      routingReason: decision.reason,
+      routingReason,
       approvalState: decision.taskClass === "high_risk" ? "required" : "not_required",
-      skills: decision.taskClass === "research" ? ["maxx-skill-router", "maxx-video-dossier"] : ["maxx-skill-router"],
+      skills: effectiveProvider === "hermes"
+        ? ["agent-maxx"]
+        : decision.taskClass === "research"
+          ? ["maxx-skill-router", "maxx-video-dossier"]
+          : ["maxx-skill-router"],
       stage: input.runId ? "active" : "conversation",
       usage,
-      degraded: result.degraded,
+      degraded: degraded || Boolean(result.degraded),
     });
   });
 
@@ -514,7 +572,10 @@ export function buildApp(options: AppOptions = {}) {
     }
     const input = hermesRunSchema.parse(request.body);
     const state = await hermes.startRun(input);
-    await store.addEvent(input.runId, "hermes.run.started", `Hermes run ${state.status}`, { stage: input.stage });
+    await store.addEvent(input.runId, "hermes.run.started", `Hermes run ${state.status}`, {
+      stage: input.stage,
+      hermesRunId: state.runId,
+    });
     return reply.code(state.status === "failed" ? 502 : 202).send(state);
   });
 
@@ -523,6 +584,28 @@ export function buildApp(options: AppOptions = {}) {
       return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
     }
     const state = await hermes.getRunState((request.params as { id: string }).id);
+    return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
+  });
+
+  app.post("/v1/hermes/runs/:id/approval", async (request, reply) => {
+    if (!config.featureFlags.MAXX_HERMES_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
+    }
+    const { choice } = hermesApprovalSchema.parse(request.body);
+    const runId = (request.params as { id: string }).id;
+    const state = await hermes.resolveApproval(runId, choice as HermesApprovalChoice);
+    if (state) await store.addEvent(state.runId, "hermes.approval.resolved", `Hermes approval resolved: ${choice}`);
+    return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
+  });
+
+  app.post("/v1/hermes/runs/:id/steer", async (request, reply) => {
+    if (!config.featureFlags.MAXX_HERMES_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
+    }
+    const { message } = hermesSteerSchema.parse(request.body);
+    const runId = (request.params as { id: string }).id;
+    const state = await hermes.steerRun(runId, message);
+    if (state) await store.addEvent(state.runId, "hermes.run.steered", "Operator steered Hermes run");
     return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
   });
 
