@@ -54,6 +54,13 @@ jobs:
           bash -n deploy/maxx/install.sh
           bash -n deploy/maxx/verify.sh
 
+      - name: Verify reusable MAXX skill catalog will be packaged
+        run: |
+          test -f skills/browser-hosting-deployer/SKILL.md
+          grep -F 'COPY skills /opt/maxx-seed/repo-skills' services/hermes-runtime/Dockerfile.maxx
+          grep -F 'cp -R "$SEED_DIR/repo-skills/." "$DATA_DIR/skills/"' services/hermes-runtime/maxx-entrypoint.sh
+          grep -F 'cp -R "$REPO_ROOT/skills/." "$DATA_DIR/skills/"' services/hermes-runtime/bootstrap-maxx.sh
+
       - name: Reject mutable Hermes runtime images
         run: |
           if git grep -n -E 'nousresearch/hermes-agent:(latest|main)|HERMES_IMAGE:-nousresearch/hermes-agent' -- \
