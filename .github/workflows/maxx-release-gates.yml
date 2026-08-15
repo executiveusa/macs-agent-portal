@@ -56,8 +56,15 @@ jobs:
 
       - name: Reject mutable Hermes runtime images
         run: |
-          ! grep -R --line-number -E 'nousresearch/hermes-agent:(latest|main)|HERMES_IMAGE:-nousresearch/hermes-agent' \
-            services/hermes-runtime services/maxx-control-plane/compose.coolify.yml deploy/maxx
+          if git grep -n -E 'nousresearch/hermes-agent:(latest|main)|HERMES_IMAGE:-nousresearch/hermes-agent' -- \
+            services/hermes-runtime/Dockerfile.maxx \
+            services/hermes-runtime/docker-compose.yml \
+            'services/hermes-runtime/*.sh' \
+            services/maxx-control-plane/compose.coolify.yml \
+            'deploy/maxx/*.sh'; then
+            echo 'MAXX runtime must be built from the immutable UPSTREAM.lock commit.' >&2
+            exit 1
+          fi
 
       - name: Validate full Coolify compose expansion
         env:
