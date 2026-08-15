@@ -1,0 +1,8 @@
+{
+  "upstream": "https://github.com/stephengpope/no-code-architects-toolkit.git",
+  "branch": "main",
+  "commit": "d9bb5679e203e6b5d3b3c2b9ab848a289c645024",
+  "role": "media-execution-edge",
+  "authority": "subordinate-to-maxx-hermes",
+  "forbidden_public_endpoint": "/v1/code/execute/python"
+}
