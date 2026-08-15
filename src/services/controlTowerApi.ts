@@ -2,6 +2,9 @@ import { supabase } from "@/integrations/supabase/client";
 import type { ChatResponse, ControlTowerBootstrap, Mission, OwnerStrategy } from "@/types/controlTower";
 
 const baseUrl = (import.meta.env.VITE_CONTROL_TOWER_API_URL ?? "http://127.0.0.1:8787").replace(/\/$/, "");
+const MAXX_MODE_MARKER = "[[MAXX_MODE:POWER]]";
+
+export type MaxxChatMode = "normal" | "max";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const devBypass = import.meta.env.DEV && import.meta.env.VITE_MAXX_DEV_AUTH_BYPASS === "true";
@@ -24,10 +27,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const controlTowerApi = {
   bootstrap: () => request<ControlTowerBootstrap>("/v1/control-tower/bootstrap"),
-  chat: (message: string, model?: string, runId?: string) =>
+  chat: (message: string, model?: string, runId?: string, mode: MaxxChatMode = "normal") =>
     request<ChatResponse>("/v1/chat", {
       method: "POST",
-      body: JSON.stringify({ message, model: model || undefined, runId }),
+      body: JSON.stringify({
+        message: mode === "max" ? `${MAXX_MODE_MARKER}\n${message}` : message,
+        model: model || undefined,
+        runId,
+      }),
     }),
   createMission: (objective: string) =>
     request<Mission & { stages: Array<{ id: string; purpose: string }> }>("/v1/missions", {
