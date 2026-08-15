@@ -50,7 +50,10 @@ jobs:
 
       - name: Enforce personal Hermes isolation
         run: |
-          matches=$(git grep -l 'executiveusa/pauli-hermes-agent' -- ':!ops/reports/*' || true)
-          expected=$(printf '%s\n' CONTEXT.md icm/maxx/01_identity/CONTEXT.md icm/maxx/03_runtime/CONTEXT.md icm/maxx/_shared/architecture-boundaries.md services/hermes-runtime/UPSTREAM.lock | sort)
-          actual=$(printf '%s\n' "$matches" | sed '/^$/d' | sort)
-          test "$actual" = "$expected"
+          if git grep -n 'executiveusa/pauli-hermes-agent' -- \
+            '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs' '*.py' '*.sh' '*.yml' '*.yaml' \
+            'Dockerfile*' 'package.json' 'package-lock.json' 'pnpm-lock.yaml' 'yarn.lock' \
+            ':!*.md' ':!services/hermes-runtime/UPSTREAM.lock'; then
+            echo 'Bambu personal Hermes must not appear in executable/runtime dependency files.' >&2
+            exit 1
+          fi
