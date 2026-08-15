@@ -55,8 +55,6 @@ const strategyInputSchema = z.object({
   maxCostPerRequestUsd: z.number().positive().optional(),
 });
 
-// Mutating routes locked in production unless MAXX_PRODUCTION_MUTATIONS_ENABLED=true.
-// GET/health checks are always allowed through.
 const PRODUCTION_LOCKED_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
 
 const chatSchema = z.object({
@@ -365,7 +363,13 @@ export function buildApp(options: AppOptions = {}) {
 
     let result: {
       text: string;
-      usage: { promptTokens: number; completionTokens: number; totalTokens: number; estimatedCostUsd: number };
+      usage: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens?: number;
+        estimatedCostUsd: number;
+        latencyMs: number;
+      };
       degraded?: boolean;
     };
     let effectiveProvider = decision.provider as string;
