@@ -1,4 +1,4 @@
-ARG HERMES_IMAGE=nousresearch/hermes-agent:latest
+ARG HERMES_IMAGE
 FROM ${HERMES_IMAGE}
 
 USER root
