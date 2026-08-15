@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import MaxxChat from "./pages/MaxxChat";
+import MaxxSettings from "./pages/MaxxSettings";
 import Shop from "./pages/Shop";
 import Admin from "./pages/Admin";
 import SignIn from "./pages/SignIn";
@@ -33,6 +34,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <MaxxChat />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/control/settings"
+                element={
+                  <ProtectedRoute>
+                    <MaxxSettings />
                   </ProtectedRoute>
                 }
               />
