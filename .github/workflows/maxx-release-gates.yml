@@ -33,6 +33,15 @@ jobs:
           assert lock.get('build_policy') == 'build_upstream_from_exact_commit_then_overlay_maxx'
           PY
 
+      - name: Verify locked Hermes commit is fetchable
+        run: |
+          upstream=$(python -c "import json; print(json.load(open('services/hermes-runtime/UPSTREAM.lock'))['upstream'])")
+          commit=$(python -c "import json; print(json.load(open('services/hermes-runtime/UPSTREAM.lock'))['commit'])")
+          git init -q /tmp/hermes-pin
+          git -C /tmp/hermes-pin remote add origin "$upstream"
+          git -C /tmp/hermes-pin fetch --depth=1 origin "$commit"
+          test "$(git -C /tmp/hermes-pin rev-parse FETCH_HEAD)" = "$commit"
+
       - name: Test second-brain ICM and OKF worker
         run: python -m unittest services/second-brain-worker/test_worker.py -v
 
@@ -42,12 +51,13 @@ jobs:
           bash -n services/hermes-runtime/bootstrap-maxx.sh
           bash -n services/hermes-runtime/build-pinned-image.sh
           bash -n services/nca-toolkit/bootstrap.sh
+          bash -n deploy/maxx/install.sh
           bash -n deploy/maxx/verify.sh
 
       - name: Reject mutable Hermes runtime images
         run: |
           ! grep -R --line-number -E 'nousresearch/hermes-agent:(latest|main)|HERMES_IMAGE:-nousresearch/hermes-agent' \
-            services/hermes-runtime services/maxx-control-plane/compose.coolify.yml
+            services/hermes-runtime services/maxx-control-plane/compose.coolify.yml deploy/maxx
 
       - name: Validate full Coolify compose expansion
         env:
