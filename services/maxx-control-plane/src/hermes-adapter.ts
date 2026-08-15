@@ -74,6 +74,28 @@ function normalizeChatMessage(message: string) {
   };
 }
 
+type ModelRoute = { tier: "fast" | "standard" | "power"; provider: string; model: string };
+
+function configuredRoute(tier: ModelRoute["tier"], env: NodeJS.ProcessEnv = process.env): ModelRoute | undefined {
+  const prefix = `MAXX_HERMES_${tier.toUpperCase()}`;
+  const provider = env[`${prefix}_PROVIDER`]?.trim();
+  const model = env[`${prefix}_MODEL`]?.trim();
+  return provider && model ? { tier, provider, model } : undefined;
+}
+
+function chooseRoute(message: string, maxMode: boolean, env: NodeJS.ProcessEnv = process.env): ModelRoute | undefined {
+  if (maxMode) return configuredRoute("power", env) ?? configuredRoute("standard", env) ?? configuredRoute("fast", env);
+
+  const complexitySignals = /\b(architecture|architect|strategy|strategic|audit|security|migration|migrate|debug|root cause|research|compare|contract|database|deployment|production|financial|legal|system design|multi-agent|multi agent)\b/i;
+  const isFast = message.trim().length <= 220 && !complexitySignals.test(message);
+  if (isFast) return configuredRoute("fast", env) ?? configuredRoute("standard", env);
+  return configuredRoute("standard", env) ?? configuredRoute("fast", env);
+}
+
+function routeFields(route: ModelRoute | undefined) {
+  return route ? { model: route.model, provider: route.provider } : { model: "hermes-agent" };
+}
+
 function isoFromUnknown(value: unknown): string | null {
   if (typeof value === "string" && value) return value;
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -187,6 +209,7 @@ export class HttpHermesAdapter implements HermesAdapter {
   async chat(input: { message: string; sessionId?: string }): Promise<HermesChatResult> {
     const started = Date.now();
     const normalized = normalizeChatMessage(input.message);
+    const route = chooseRoute(normalized.message, normalized.maxMode);
     const sessionHeaders: Record<string, string> = input.sessionId
       ? { "X-Hermes-Session-Id": input.sessionId, "X-Hermes-Session-Key": input.sessionId }
       : {};
@@ -197,7 +220,7 @@ export class HttpHermesAdapter implements HermesAdapter {
       method: "POST",
       headers: this.headers(sessionHeaders),
       body: JSON.stringify({
-        model: "hermes-agent",
+        ...routeFields(route),
         stream: false,
         ...(normalized.maxMode ? { model_options: { reasoning_effort: "high" } } : {}),
         messages: [
@@ -217,7 +240,7 @@ export class HttpHermesAdapter implements HermesAdapter {
     const completionTokens = Number(usage.completion_tokens ?? 0) || 0;
     return {
       text,
-      model: String(body.model ?? "hermes-agent"),
+      model: String(body.model ?? route?.model ?? "hermes-agent"),
       usage: {
         promptTokens,
         completionTokens,
@@ -229,6 +252,7 @@ export class HttpHermesAdapter implements HermesAdapter {
   }
 
   async startRun(input: HermesRunInput): Promise<HermesRunState> {
+    const route = chooseRoute(input.objective, false);
     const instructions = [
       MAXX_SYSTEM_PROMPT,
       "",
@@ -249,6 +273,7 @@ export class HttpHermesAdapter implements HermesAdapter {
         input: input.objective,
         session_id: input.runId,
         instructions,
+        ...routeFields(route),
       }),
     });
     if (!response.ok) throw new Error(`Hermes startRun failed with status ${response.status}`);
