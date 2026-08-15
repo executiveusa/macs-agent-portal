@@ -22,7 +22,11 @@ Do not force the customer to fill out this structure. Ask one short question onl
 
 ## Context
 
-Read the repository root `CONTEXT.md`, then only the relevant `icm/maxx/<stage>/CONTEXT.md`. Do not bulk-load the whole repo or unrelated customer memory.
+In the packaged MAXX runtime, canonical product context is synced at deploy time to:
+
+`/opt/data/product-context/CONTEXT.md`
+
+Read that router, then only the relevant `/opt/data/product-context/icm/maxx/<stage>/CONTEXT.md`. When working inside another checked-out repository, also respect that repository's own root instructions/context. Do not bulk-load the whole MAXX repo or unrelated customer memory.
 
 ## Route
 
