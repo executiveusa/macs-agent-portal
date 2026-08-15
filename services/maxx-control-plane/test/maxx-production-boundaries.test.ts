@@ -26,22 +26,42 @@ function withCleanRoutes<T>(fn: () => Promise<T>) {
   });
 }
 
-test("machine API key authenticates independently of Supabase and rejects wrong keys", async () => {
+function machineRequest(url: string, method = "POST", key = "0123456789abcdef0123456789abcdef") {
+  return {
+    url,
+    method,
+    headers: { "x-maxx-api-key": key },
+  } as unknown as FastifyRequest;
+}
+
+test("machine API key authenticates only on advertised MAXX machine routes", async () => {
   const config = loadConfig({
     NODE_ENV: "production",
     MAXX_API_KEY: "0123456789abcdef0123456789abcdef",
   });
   const authenticate = createAuthenticator(config);
 
-  const accepted = await authenticate({
-    headers: { "x-maxx-api-key": "0123456789abcdef0123456789abcdef" },
-  } as unknown as FastifyRequest);
-  assert.equal(accepted?.id, "maxx-machine-client");
+  const chat = await authenticate(machineRequest("/v1/chat"));
+  assert.equal(chat?.id, "maxx-machine-client");
+  assert.equal(chat?.principal, "machine");
 
-  const rejected = await authenticate({
-    headers: { "x-maxx-api-key": "ffffffffffffffffffffffffffffffff" },
-  } as unknown as FastifyRequest);
-  assert.equal(rejected, null);
+  const mission = await authenticate(machineRequest("/v1/missions"));
+  assert.equal(mission?.principal, "machine");
+
+  const approval = await authenticate(machineRequest("/v1/approvals/approval-1/approve"));
+  assert.equal(approval, null);
+
+  const strategy = await authenticate(machineRequest("/v1/strategy", "PUT"));
+  assert.equal(strategy, null);
+
+  const browserMutation = await authenticate(machineRequest("/v1/browser/sessions"));
+  assert.equal(browserMutation, null);
+
+  const hermesApproval = await authenticate(machineRequest("/v1/hermes/runs/run-1/approval"));
+  assert.equal(hermesApproval, null);
+
+  const wrongKey = await authenticate(machineRequest("/v1/chat", "POST", "ffffffffffffffffffffffffffffffff"));
+  assert.equal(wrongKey, null);
 });
 
 test("MAXX Mode is translated into high reasoning, uses configured power model, and hides the marker", async () => withCleanRoutes(async () => {
