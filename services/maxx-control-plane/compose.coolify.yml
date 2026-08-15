@@ -1,10 +1,6 @@
 services:
   maxx-hermes:
-    build:
-      context: ../..
-      dockerfile: services/hermes-runtime/Dockerfile.maxx
-      args:
-        HERMES_IMAGE: "${HERMES_IMAGE:-nousresearch/hermes-agent:latest}"
+    image: "${MAXX_HERMES_IMAGE:?build/publish the exact UPSTREAM.lock Hermes revision first}"
     restart: unless-stopped
     environment:
       API_SERVER_ENABLED: "true"
