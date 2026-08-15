@@ -23,6 +23,9 @@ cp -R "$SCRIPT_DIR/profile/skills/." "$DATA_DIR/skills/"
 if [[ -d "$REPO_ROOT/skills" ]]; then
   cp -R "$REPO_ROOT/skills/." "$DATA_DIR/skills/"
 fi
+if [[ -d "$REPO_ROOT/pi-packages/maxx/skills" ]]; then
+  cp -R "$REPO_ROOT/pi-packages/maxx/skills/." "$DATA_DIR/skills/"
+fi
 
 # ICM contracts are synced with the tested product revision.
 cp "$REPO_ROOT/CONTEXT.md" "$CONTEXT_DIR/CONTEXT.md"
