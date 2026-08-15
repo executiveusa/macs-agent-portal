@@ -26,6 +26,12 @@ jobs:
           python -m json.tool services/nca-toolkit/UPSTREAM.lock >/dev/null
           python -m json.tool services/vision-gateway/UPSTREAM.lock >/dev/null
           python -m json.tool services/longrun-worker/UPSTREAM.lock >/dev/null
+          python - <<'PY'
+          import json,re
+          lock=json.load(open('services/hermes-runtime/UPSTREAM.lock', encoding='utf-8'))
+          assert re.fullmatch(r'[0-9a-f]{40}', lock['commit']), 'Hermes commit must be an immutable full SHA'
+          assert lock.get('build_policy') == 'build_upstream_from_exact_commit_then_overlay_maxx'
+          PY
 
       - name: Test second-brain ICM and OKF worker
         run: python -m unittest services/second-brain-worker/test_worker.py -v
@@ -34,8 +40,14 @@ jobs:
         run: |
           bash -n services/hermes-runtime/maxx-entrypoint.sh
           bash -n services/hermes-runtime/bootstrap-maxx.sh
+          bash -n services/hermes-runtime/build-pinned-image.sh
           bash -n services/nca-toolkit/bootstrap.sh
           bash -n deploy/maxx/verify.sh
+
+      - name: Reject mutable Hermes runtime images
+        run: |
+          ! grep -R --line-number -E 'nousresearch/hermes-agent:(latest|main)|HERMES_IMAGE:-nousresearch/hermes-agent' \
+            services/hermes-runtime services/maxx-control-plane/compose.coolify.yml
 
       - name: Validate full Coolify compose expansion
         env:
@@ -44,6 +56,7 @@ jobs:
           STACY_ALLOWED_EMAILS: stacy@example.com
           MAXX_API_KEY: 0123456789abcdef0123456789abcdef
           MAXX_HERMES_API_KEY: abcdef0123456789abcdef0123456789
+          MAXX_HERMES_IMAGE: maxx-hermes:test-pinned
           NCA_TOOLKIT_API_KEY: 11111111111111112222222222222222
           CONTROL_TOWER_ALLOWED_ORIGINS: https://maxx.example.com
         run: docker compose -f services/maxx-control-plane/compose.coolify.yml config --quiet
