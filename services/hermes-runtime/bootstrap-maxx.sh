@@ -30,9 +30,24 @@ if [[ -z "${MAXX_HERMES_API_KEY:-}" ]]; then
   exit 1
 fi
 
+if [[ -z "${MAXX_HERMES_IMAGE:-}" ]]; then
+  LOCKED_COMMIT="$(python - "$SCRIPT_DIR/UPSTREAM.lock" <<'PY'
+import json,sys
+with open(sys.argv[1], encoding='utf-8') as handle:
+    print(json.load(handle)['commit'])
+PY
+)"
+  export MAXX_HERMES_IMAGE="maxx-hermes:${LOCKED_COMMIT:0:12}"
+fi
+
+# This is the only supported local bootstrap path: build Nous Hermes from the
+# exact commit in UPSTREAM.lock, then apply the MAXX overlay.
+MAXX_HERMES_IMAGE="$MAXX_HERMES_IMAGE" "$SCRIPT_DIR/build-pinned-image.sh"
+
 export MAXX_HERMES_DATA_DIR="$DATA_DIR"
-docker compose -f "$SCRIPT_DIR/docker-compose.yml" up -d --pull always
+docker compose -f "$SCRIPT_DIR/docker-compose.yml" up -d --pull never
 
 echo "MAXX Hermes started with isolated state at $DATA_DIR"
+echo "Pinned image: $MAXX_HERMES_IMAGE"
 echo "Product context synced to $CONTEXT_DIR"
 echo "Verify: curl http://127.0.0.1:${MAXX_HERMES_BIND_PORT:-8642}/health"
