@@ -1,0 +1,8 @@
+{
+  "upstream": "https://github.com/Intent-Lab/VisionClaw.git",
+  "branch": "main",
+  "commit": "d77cb79a0665fe36547f72ac108226e9eb9b8937",
+  "role": "reference-and-native-client-edge",
+  "brain": "maxx-hermes",
+  "launch_dependency": false
+}
