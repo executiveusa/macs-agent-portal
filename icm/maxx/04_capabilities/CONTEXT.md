@@ -16,11 +16,14 @@ Do NOT load every skill by default.
 4. MAXX Eyes is a vision edge: phone/Meta-glasses capture -> vision gateway -> MAXX API -> Hermes. VisionClaw/OpenClaw do not become a second brain.
 5. Long-running harnesses are workers subordinate to Hermes and return evidence/progress.
 6. CLI and MCP call the MAXX API, never Hermes directly.
+7. Customer second-brain imports are reconstructed by the private import worker into portable ICM plus Google Open Knowledge Format compatible markdown. Hermes reads only the relevant bundle/index/concepts through the `maxx-second-brain` skill; it does not stuff an entire export into every prompt.
+8. Imported customer claims preserve provenance and remain unverified source material until independently checked where the decision requires it.
 
 ## Outputs
 - `../../../skills/`
 - `../../../cli/`
 - `../../../mcp/`
+- `../../../services/second-brain-worker/`
 - capability adapters under `../../../services/`
 
 ## Human check
