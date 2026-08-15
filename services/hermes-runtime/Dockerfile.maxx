@@ -4,6 +4,7 @@ FROM ${HERMES_IMAGE}
 USER root
 COPY --chmod=0755 services/hermes-runtime/maxx-entrypoint.sh /opt/maxx-entrypoint.sh
 COPY services/hermes-runtime/profile /opt/maxx-seed/profile
+COPY skills /opt/maxx-seed/repo-skills
 COPY CONTEXT.md /opt/maxx-seed/CONTEXT.md
 COPY icm/maxx /opt/maxx-seed/icm/maxx
 
