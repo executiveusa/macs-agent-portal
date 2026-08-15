@@ -16,8 +16,15 @@ if [[ ! -f "$DATA_DIR/config.yaml" ]]; then
   cp "$SEED_DIR/profile/config.yaml" "$DATA_DIR/config.yaml"
 fi
 
-# Skills and ICM contracts are product code and should track the tested image.
+# Product skills and reusable specialist skills are versioned product code.
+# Overlay them into the isolated MAXX skill directory without deleting
+# customer-local/upstream skills that may also exist there.
 cp -R "$SEED_DIR/profile/skills/." "$DATA_DIR/skills/"
+if [[ -d "$SEED_DIR/repo-skills" ]]; then
+  cp -R "$SEED_DIR/repo-skills/." "$DATA_DIR/skills/"
+fi
+
+# ICM contracts track the tested image and are read progressively by skills.
 rm -rf "$CONTEXT_DIR/icm"
 mkdir -p "$CONTEXT_DIR/icm"
 cp "$SEED_DIR/CONTEXT.md" "$CONTEXT_DIR/CONTEXT.md"
