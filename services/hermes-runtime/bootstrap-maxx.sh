@@ -2,19 +2,28 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DATA_DIR="${MAXX_HERMES_DATA_DIR:-$SCRIPT_DIR/.runtime/hermes}"
+CONTEXT_DIR="$DATA_DIR/product-context"
 
-mkdir -p "$DATA_DIR/skills/agent-maxx" "$DATA_DIR/sessions" "$DATA_DIR/memories" "$DATA_DIR/cron" "$DATA_DIR/logs" "$DATA_DIR/home"
+mkdir -p "$DATA_DIR/skills" "$DATA_DIR/sessions" "$DATA_DIR/memories" "$DATA_DIR/cron" "$DATA_DIR/logs" "$DATA_DIR/home" "$CONTEXT_DIR"
 
-# Seed canonical product identity/config only when absent so customer/runtime
-# customization survives image and repository updates.
+# Seed identity/config only when absent so an already-onboarded customer's
+# runtime personality/config is not silently overwritten during upgrades.
 if [[ ! -f "$DATA_DIR/SOUL.md" ]]; then
   cp "$SCRIPT_DIR/profile/SOUL.md" "$DATA_DIR/SOUL.md"
 fi
 if [[ ! -f "$DATA_DIR/config.yaml" ]]; then
   cp "$SCRIPT_DIR/profile/config.yaml" "$DATA_DIR/config.yaml"
 fi
-cp "$SCRIPT_DIR/profile/skills/agent-maxx/SKILL.md" "$DATA_DIR/skills/agent-maxx/SKILL.md"
+
+# Product skills and ICM contracts are versioned code. Sync them on deploy so
+# Hermes sees the same contracts that the MAXX API/frontend were tested with.
+cp -R "$SCRIPT_DIR/profile/skills/." "$DATA_DIR/skills/"
+cp "$REPO_ROOT/CONTEXT.md" "$CONTEXT_DIR/CONTEXT.md"
+rm -rf "$CONTEXT_DIR/icm"
+mkdir -p "$CONTEXT_DIR/icm"
+cp -R "$REPO_ROOT/icm/maxx" "$CONTEXT_DIR/icm/maxx"
 
 if [[ -z "${MAXX_HERMES_API_KEY:-}" ]]; then
   echo "MAXX_HERMES_API_KEY must be supplied by the deployment secret store." >&2
@@ -25,4 +34,5 @@ export MAXX_HERMES_DATA_DIR="$DATA_DIR"
 docker compose -f "$SCRIPT_DIR/docker-compose.yml" up -d --pull always
 
 echo "MAXX Hermes started with isolated state at $DATA_DIR"
+echo "Product context synced to $CONTEXT_DIR"
 echo "Verify: curl http://127.0.0.1:${MAXX_HERMES_BIND_PORT:-8642}/health"
