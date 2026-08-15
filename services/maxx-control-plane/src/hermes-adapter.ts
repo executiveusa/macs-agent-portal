@@ -34,6 +34,7 @@ export type HermesChatResult = {
     completionTokens: number;
     totalTokens: number;
     estimatedCostUsd: number;
+    latencyMs: number;
   };
 };
 
@@ -107,8 +108,6 @@ function normalizeRunState(payload: Record<string, unknown>, stage = "hermes"): 
   };
 }
 
-// Used whenever no real Hermes runtime is reachable. It never pretends an
-// agent executed; callers get an explicit failure/degraded state.
 export class StubHermesAdapter implements HermesAdapter {
   private readonly runs = new Map<string, HermesRunState>();
 
@@ -153,9 +152,6 @@ export class StubHermesAdapter implements HermesAdapter {
   }
 }
 
-// Adapter for Hermes Agent's current API server contract. Hermes exposes the
-// same AIAgent core used by its CLI/gateway through OpenAI-compatible chat plus
-// native asynchronous /v1/runs endpoints with approvals, steering and stop.
 export class HttpHermesAdapter implements HermesAdapter {
   private readonly endpoint: string;
 
@@ -176,7 +172,8 @@ export class HttpHermesAdapter implements HermesAdapter {
   }
 
   async chat(input: { message: string; sessionId?: string }): Promise<HermesChatResult> {
-    const sessionHeaders = input.sessionId
+    const started = Date.now();
+    const sessionHeaders: Record<string, string> = input.sessionId
       ? { "X-Hermes-Session-Id": input.sessionId, "X-Hermes-Session-Key": input.sessionId }
       : {};
     const response = await this.fetchImpl(`${this.endpoint}/v1/chat/completions`, {
@@ -208,6 +205,7 @@ export class HttpHermesAdapter implements HermesAdapter {
         completionTokens,
         totalTokens: Number(usage.total_tokens ?? promptTokens + completionTokens) || promptTokens + completionTokens,
         estimatedCostUsd: 0,
+        latencyMs: Date.now() - started,
       },
     };
   }
