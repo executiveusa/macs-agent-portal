@@ -16,16 +16,16 @@ if [[ ! -f "$DATA_DIR/config.yaml" ]]; then
   cp "$SEED_DIR/profile/config.yaml" "$DATA_DIR/config.yaml"
 fi
 
-# Product skills and reusable specialist skills are versioned product code.
-# Overlay them into the isolated MAXX skill directory without deleting
-# customer-local/upstream skills that may also exist there.
-cp -R "$SEED_DIR/profile/skills/." "$DATA_DIR/skills/"
+# Skills are progressive-disclosure runtime knowledge. Preserve customer-local
+# skills and overlay versioned product skills in authority order: generic repo
+# skills, legacy specialist catalog, then current MAXX profile skills last.
 if [[ -d "$SEED_DIR/repo-skills" ]]; then
   cp -R "$SEED_DIR/repo-skills/." "$DATA_DIR/skills/"
 fi
 if [[ -d "$SEED_DIR/maxx-specialist-skills" ]]; then
   cp -R "$SEED_DIR/maxx-specialist-skills/." "$DATA_DIR/skills/"
 fi
+cp -R "$SEED_DIR/profile/skills/." "$DATA_DIR/skills/"
 
 # ICM contracts track the tested image and are read progressively by skills.
 rm -rf "$CONTEXT_DIR/icm"
