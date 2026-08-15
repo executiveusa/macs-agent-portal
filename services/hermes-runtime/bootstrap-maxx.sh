@@ -17,9 +17,14 @@ if [[ ! -f "$DATA_DIR/config.yaml" ]]; then
   cp "$SCRIPT_DIR/profile/config.yaml" "$DATA_DIR/config.yaml"
 fi
 
-# Product skills and ICM contracts are versioned code. Sync them on deploy so
-# Hermes sees the same contracts that the MAXX API/frontend were tested with.
+# Product skills and reusable repo skills are versioned code. Overlay them into
+# the isolated MAXX skill directory without deleting customer-local skills.
 cp -R "$SCRIPT_DIR/profile/skills/." "$DATA_DIR/skills/"
+if [[ -d "$REPO_ROOT/skills" ]]; then
+  cp -R "$REPO_ROOT/skills/." "$DATA_DIR/skills/"
+fi
+
+# ICM contracts are synced with the tested product revision.
 cp "$REPO_ROOT/CONTEXT.md" "$CONTEXT_DIR/CONTEXT.md"
 rm -rf "$CONTEXT_DIR/icm"
 mkdir -p "$CONTEXT_DIR/icm"
