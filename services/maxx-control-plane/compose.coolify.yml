@@ -26,6 +26,7 @@ services:
       NCA_TOOLKIT_API_KEY: "${NCA_TOOLKIT_API_KEY:?required}"
     volumes:
       - maxx-hermes-data:/opt/data
+      - maxx-icm:/opt/data/maxx-icm:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8642/health', timeout=5).read()"]
       interval: 30s
@@ -52,6 +53,21 @@ services:
       retries: 5
       start_period: 45s
 
+  maxx-second-brain-worker:
+    build:
+      context: ../..
+      dockerfile: services/second-brain-worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      SUPABASE_URL: "${SUPABASE_URL:?required}"
+      SUPABASE_SERVICE_ROLE_KEY: "${SUPABASE_SERVICE_ROLE_KEY:?required for second-brain worker}"
+      MAXX_ICM_ROOT: /data/maxx
+      SECOND_BRAIN_POLL_SECONDS: "${SECOND_BRAIN_POLL_SECONDS:-5}"
+      SECOND_BRAIN_MAX_TEXT_BYTES: "${SECOND_BRAIN_MAX_TEXT_BYTES:-10485760}"
+      SECOND_BRAIN_CHUNK_CHARS: "${SECOND_BRAIN_CHUNK_CHARS:-60000}"
+    volumes:
+      - maxx-icm:/data/maxx
+
   maxx-control-plane:
     build:
       context: ../..
@@ -68,7 +84,7 @@ services:
       PORT: 8787
       MAXX_ICM_ROOT: /data/maxx
       SUPABASE_URL: "${SUPABASE_URL:?required}"
-      SUPABASE_SERVICE_ROLE_KEY: "${SUPABASE_SERVICE_ROLE_KEY:-}"
+      SUPABASE_SERVICE_ROLE_KEY: "${SUPABASE_SERVICE_ROLE_KEY:?required}"
       STACY_ALLOWED_EMAILS: "${STACY_ALLOWED_EMAILS:?required}"
       MAXX_API_KEY: "${MAXX_API_KEY:?required}"
       CONTROL_TOWER_ALLOWED_ORIGINS: "${CONTROL_TOWER_ALLOWED_ORIGINS:?required}"
