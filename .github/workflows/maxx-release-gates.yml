@@ -57,9 +57,15 @@ jobs:
       - name: Verify reusable MAXX skill catalog will be packaged
         run: |
           test -f skills/browser-hosting-deployer/SKILL.md
+          for skill in pi-packages/maxx/skills/*; do
+            test -f "$skill/SKILL.md"
+          done
           grep -F 'COPY skills /opt/maxx-seed/repo-skills' services/hermes-runtime/Dockerfile.maxx
+          grep -F 'COPY pi-packages/maxx/skills /opt/maxx-seed/maxx-specialist-skills' services/hermes-runtime/Dockerfile.maxx
           grep -F 'cp -R "$SEED_DIR/repo-skills/." "$DATA_DIR/skills/"' services/hermes-runtime/maxx-entrypoint.sh
+          grep -F 'cp -R "$SEED_DIR/maxx-specialist-skills/." "$DATA_DIR/skills/"' services/hermes-runtime/maxx-entrypoint.sh
           grep -F 'cp -R "$REPO_ROOT/skills/." "$DATA_DIR/skills/"' services/hermes-runtime/bootstrap-maxx.sh
+          grep -F 'cp -R "$REPO_ROOT/pi-packages/maxx/skills/." "$DATA_DIR/skills/"' services/hermes-runtime/bootstrap-maxx.sh
 
       - name: Reject mutable Hermes runtime images
         run: |
