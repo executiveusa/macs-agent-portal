@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { StacyDashboardShell } from "@/components/dashboard/StacyDashboardShell";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import MaxxChat from "./pages/MaxxChat";
@@ -29,6 +30,14 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/blog" element={<Blog />} />
+              <Route
+                path="/dashboard/pups"
+                element={
+                  <ProtectedRoute>
+                    <MaxxPups />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/dashboard/*"
                 element={
