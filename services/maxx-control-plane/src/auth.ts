@@ -17,6 +17,10 @@ function machineRouteAllowed(request: FastifyRequest) {
   return request.method === "POST" && (path === "/v1/chat" || path === "/v1/missions");
 }
 
+function eventRouteAllowed(request: FastifyRequest) {
+  return request.method === "POST" && request.url.split("?", 1)[0] === "/v1/events";
+}
+
 export function createAuthenticator(config: MaxxConfig) {
   const jwks = config.SUPABASE_URL
     ? createRemoteJWKSet(new URL(`${config.SUPABASE_URL}/auth/v1/.well-known/jwks.json`))
@@ -25,6 +29,13 @@ export function createAuthenticator(config: MaxxConfig) {
   return async (request: FastifyRequest): Promise<Operator | null> => {
     if (config.devAuthBypass) {
       return { id: "local-stacy", email: config.allowedEmails[0] ?? "stacy@local", principal: "human" };
+    }
+
+    const eventKey = request.headers["x-maxx-event-key"];
+    const eventValue = Array.isArray(eventKey) ? eventKey[0] : eventKey;
+    if (safeMatches(eventValue, config.MAXX_EVENT_INGEST_KEY)) {
+      if (!eventRouteAllowed(request) || !config.MAXX_EVENT_OPERATOR_ID) return null;
+      return { id: config.MAXX_EVENT_OPERATOR_ID, email: "event-bridge@maxx.local", principal: "machine" };
     }
 
     const machineKey = request.headers["x-maxx-api-key"];
