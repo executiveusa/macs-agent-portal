@@ -1,4 +1,4 @@
-{$MAXX_DOMAIN} {
+{$MAXX_EDGE_SITE} {
   encode zstd gzip
 
   @api path /v1/* /health/*
