@@ -50,7 +50,7 @@ test("event key is valid only on event ingestion", async () => {
     method: "POST",
     url: "/v1/events",
     headers: { "x-maxx-event-key": eventKey },
-    payload: { type: "calendar.changed", summary: "A meeting moved to 3 PM." },
+    payload: { eventId: "evt-123", source: "google-calendar", type: "calendar.changed", summary: "A meeting moved to 3 PM." },
   });
   assert.equal(event.statusCode, 202);
 
