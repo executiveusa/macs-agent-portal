@@ -1,8 +1,10 @@
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import { registerPupRoutes } from "./pups.js";
 
 const config = loadConfig();
 const app = buildApp({ config });
+await registerPupRoutes(app, config);
 
 try {
   await app.listen({ host: config.HOST, port: config.PORT });
@@ -13,7 +15,8 @@ try {
 
 // Graceful shutdown: stop accepting new connections, let in-flight requests
 // finish (app.close() waits for them), and run the onClose hooks already
-// registered in app.ts (scheduler.stop(), browser.close()) before exiting.
+// registered in app.ts (scheduler.stop(), browser.close(), Pup supervisor)
+// before exiting.
 let shuttingDown = false;
 async function shutdown(signal: NodeJS.Signals) {
   if (shuttingDown) return;
