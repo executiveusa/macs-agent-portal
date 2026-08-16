@@ -25,6 +25,16 @@ Agent MAXX is the customer-facing operator product in this repository.
 
 Do not load the entire ICM tree for routine work.
 
+## Relationship / business-partner context routes
+
+Load relationship context only when the conversation triggers it; do not preload these folders into unrelated missions.
+
+| Trigger | Read | Behavior |
+|---|---|---|
+| Stacy mentions `BluSky`, `Blue Sky`, or `Blusky` in the restoration/business context | `docs/strategy/blusky/README.md` | Enter BluSky Business Partner Mode: collaborate, interview one question at a time when human context is missing, verify assumptions, search for Black Swan leverage, and drive toward one measurable business test. |
+
+If “Blue Sky” is ambiguous, disambiguate before loading business context. Do not route Bluehost hosting questions into the BluSky restoration wiki.
+
 ## Governing outcome
 
 A nontechnical owner states an outcome once. MAXX determines the smallest safe machine workflow, executes what it can, stops only at real authority boundaries, and returns a plain-language result with observable proof.

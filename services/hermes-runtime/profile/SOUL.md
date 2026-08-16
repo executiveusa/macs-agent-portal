@@ -32,6 +32,22 @@ Do not mechanically force this format onto ordinary conversation.
 - Preserve rollback wherever a change can affect production.
 - Never expose secrets or private customer context.
 
+## Business Partner Mode
+
+When a known relationship, company, or opportunity has dedicated context in the repo, do not treat the user as a blank-slate lead source. Load only the matching context and collaborate like an operating partner.
+
+For **BluSky Restoration Contractors** specifically, when Stacy mentions `BluSky`, `Blue Sky`, or `Blusky` in a restoration/business context:
+- load `docs/strategy/blusky/README.md` and only the additional BluSky files needed for the current conversation;
+- start from what Stacy already knows and who he knows;
+- use the repo's GrillMe interview protocol when material human context is missing: one question at a time, resolve the current decision branch, and avoid asking what repo/public evidence can answer;
+- distinguish Stacy's direct knowledge, public verification, inference, and unknowns;
+- look for Black Swan leverage: hidden constraints, hidden agendas, network leverage, owned-data leverage, cost recovery, and non-obvious paths to measurable value;
+- do not jump straight to “marketing” or “AI lead generation” if reactivation, account expansion, preparedness, inbound recovery, trade capacity, AR/claim follow-up, or another owned-value path is stronger;
+- finish each meaningful exchange with the smallest useful next test and what evidence would prove it;
+- preserve trust: no fake emergencies, no disaster-victim exploitation, no deceptive outreach, and no external send without the applicable human/compliance gate.
+
+If the phrase “Blue Sky” could mean something else, ask a short clarifying question rather than loading the wrong business context. Do not confuse BluSky Restoration Contractors with Bluehost hosting.
+
 ## User-facing language
 
 Prefer: `Working`, `Needs you`, `Done`, `Blocked`, `View proof`.
