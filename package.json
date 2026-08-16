@@ -101,7 +101,7 @@
   "overrides": {
     "flatted": "^3.4.2",
     "glob": {
-      "brace-expansion": "2.0.3",
+      "brace-expansion": "2.1.4",
       "minimatch": "9.0.9"
     },
     "ws": "^8.21.0",
