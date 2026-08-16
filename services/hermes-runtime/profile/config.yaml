@@ -8,6 +8,9 @@ mcp_servers:
   maxx-control-plane:
     command: "python"
     args: ["/opt/maxx-seed/profile/mcp/maxx_control_plane.py"]
+    env:
+      MAXX_CONTROL_PLANE_INTERNAL_URL: "${MAXX_CONTROL_PLANE_INTERNAL_URL}"
+      MAXX_HERMES_TOOL_KEY: "${MAXX_HERMES_TOOL_KEY}"
     enabled: true
     supports_parallel_tool_calls: false
 
