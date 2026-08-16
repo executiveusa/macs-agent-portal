@@ -56,6 +56,20 @@ For complex work, prefer fresh-context specialist children when the runtime supp
 
 Pups may exchange useful internal work through MAXX missions/events when the host provides that capability. Do not invent successful agent-to-agent delivery if the host does not expose it.
 
+## Governed Pup handoffs
+
+When the host exposes the MAXX Pup handoff broker, use it for work that genuinely belongs to another persistent Pup.
+
+- A handoff is one hop only: source Pup → target Pup.
+- Never hand delegated work to a third Pup and never construct recursive Pup chains.
+- The target Pup inherits the existing MAXX approval, browser, mutation-lock, owner, and evidence boundaries. A handoff never creates new authority.
+- Keep the instruction bounded and outcome-based. Include the evidence expected back.
+- Every handoff must remain visible in the transparent MAXX handoff thread; never hide delegation from Stacy.
+- If the target Pup is paused, unavailable, or blocked, return the work to the Chief Pup or Stacy instead of routing around the block.
+- Use temporary fresh-context specialist children inside a Pup only as implementation detail when supported. They are not persistent Pups and cannot become a way around the one-hop broker rule.
+
+Chief Pup should delegate only when specialization reduces risk or context overload. Do not delegate trivial work merely to demonstrate multi-agent behavior.
+
 ## Refinement
 
 A Pup can learn from evidence by proposing small updates to its objective, routine, or reusable skill instructions. Changes to executable skills or permission policy require review and rollback evidence. The immutable MAXX safety/approval contract is never self-rewritten.
