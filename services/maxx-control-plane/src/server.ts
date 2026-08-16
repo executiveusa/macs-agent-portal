@@ -1,5 +1,6 @@
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import { registerOperationsHubRoutes } from "./operations-hub.js";
 import { registerPupBrokerRoutes } from "./pup-broker.js";
 import { registerPupRoutes } from "./pups.js";
 
@@ -24,6 +25,7 @@ const pupConfig = proactivePupsAllowed
     };
 await registerPupRoutes(app, pupConfig);
 await registerPupBrokerRoutes(app, pupConfig);
+await registerOperationsHubRoutes(app, pupConfig);
 
 try {
   await app.listen({ host: config.HOST, port: config.PORT });

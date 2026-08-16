@@ -90,6 +90,15 @@ fi
 
 printf '%s\n' "provider=$PROVIDER" "profile=$PROFILE" "domain=$DOMAIN" "ingress=$ingress_mode" > "$run_dir/plan.txt"
 
+# OPTIONAL PRIVATE NETWORK: only activates when an auth key was deliberately
+# supplied in the deployment secret file. It never replaces public customer
+# ingress and does not use Tailscale Funnel.
+if [[ -n "${MAXX_TAILSCALE_AUTH_KEY:-}" ]]; then
+  bash "$SCRIPT_DIR/configure-tailscale.sh" > "$run_dir/tailscale.txt" 2>&1
+else
+  echo "disabled" > "$run_dir/tailscale.txt"
+fi
+
 # PROVE/PREFLIGHT: render Compose before starting anything.
 docker compose --env-file "$ENV_FILE" \
   -f "$REPO_ROOT/services/maxx-control-plane/compose.coolify.yml" \

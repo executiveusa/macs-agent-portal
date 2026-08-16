@@ -53,6 +53,40 @@ export type PupHandoff = {
   updatedAt: string;
 };
 
+export type ReviewItem = {
+  kind: "approval" | "handoff" | "pup" | "refinement";
+  priority: "high" | "normal";
+  id: string;
+  title: string;
+  detail: string;
+  data: Record<string, unknown>;
+};
+
+export type MaxxWorkflow = {
+  id: string;
+  operatorId: string;
+  name: string;
+  pupId: string;
+  objective: string;
+  expectedProof: string;
+  triggerType: "manual" | "interval" | "event";
+  triggerValue: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MaxxConnection = {
+  id: string;
+  operatorId: string;
+  name: string;
+  kind: "email" | "calendar" | "crm" | "hosting" | "social" | "browser" | "other";
+  secretRef: string;
+  status: "connected" | "needs_attention" | "disabled";
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PupsPayload = {
   pups: Pup[];
   templates: PupTemplate[];
@@ -78,8 +112,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const pupsApi = {
   list: () => request<PupsPayload>("/v1/pups"),
-  create: (templateId: PupTemplate["id"]) =>
-    request<Pup>("/v1/pups", { method: "POST", body: JSON.stringify({ templateId }) }),
+  create: (templateId: PupTemplate["id"]) => request<Pup>("/v1/pups", { method: "POST", body: JSON.stringify({ templateId }) }),
   patch: (id: string, input: Partial<Pick<Pup, "name" | "objective" | "status" | "autonomy" | "routineEveryMinutes" | "routinePrompt">>) =>
     request<Pup>(`/v1/pups/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   run: (id: string, instruction?: string) =>
@@ -88,24 +121,31 @@ export const pupsApi = {
       { method: "POST", body: JSON.stringify({ instruction: instruction || undefined }) },
     ),
   chat: (id: string, message: string) =>
-    request<{ text: string; model: string }>(`/v1/pups/${encodeURIComponent(id)}/chat`, {
-      method: "POST",
-      body: JSON.stringify({ message }),
-    }),
+    request<{ text: string; model: string }>(`/v1/pups/${encodeURIComponent(id)}/chat`, { method: "POST", body: JSON.stringify({ message }) }),
   handoffs: {
-    list: (limit = 50) =>
-      request<{ handoffs: PupHandoff[]; persistence: "memory" | "supabase"; maxDepth: 1 }>(
-        `/v1/pup-handoffs?limit=${encodeURIComponent(String(limit))}`,
-      ),
-    thread: (threadId: string) =>
-      request<{ threadId: string; handoffs: PupHandoff[] }>(`/v1/pup-handoffs/${encodeURIComponent(threadId)}`),
+    list: (limit = 50) => request<{ handoffs: PupHandoff[]; persistence: "memory" | "supabase"; maxDepth: 1 }>(`/v1/pup-handoffs?limit=${encodeURIComponent(String(limit))}`),
+    thread: (threadId: string) => request<{ threadId: string; handoffs: PupHandoff[] }>(`/v1/pup-handoffs/${encodeURIComponent(threadId)}`),
     delegate: (sourcePupId: string, targetPupId: string, instruction: string) =>
-      request<{
-        handoff: PupHandoff;
-        dispatch: { statusCode: number; missionId?: string; runId?: string; stateStatus?: string; error?: string };
-      }>("/v1/pup-handoffs", {
+      request<{ handoff: PupHandoff; dispatch: { statusCode: number; missionId?: string; runId?: string; stateStatus?: string; error?: string } }>("/v1/pup-handoffs", {
         method: "POST",
         body: JSON.stringify({ sourcePupId, targetPupId, instruction }),
+      }),
+  },
+  operations: {
+    reviewInbox: () => request<{ items: ReviewItem[]; count: number; persistence: "memory" | "supabase" }>("/v1/review-inbox"),
+    workflows: () => request<{ workflows: MaxxWorkflow[]; persistence: "memory" | "supabase" }>("/v1/workflows"),
+    connections: () => request<{ connections: MaxxConnection[]; persistence: "memory" | "supabase" }>("/v1/connections"),
+    teach: (input: Omit<MaxxWorkflow, "id" | "operatorId" | "active" | "createdAt" | "updatedAt">) =>
+      request<{ workflow: MaxxWorkflow }>("/v1/workflows", { method: "POST", body: JSON.stringify(input) }),
+    delegate: (sourcePupId: string, targetPupId: string, objective: string, expectedProof: string) =>
+      request<{ handoff: PupHandoff }>(`/v1/pups/${encodeURIComponent(sourcePupId)}/delegate`, {
+        method: "POST",
+        body: JSON.stringify({ targetPupId, objective, expectedProof }),
+      }),
+    freshSpecialist: (sourcePupId: string, input: { targetPupId: string; role: string; objective: string; context?: string; expectedProof: string }) =>
+      request<{ handoff: PupHandoff }>(`/v1/pups/${encodeURIComponent(sourcePupId)}/fresh-specialist`, {
+        method: "POST",
+        body: JSON.stringify(input),
       }),
   },
 };

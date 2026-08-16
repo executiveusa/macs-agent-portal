@@ -22,11 +22,13 @@ type InternalJob = ScheduledJobState & { handler: () => Promise<void> };
 // Fixed-interval scheduler, not cron-expression based - the "run cron-like
 // tasks" need here is periodic sweeps (approval expiry, provider health),
 // not calendar scheduling, so a cron parser would be unused complexity.
-// tick() is exposed directly so tests can drive time deterministically
-// instead of racing real timers.
+// tick() and the injected clock let tests drive time deterministically instead
+// of racing real timers around register() boundaries.
 export class Scheduler {
   private readonly jobs = new Map<string, InternalJob>();
   private timer: ReturnType<typeof setInterval> | null = null;
+
+  constructor(private readonly clock: () => number = Date.now) {}
 
   register(input: ScheduledJobInput): void {
     this.jobs.set(input.id, {
@@ -34,7 +36,7 @@ export class Scheduler {
       name: input.name,
       intervalMs: input.intervalMs,
       handler: input.handler,
-      nextRunAt: Date.now() + input.intervalMs,
+      nextRunAt: this.clock() + input.intervalMs,
       lastRunAt: null,
       lastStatus: "idle",
       lastError: null,
@@ -49,7 +51,7 @@ export class Scheduler {
     return [...this.jobs.values()].map(({ handler: _handler, ...rest }) => rest);
   }
 
-  async tick(now = Date.now()): Promise<void> {
+  async tick(now = this.clock()): Promise<void> {
     for (const job of this.jobs.values()) {
       if (job.nextRunAt > now) continue;
       job.lastStatus = "running";

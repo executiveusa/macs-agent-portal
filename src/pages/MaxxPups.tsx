@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Bot, Check, Clock3, Loader2, MessageCircle, Pause, Play, Plus, Send, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
+import { PupOperationsPanel } from "@/components/pups/PupOperationsPanel";
 import { pupsApi, type Pup, type PupTemplate } from "@/services/pupsApi";
 
 const scheduleOptions = [
@@ -223,6 +224,7 @@ export default function MaxxPups() {
             <section className="mt-10 grid gap-4 md:grid-cols-2">
               {data.pups.map((pup) => <PupCard key={pup.id} pup={pup} />)}
             </section>
+            <PupOperationsPanel pups={data.pups} />
             <section className="mt-7 rounded-[26px] border border-black/[0.07] bg-white/70 p-5 sm:p-6">
               <div className="flex items-start gap-3">
                 <ShieldCheck size={18} className="mt-0.5 shrink-0 text-[#4f765c]" />
