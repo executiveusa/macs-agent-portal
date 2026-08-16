@@ -1,0 +1,61 @@
+name: MAXX Gap Closure CI
+
+on:
+  pull_request:
+    paths:
+      - "services/hermes-runtime/**"
+      - "services/maxx-control-plane/**"
+      - "desktop/maxx-tauri/**"
+      - "deploy/flywheel/**"
+      - ".github/workflows/maxx-gap-closure-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hermes-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exact bridge dependencies
+        run: python -m pip install "mcp==1.28.1" "pyyaml==6.0.3"
+      - name: Compile MCP bridge
+        run: python -m py_compile services/hermes-runtime/profile/mcp/maxx_control_plane.py
+      - name: Import MCP bridge
+        run: |
+          python - <<'PY'
+          import importlib.util
+          path = "services/hermes-runtime/profile/mcp/maxx_control_plane.py"
+          spec = importlib.util.spec_from_file_location("maxx_control_plane", path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          assert module.mcp is not None
+          PY
+      - name: Validate shell entrypoints
+        run: |
+          bash -n services/hermes-runtime/maxx-entrypoint.sh
+          bash -n deploy/flywheel/configure-tailscale.sh
+          bash -n deploy/flywheel/deploy.sh
+
+  windows-thin-client:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned Tauri CLI
+        working-directory: desktop/maxx-tauri
+        run: npm install --ignore-scripts
+      - name: Check Rust shell
+        run: cargo check --manifest-path desktop/maxx-tauri/src-tauri/Cargo.toml
+      - name: Reject insecure desktop endpoint
+        shell: pwsh
+        run: |
+          $env:MAXX_DESKTOP_URL="http://insecure.example.com"
+          node desktop/maxx-tauri/build.mjs
+          if ($LASTEXITCODE -eq 0) { throw "Desktop build accepted insecure URL" }
