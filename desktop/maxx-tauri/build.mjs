@@ -1,5 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const raw = process.env.MAXX_DESKTOP_URL;
 if (!raw) {
@@ -35,12 +36,13 @@ const runtimeConfig = {
   },
 };
 
-const configPath = new URL("./src-tauri/tauri.runtime.conf.json", import.meta.url);
+const configUrl = new URL("./src-tauri/tauri.runtime.conf.json", import.meta.url);
+const configPath = fileURLToPath(configUrl);
 await writeFile(configPath, `${JSON.stringify(runtimeConfig, null, 2)}\n`, { mode: 0o600 });
 
 const command = process.platform === "win32" ? "npx.cmd" : "npx";
-const result = spawnSync(command, ["tauri", "build", "--config", configPath.pathname], {
-  cwd: new URL(".", import.meta.url),
+const result = spawnSync(command, ["tauri", "build", "--config", configPath], {
+  cwd: fileURLToPath(new URL(".", import.meta.url)),
   stdio: "inherit",
   shell: false,
 });
