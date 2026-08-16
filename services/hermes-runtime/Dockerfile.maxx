@@ -1,0 +1,13 @@
+ARG HERMES_IMAGE
+FROM ${HERMES_IMAGE}
+
+USER root
+COPY --chmod=0755 services/hermes-runtime/maxx-entrypoint.sh /opt/maxx-entrypoint.sh
+COPY services/hermes-runtime/profile /opt/maxx-seed/profile
+COPY skills /opt/maxx-seed/repo-skills
+COPY pi-packages/maxx/skills /opt/maxx-seed/maxx-specialist-skills
+COPY CONTEXT.md /opt/maxx-seed/CONTEXT.md
+COPY icm/maxx /opt/maxx-seed/icm/maxx
+
+ENTRYPOINT ["/opt/maxx-entrypoint.sh"]
+CMD ["gateway", "run"]

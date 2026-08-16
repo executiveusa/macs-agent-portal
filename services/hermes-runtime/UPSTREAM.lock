@@ -1,0 +1,10 @@
+{
+  "upstream": "https://github.com/NousResearch/hermes-agent.git",
+  "branch": "main",
+  "commit": "0c50bdbdea57f3d63571e58ae70b3520c4f8b62e",
+  "observed_at": "2026-08-15T20:44:31Z",
+  "product_identity": "maxx-006",
+  "build_policy": "build_upstream_from_exact_commit_then_overlay_maxx",
+  "forbidden_upstream": "https://github.com/executiveusa/pauli-hermes-agent.git",
+  "note": "Bambu's personal Hermes is intentionally not part of the Agent MAXX dependency graph. Production MAXX must derive its Hermes base from this exact NousResearch commit; mutable latest/main images are not accepted as proof of the pinned runtime."
+}

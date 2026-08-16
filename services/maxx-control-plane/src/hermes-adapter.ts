@@ -49,16 +49,51 @@ export interface HermesAdapter {
   cancelRun(runId: string): Promise<HermesRunState | undefined>;
 }
 
+export const MAXX_MODE_MARKER = "[[MAXX_MODE:POWER]]";
+
 const MAXX_SYSTEM_PROMPT = [
-  "You are Agent MAXX, powered by Hermes Agent.",
+  "You are Agent MAXX 006, powered by a dedicated Hermes Agent runtime.",
   "Load and follow the installed agent-maxx skill as your operating contract.",
   "The customer speaks in outcomes, not agent topology. Infer the smallest safe plan, route through installed skills/tools, and do the machine work underneath.",
   "Use ICM discipline: inspect before changing, load only relevant context, preserve owner control, keep consequential actions approval-gated, verify before claiming success, and maintain rollback.",
+  "Be direct and non-sycophantic. Recommend what is most likely to work rather than what is most flattering.",
   "Do not expose internal orchestration noise unless the customer asks for operational detail.",
+  "You are not Bambu's personal Hermes and must not rely on that agent's identity, memory, secrets, or sessions.",
 ].join("\n");
 
 function normalizeEndpoint(endpoint: string) {
   return endpoint.replace(/\/+$/, "");
+}
+
+function normalizeChatMessage(message: string) {
+  const trimmed = message.trimStart();
+  const maxMode = trimmed.startsWith(MAXX_MODE_MARKER);
+  return {
+    maxMode,
+    message: maxMode ? trimmed.slice(MAXX_MODE_MARKER.length).trimStart() : message,
+  };
+}
+
+type ModelRoute = { tier: "fast" | "standard" | "power"; provider: string; model: string };
+
+function configuredRoute(tier: ModelRoute["tier"], env: NodeJS.ProcessEnv = process.env): ModelRoute | undefined {
+  const prefix = `MAXX_HERMES_${tier.toUpperCase()}`;
+  const provider = env[`${prefix}_PROVIDER`]?.trim();
+  const model = env[`${prefix}_MODEL`]?.trim();
+  return provider && model ? { tier, provider, model } : undefined;
+}
+
+function chooseRoute(message: string, maxMode: boolean, env: NodeJS.ProcessEnv = process.env): ModelRoute | undefined {
+  if (maxMode) return configuredRoute("power", env) ?? configuredRoute("standard", env) ?? configuredRoute("fast", env);
+
+  const complexitySignals = /\b(architecture|architect|strategy|strategic|audit|security|migration|migrate|debug|root cause|research|compare|contract|database|deployment|production|financial|legal|system design|multi-agent|multi agent)\b/i;
+  const isFast = message.trim().length <= 220 && !complexitySignals.test(message);
+  if (isFast) return configuredRoute("fast", env) ?? configuredRoute("standard", env);
+  return configuredRoute("standard", env) ?? configuredRoute("fast", env);
+}
+
+function routeFields(route: ModelRoute | undefined) {
+  return route ? { model: route.model, provider: route.provider } : { model: "hermes-agent" };
 }
 
 function isoFromUnknown(value: unknown): string | null {
@@ -173,18 +208,24 @@ export class HttpHermesAdapter implements HermesAdapter {
 
   async chat(input: { message: string; sessionId?: string }): Promise<HermesChatResult> {
     const started = Date.now();
+    const normalized = normalizeChatMessage(input.message);
+    const route = chooseRoute(normalized.message, normalized.maxMode);
     const sessionHeaders: Record<string, string> = input.sessionId
       ? { "X-Hermes-Session-Id": input.sessionId, "X-Hermes-Session-Key": input.sessionId }
       : {};
+    const systemPrompt = normalized.maxMode
+      ? `${MAXX_SYSTEM_PROMPT}\nMAXX Mode is ACTIVE for this turn. Increase reasoning depth, challenge assumptions, and verify more aggressively. Do not relax safety or approval policy.`
+      : MAXX_SYSTEM_PROMPT;
     const response = await this.fetchImpl(`${this.endpoint}/v1/chat/completions`, {
       method: "POST",
       headers: this.headers(sessionHeaders),
       body: JSON.stringify({
-        model: "hermes-agent",
+        ...routeFields(route),
         stream: false,
+        ...(normalized.maxMode ? { model_options: { reasoning_effort: "high" } } : {}),
         messages: [
-          { role: "system", content: MAXX_SYSTEM_PROMPT },
-          { role: "user", content: input.message },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: normalized.message },
         ],
       }),
     });
@@ -199,7 +240,7 @@ export class HttpHermesAdapter implements HermesAdapter {
     const completionTokens = Number(usage.completion_tokens ?? 0) || 0;
     return {
       text,
-      model: String(body.model ?? "hermes-agent"),
+      model: String(body.model ?? route?.model ?? "hermes-agent"),
       usage: {
         promptTokens,
         completionTokens,
@@ -211,6 +252,7 @@ export class HttpHermesAdapter implements HermesAdapter {
   }
 
   async startRun(input: HermesRunInput): Promise<HermesRunState> {
+    const route = chooseRoute(input.objective, false);
     const instructions = [
       MAXX_SYSTEM_PROMPT,
       "",
@@ -231,6 +273,7 @@ export class HttpHermesAdapter implements HermesAdapter {
         input: input.objective,
         session_id: input.runId,
         instructions,
+        ...routeFields(route),
       }),
     });
     if (!response.ok) throw new Error(`Hermes startRun failed with status ${response.status}`);

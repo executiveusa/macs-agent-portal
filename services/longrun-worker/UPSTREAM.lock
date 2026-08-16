@@ -1,0 +1,7 @@
+{
+  "upstream": "https://github.com/executiveusa/pauli-deep-seek-harness.git",
+  "branch": "master",
+  "commit": "47f943859bef60e4160492346772ded9b24f765a",
+  "role": "bounded-long-running-worker",
+  "authority": "subordinate-to-maxx-hermes"
+}

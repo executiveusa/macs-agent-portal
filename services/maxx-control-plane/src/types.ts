@@ -1,6 +1,7 @@
 export type Operator = {
   id: string;
   email: string;
+  principal?: "human" | "machine";
 };
 
 export type DependencyState = {

@@ -1,6 +1,7 @@
 export type FeatureFlagName =
   | "MAXX_HERMES_ENABLED"
   | "MAXX_VOICE_ENABLED"
+  | "MAXX_VISION_ENABLED"
   | "MAXX_BROWSER_ENABLED"
   | "MAXX_BROWSER_MUTATIONS_ENABLED"
   | "MAXX_MEMORY_ENABLED"
@@ -10,6 +11,7 @@ export type FeatureFlagName =
 const FLAG_DEFAULTS: Record<FeatureFlagName, boolean> = {
   MAXX_HERMES_ENABLED: false,
   MAXX_VOICE_ENABLED: false,
+  MAXX_VISION_ENABLED: false,
   MAXX_BROWSER_ENABLED: false,
   MAXX_BROWSER_MUTATIONS_ENABLED: false,
   MAXX_MEMORY_ENABLED: false,
