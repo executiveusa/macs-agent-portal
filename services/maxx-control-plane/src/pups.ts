@@ -394,7 +394,11 @@ export class PupExecutor {
   constructor(
     private readonly config: MaxxConfig,
     private readonly repository: PupRepository,
-    private readonly hermes: HermesAdapter = createHermesAdapter(config),
+    private readonly hermes: HermesAdapter = createHermesAdapter({
+      hermesEnabled: config.featureFlags.MAXX_HERMES_ENABLED,
+      hermesEndpoint: config.MAXX_HERMES_ENDPOINT,
+      hermesApiKey: config.MAXX_HERMES_API_KEY,
+    }),
     private readonly store: ControlTowerStore = createStore(config),
   ) {}
 
