@@ -41,7 +41,7 @@ export type MaxxRefinementProposal = {
   updatedAt: string;
 };
 
-interface OperationsRepository {
+export interface OperationsRepository {
   readonly persistence: "memory" | "supabase";
   listConnections(operatorId: string): Promise<MaxxConnection[]>;
   getConnection(operatorId: string, id: string): Promise<MaxxConnection | undefined>;
@@ -106,10 +106,33 @@ function now() {
   return new Date().toISOString();
 }
 
-function forwardedHeaders(request: FastifyRequest) {
+export function forwardedHeaders(request: FastifyRequest) {
   const headers: Record<string, string> = {};
   if (typeof request.headers.authorization === "string") headers.authorization = request.headers.authorization;
   if (typeof request.headers["x-request-id"] === "string") headers["x-request-id"] = request.headers["x-request-id"];
+  if (typeof request.headers["x-maxx-hermes-tool-key"] === "string") {
+    headers["x-maxx-hermes-tool-key"] = request.headers["x-maxx-hermes-tool-key"];
+  }
+  return headers;
+}
+
+export function eventDispatchHeaders(request: FastifyRequest, config: MaxxConfig) {
+  const headers = forwardedHeaders(request);
+  if (headers.authorization || headers["x-maxx-hermes-tool-key"]) return headers;
+
+  const eventHeader = request.headers["x-maxx-event-key"];
+  const hasEventCredential = typeof eventHeader === "string" || Array.isArray(eventHeader);
+  if (!hasEventCredential) return headers;
+
+  if (
+    !config.MAXX_HERMES_TOOL_KEY ||
+    !config.MAXX_HERMES_TOOL_OPERATOR_ID ||
+    config.MAXX_HERMES_TOOL_OPERATOR_ID !== request.operator?.id
+  ) {
+    return null;
+  }
+
+  headers["x-maxx-hermes-tool-key"] = config.MAXX_HERMES_TOOL_KEY;
   return headers;
 }
 
@@ -128,7 +151,7 @@ function materializeRefinement(input: Omit<MaxxRefinementProposal, "id" | "statu
   return { id: randomUUID(), ...input, status: "proposed", createdAt: timestamp, updatedAt: timestamp };
 }
 
-class MemoryOperationsRepository implements OperationsRepository {
+export class MemoryOperationsRepository implements OperationsRepository {
   readonly persistence = "memory" as const;
   private readonly connections = new Map<string, MaxxConnection>();
   private readonly workflows = new Map<string, MaxxWorkflow>();
@@ -315,10 +338,17 @@ export async function registerOperationsHubRoutes(app: FastifyInstance, config: 
       const connection = await repository.getConnection(request.operator!.id, parsed.data.sourceConnectionId);
       if (!connection || connection.status !== "connected") return reply.code(409).send({ error: "Event source connection is unavailable" });
     }
+    const dispatchHeaders = eventDispatchHeaders(request, config);
+    if (!dispatchHeaders) {
+      return reply.code(503).send({
+        error: "Event dispatch is not safely configured",
+        detail: "MAXX_HERMES_TOOL_KEY must be configured for the same operator as MAXX_EVENT_OPERATOR_ID.",
+      });
+    }
     const matching = await repository.matchingEventWorkflows(request.operator!.id, parsed.data.type);
     const results = [];
     for (const workflow of matching) {
-      const response = await app.inject({ method: "POST", url: `/v1/pups/${encodeURIComponent(workflow.pupId)}/run`, headers: forwardedHeaders(request), payload: { instruction: `${workflow.objective}\nEvent: ${parsed.data.summary}\nExpected proof: ${workflow.expectedProof}` } });
+      const response = await app.inject({ method: "POST", url: `/v1/pups/${encodeURIComponent(workflow.pupId)}/run`, headers: dispatchHeaders, payload: { instruction: `${workflow.objective}\nEvent: ${parsed.data.summary}\nExpected proof: ${workflow.expectedProof}` } });
       results.push({ workflowId: workflow.id, statusCode: response.statusCode, result: response.json() });
     }
     return reply.code(202).send({ matched: matching.length, results });
