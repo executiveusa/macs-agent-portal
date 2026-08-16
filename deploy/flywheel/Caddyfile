@@ -1,0 +1,10 @@
+{$MAXX_EDGE_SITE} {
+  encode zstd gzip
+
+  @api path /v1/* /health/*
+  reverse_proxy @api maxx-control-plane:8787
+
+  root * /srv
+  try_files {path} /index.html
+  file_server
+}

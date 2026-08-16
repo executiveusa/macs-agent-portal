@@ -51,16 +51,28 @@ PY
 )"
 export MAXX_HERMES_IMAGE="${MAXX_HERMES_IMAGE:-maxx-hermes:${LOCKED_COMMIT:0:12}}"
 
+compose_args=(-f "$COMPOSE_FILE")
+if [[ -n "${MAXX_COMPOSE_EXTRA:-}" ]]; then
+  IFS=':' read -r -a extra_compose_files <<< "$MAXX_COMPOSE_EXTRA"
+  for extra_file in "${extra_compose_files[@]}"; do
+    if [[ ! -f "$extra_file" ]]; then
+      echo "MAXX compose overlay does not exist: $extra_file" >&2
+      exit 1
+    fi
+    compose_args+=(-f "$extra_file")
+  done
+fi
+
 # Build from the exact reviewed Nous commit before any production containers
 # are started. This prevents an upstream `latest` change from silently changing MAXX.
 MAXX_HERMES_IMAGE="$MAXX_HERMES_IMAGE" "$HERMES_BUILD"
 
 echo "Starting Agent MAXX stack with pinned Hermes image $MAXX_HERMES_IMAGE"
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build --remove-orphans
+docker compose --env-file "$ENV_FILE" "${compose_args[@]}" up -d --build --remove-orphans
 
 echo "Waiting for MAXX control plane readiness..."
 for attempt in $(seq 1 40); do
-  if docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T maxx-control-plane \
+  if docker compose --env-file "$ENV_FILE" "${compose_args[@]}" exec -T maxx-control-plane \
     wget -qO- http://127.0.0.1:8787/health/ready >/dev/null 2>&1; then
     echo "Agent MAXX backend is ready."
     echo "Hermes revision: $LOCKED_COMMIT"
@@ -70,5 +82,5 @@ for attempt in $(seq 1 40); do
 done
 
 echo "MAXX did not become ready within the expected window." >&2
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps >&2 || true
+docker compose --env-file "$ENV_FILE" "${compose_args[@]}" ps >&2 || true
 exit 1

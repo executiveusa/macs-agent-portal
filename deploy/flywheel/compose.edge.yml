@@ -1,0 +1,30 @@
+services:
+  maxx-control-plane:
+    expose:
+      - "8787"
+
+  maxx-edge:
+    build:
+      context: ../..
+      dockerfile: deploy/flywheel/Dockerfile.edge
+      args:
+        VITE_SUPABASE_URL: "${VITE_SUPABASE_URL:?required}"
+        VITE_SUPABASE_PUBLISHABLE_KEY: "${VITE_SUPABASE_PUBLISHABLE_KEY:?required}"
+        VITE_CONTROL_TOWER_API_URL: "${MAXX_PUBLIC_URL:?required}"
+    restart: unless-stopped
+    depends_on:
+      maxx-control-plane:
+        condition: service_healthy
+    environment:
+      MAXX_EDGE_SITE: "${MAXX_EDGE_SITE:?required}"
+    ports:
+      - "${MAXX_EDGE_HTTP_BIND:-80}:80"
+      - "${MAXX_EDGE_HTTPS_BIND:-443}:443"
+      - "${MAXX_EDGE_HTTPS_BIND:-443}:443/udp"
+    volumes:
+      - maxx-caddy-data:/data
+      - maxx-caddy-config:/config
+
+volumes:
+  maxx-caddy-data:
+  maxx-caddy-config:

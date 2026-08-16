@@ -1,0 +1,130 @@
+name: MAXX VPS Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub Environment containing VPS/Supabase secrets
+        required: true
+        default: maxx-production
+      provider:
+        description: Target provider
+        required: true
+        type: choice
+        options:
+          - hostinger
+          - bluehost
+          - generic
+      profile:
+        description: Flywheel profile
+        required: true
+        default: business
+        type: choice
+        options:
+          - runtime
+          - business
+          - builder
+      domain:
+        description: Public MAXX hostname, e.g. maxx.example.com
+        required: true
+      host:
+        description: VPS IP or SSH hostname
+        required: true
+      ssh_user:
+        description: Root-capable SSH user
+        required: true
+        default: root
+      ssh_port:
+        description: SSH port
+        required: true
+        default: "22"
+      apply_migrations:
+        description: Apply pending Supabase migrations after dry-run
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maxx-vps-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  migrations:
+    name: Supabase migration gate
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.101.0
+      - name: Require intended MAXX database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          test -n "$SUPABASE_DB_URL" || { echo "SUPABASE_DB_URL is not configured in this GitHub Environment" >&2; exit 1; }
+      - name: Dry-run migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --dry-run
+      - name: Apply migrations
+        if: ${{ inputs.apply_migrations }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase db push --db-url "$SUPABASE_DB_URL"
+
+  deploy:
+    name: Flywheel deploy
+    needs: migrations
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.MAXX_VPS_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.MAXX_VPS_KNOWN_HOSTS }}
+        run: |
+          test -n "$SSH_PRIVATE_KEY" || { echo "MAXX_VPS_SSH_PRIVATE_KEY is missing" >&2; exit 1; }
+          test -n "$SSH_KNOWN_HOSTS" || { echo "MAXX_VPS_KNOWN_HOSTS is missing; host-key verification is mandatory" >&2; exit 1; }
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 0600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/known_hosts
+      - name: Materialize deployment environment
+        env:
+          MAXX_ENV_B64: ${{ secrets.MAXX_VPS_ENV_B64 }}
+        run: |
+          test -n "$MAXX_ENV_B64" || { echo "MAXX_VPS_ENV_B64 is missing" >&2; exit 1; }
+          printf '%s' "$MAXX_ENV_B64" | base64 --decode > /tmp/maxx.env
+          chmod 0600 /tmp/maxx.env
+      - name: Copy secrets to VPS
+        run: |
+          ssh -p '${{ inputs.ssh_port }}' '${{ inputs.ssh_user }}@${{ inputs.host }}' 'install -d -m 0700 /opt/maxx/secrets /opt/maxx/releases'
+          scp -P '${{ inputs.ssh_port }}' /tmp/maxx.env '${{ inputs.ssh_user }}@${{ inputs.host }}:/opt/maxx/secrets/maxx.env'
+          ssh -p '${{ inputs.ssh_port }}' '${{ inputs.ssh_user }}@${{ inputs.host }}' 'chmod 0600 /opt/maxx/secrets/maxx.env'
+      - name: Checkout exact release and deploy
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          ssh -p '${{ inputs.ssh_port }}' '${{ inputs.ssh_user }}@${{ inputs.host }}' "bash -se" <<EOF
+          set -euo pipefail
+          if [[ ! -d /opt/maxx/app/.git ]]; then
+            git clone https://github.com/${GITHUB_REPOSITORY}.git /opt/maxx/app
+          fi
+          cd /opt/maxx/app
+          previous=\$(git rev-parse HEAD 2>/dev/null || true)
+          [[ -z \"\$previous\" ]] || printf '%s\n' \"\$previous\" > /opt/maxx/releases/previous-sha
+          git fetch --prune origin
+          git checkout --detach "$RELEASE_SHA"
+          MAXX_PROVIDER='${{ inputs.provider }}' bash deploy/flywheel/bootstrap-vps.sh
+          MAXX_PROVIDER='${{ inputs.provider }}' \\
+            MAXX_PROFILE='${{ inputs.profile }}' \\
+            MAXX_DOMAIN='${{ inputs.domain }}' \\
+            MAXX_ENV_FILE=/opt/maxx/secrets/maxx.env \\
+            bash deploy/flywheel/deploy.sh
+          EOF
