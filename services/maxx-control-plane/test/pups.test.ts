@@ -34,11 +34,12 @@ test("a routine Pup is claimed once and rescheduled before work", async () => {
 });
 
 test("Pup routes are human-authenticated and keep machine credentials out", async () => {
-  const config = loadConfig({ NODE_ENV: "test", MAXX_API_KEY: "machine-secret" });
+  const machineKey = "machine-secret-0123456789";
+  const config = loadConfig({ NODE_ENV: "test", MAXX_API_KEY: machineKey });
   const app = buildApp({
     config,
     authenticate: async (request) => {
-      if (request.headers["x-maxx-api-key"] === "machine-secret") return null;
+      if (request.headers["x-maxx-api-key"] === machineKey) return null;
       return { id: "11111111-1111-1111-1111-111111111111", email: "stacy@example.com", principal: "human" };
     },
   });
@@ -60,7 +61,7 @@ test("Pup routes are human-authenticated and keep machine credentials out", asyn
   const machine = await app.inject({
     method: "POST",
     url: "/v1/pups",
-    headers: { "x-maxx-api-key": "machine-secret" },
+    headers: { "x-maxx-api-key": machineKey },
     payload: { templateId: "superdoer" },
   });
   assert.equal(machine.statusCode, 401);
