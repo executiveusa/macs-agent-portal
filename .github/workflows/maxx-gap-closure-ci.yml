@@ -57,5 +57,6 @@ jobs:
         shell: pwsh
         run: |
           $env:MAXX_DESKTOP_URL="http://insecure.example.com"
-          node desktop/maxx-tauri/build.mjs
-          if ($LASTEXITCODE -eq 0) { throw "Desktop build accepted insecure URL" }
+          $process = Start-Process -FilePath "node" -ArgumentList "desktop/maxx-tauri/build.mjs" -Wait -PassThru -NoNewWindow
+          if ($process.ExitCode -eq 0) { throw "Desktop build accepted insecure URL" }
+          Write-Host "Desktop build correctly rejected insecure URL with exit code $($process.ExitCode)"
