@@ -29,7 +29,7 @@ function hermesToolRouteAllowed(request: FastifyRequest) {
   const path = pathOf(request);
   if (request.method === "GET" && (path === "/v1/pups" || path === "/v1/workflows")) return true;
   if (request.method !== "POST") return false;
-  if (path === "/v1/pup-handoffs" || path === "/v1/workflows") return true;
+  if (path === "/v1/pup-handoffs" || path === "/v1/workflows" || path === "/v1/refinements") return true;
   return /^\/v1\/pups\/[^/]+\/(run|delegate|fresh-specialist)$/.test(path);
 }
 
