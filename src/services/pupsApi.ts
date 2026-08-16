@@ -5,6 +5,7 @@ const baseUrl = (import.meta.env.VITE_CONTROL_TOWER_API_URL ?? "http://127.0.0.1
 export type PupKind = "chief_of_staff" | "superdoer" | "business_in_a_box" | "custom";
 export type PupStatus = "active" | "paused" | "needs_attention";
 export type PupAutonomy = "draft_only" | "safe_actions";
+export type PupHandoffStatus = "queued" | "working" | "needs_operator" | "ready" | "failed" | "cancelled";
 
 export type PupTemplate = {
   id: Exclude<PupKind, "custom">;
@@ -32,6 +33,22 @@ export type Pup = {
   lastRunAt: string | null;
   lastRunStatus: string | null;
   lastRunSummary: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PupHandoff = {
+  id: string;
+  threadId: string;
+  operatorId: string;
+  sourcePupId: string;
+  targetPupId: string;
+  instruction: string;
+  depth: 1;
+  status: PupHandoffStatus;
+  missionId: string | null;
+  runId: string | null;
+  error: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -75,4 +92,20 @@ export const pupsApi = {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
+  handoffs: {
+    list: (limit = 50) =>
+      request<{ handoffs: PupHandoff[]; persistence: "memory" | "supabase"; maxDepth: 1 }>(
+        `/v1/pup-handoffs?limit=${encodeURIComponent(String(limit))}`,
+      ),
+    thread: (threadId: string) =>
+      request<{ threadId: string; handoffs: PupHandoff[] }>(`/v1/pup-handoffs/${encodeURIComponent(threadId)}`),
+    delegate: (sourcePupId: string, targetPupId: string, instruction: string) =>
+      request<{
+        handoff: PupHandoff;
+        dispatch: { statusCode: number; missionId?: string; runId?: string; stateStatus?: string; error?: string };
+      }>("/v1/pup-handoffs", {
+        method: "POST",
+        body: JSON.stringify({ sourcePupId, targetPupId, instruction }),
+      }),
+  },
 };
