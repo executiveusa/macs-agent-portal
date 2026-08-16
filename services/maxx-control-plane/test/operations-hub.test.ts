@@ -59,6 +59,24 @@ test("multiple interval workflows remain independent and do not overwrite the Pu
   await app.close();
 });
 
+test("workflow run stores the exact run objective in the durable mission record", async () => {
+  const { app } = await createTestApp();
+  const created = await app.inject({ method: "POST", url: "/v1/pups", payload: { templateId: "superdoer" } });
+  const pupId = created.json().id as string;
+  const workflow = await app.inject({
+    method: "POST",
+    url: "/v1/workflows",
+    payload: { name: "Prospect proof", pupId, objective: "Verify the five highest-value prospects.", expectedProof: "Return five names with source evidence.", triggerType: "manual" },
+  });
+  assert.equal(workflow.statusCode, 201);
+
+  const run = await app.inject({ method: "POST", url: `/v1/workflows/${workflow.json().workflow.id}/run` });
+  assert.equal(run.statusCode, 202);
+  assert.match(run.json().result.mission.objective, /Run objective: Verify the five highest-value prospects\./);
+  assert.doesNotMatch(run.json().result.mission.objective, /Proactively prepare useful work for MACS Digital Media/);
+  await app.close();
+});
+
 test("event ingestion is idempotent for the same source and event id", async () => {
   const { app } = await createTestApp();
   const created = await app.inject({ method: "POST", url: "/v1/pups", payload: { templateId: "superdoer" } });
