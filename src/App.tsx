@@ -9,7 +9,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { StacyDashboardShell } from "@/components/dashboard/StacyDashboardShell";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
-import MaxxPups from "./pages/MaxxPups";
+import MaxxChat from "./pages/MaxxChat";
 import MaxxSettings from "./pages/MaxxSettings";
 import Shop from "./pages/Shop";
 import Admin from "./pages/Admin";
@@ -42,7 +42,7 @@ const App = () => (
                 path="/dashboard/*"
                 element={
                   <ProtectedRoute>
-                    <StacyDashboardShell />
+                    <MaxxChat />
                   </ProtectedRoute>
                 }
               />
