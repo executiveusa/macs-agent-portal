@@ -4,7 +4,24 @@ import { registerPupRoutes } from "./pups.js";
 
 const config = loadConfig();
 const app = buildApp({ config });
-await registerPupRoutes(app, config);
+
+// Background work does not pass through Fastify's mutation preHandler, so the
+// Pup supervisor must inherit the same global stop conditions explicitly.
+// Keep the routes available for read/status operations while disabling only
+// proactive scheduling under an emergency or locked production rollout.
+const proactivePupsAllowed =
+  !config.emergencyDisabled &&
+  (config.NODE_ENV !== "production" || config.featureFlags.MAXX_PRODUCTION_MUTATIONS_ENABLED);
+const pupConfig = proactivePupsAllowed
+  ? config
+  : {
+      ...config,
+      featureFlags: {
+        ...config.featureFlags,
+        MAXX_SCHEDULER_ENABLED: false,
+      },
+    };
+await registerPupRoutes(app, pupConfig);
 
 try {
   await app.listen({ host: config.HOST, port: config.PORT });
