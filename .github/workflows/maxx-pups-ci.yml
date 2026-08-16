@@ -6,7 +6,7 @@ on:
       - "src/**"
       - "services/maxx-control-plane/**"
       - "services/hermes-runtime/profile/skills/maxx-pups/**"
-      - "supabase/migrations/*maxx_pups.sql"
+      - "supabase/migrations/*maxx_pup*.sql"
       - ".github/workflows/maxx-pups-ci.yml"
   workflow_dispatch:
 
