@@ -25,7 +25,7 @@ const pupConfig = proactivePupsAllowed
     };
 await registerPupRoutes(app, pupConfig);
 await registerPupBrokerRoutes(app, pupConfig);
-await registerOperationsHubRoutes(app);
+await registerOperationsHubRoutes(app, pupConfig);
 
 try {
   await app.listen({ host: config.HOST, port: config.PORT });
