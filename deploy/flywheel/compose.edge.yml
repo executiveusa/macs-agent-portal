@@ -10,17 +10,17 @@ services:
       args:
         VITE_SUPABASE_URL: "${VITE_SUPABASE_URL:?required}"
         VITE_SUPABASE_PUBLISHABLE_KEY: "${VITE_SUPABASE_PUBLISHABLE_KEY:?required}"
-        VITE_CONTROL_TOWER_API_URL: "https://${MAXX_DOMAIN:?required}"
+        VITE_CONTROL_TOWER_API_URL: "${MAXX_PUBLIC_URL:?required}"
     restart: unless-stopped
     depends_on:
       maxx-control-plane:
         condition: service_healthy
     environment:
-      MAXX_DOMAIN: "${MAXX_DOMAIN:?required}"
+      MAXX_EDGE_SITE: "${MAXX_EDGE_SITE:?required}"
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - "${MAXX_EDGE_HTTP_BIND:-80}:80"
+      - "${MAXX_EDGE_HTTPS_BIND:-443}:443"
+      - "${MAXX_EDGE_HTTPS_BIND:-443}:443/udp"
     volumes:
       - maxx-caddy-data:/data
       - maxx-caddy-config:/config
