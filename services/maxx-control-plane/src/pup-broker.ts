@@ -294,6 +294,7 @@ function forwardedHeaders(request: FastifyRequest) {
   const headers: Record<string, string> = {};
   if (typeof request.headers.authorization === "string") headers.authorization = request.headers.authorization;
   if (typeof request.headers["x-request-id"] === "string") headers["x-request-id"] = request.headers["x-request-id"];
+  if (typeof request.headers["x-maxx-hermes-tool-key"] === "string") headers["x-maxx-hermes-tool-key"] = request.headers["x-maxx-hermes-tool-key"];
   return headers;
 }
 
