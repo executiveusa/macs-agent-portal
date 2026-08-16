@@ -413,23 +413,25 @@ export class PupExecutor {
 
   async run(pup: Pup, trigger: PupRunTrigger, instruction?: string) {
     const missionId = randomUUID();
+    const runObjective = instruction?.trim() || pup.routinePrompt || pup.objective;
+    const auditObjective = `${pup.name}: ${runObjective}`.slice(0, 4_000);
     const objective = [
       pupContext(pup),
       "",
       trigger === "routine" ? "This is a proactive routine wake-up." : "This is a manual wake-up from Stacy.",
-      instruction || pup.routinePrompt || pup.objective,
+      runObjective,
       "Produce useful internal work now. If an external consequential action is needed, stop at the existing approval boundary and prepare the action for approval.",
     ].join("\n");
     const icm = await createIcmRun({
       root: this.config.MAXX_ICM_ROOT,
       missionId,
-      objective: `${pup.name}: ${pup.objective}`,
+      objective: auditObjective,
       operatorId: pup.operatorId,
     });
     const mission = await this.store.createMission({
       id: missionId,
       operatorId: pup.operatorId,
-      objective: `${pup.name}: ${pup.objective}`,
+      objective: auditObjective,
       status: "working",
       runId: icm.runId,
       workspacePath: icm.runPath,
@@ -438,6 +440,8 @@ export class PupExecutor {
       pupId: pup.id,
       pupKind: pup.kind,
       trigger,
+      runObjective,
+      standingObjective: pup.objective,
     });
 
     try {
