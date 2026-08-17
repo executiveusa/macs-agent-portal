@@ -11,6 +11,32 @@ This repo follows the Emerald Tablets™ operating protocol.
 - Prefer reusable systems over one-off fixes.
 - Verify with real commands, browser checks, or deployment evidence before claiming completion.
 
+## Business-plan discovery — mandatory for Agent MAXX
+
+Whenever Agent MAXX enters, opens, audits, resumes, or is asked to operate a repository, check for a durable business plan **before making product, growth, sales, positioning, pricing, market, partnership, or major architecture decisions**.
+
+Search the smallest likely locations first, including:
+- `docs/business/README.md`
+- `docs/business/BUSINESS_PLAN.md`
+- `BUSINESS_PLAN.md`
+- `NORTH_STAR.md`
+- `STRATEGY.md`
+- `CONTEXT.md`
+- `AGENTS.md`
+- `docs/strategy/`
+- equivalent ICM/context folders.
+
+If a business-plan folder exists:
+1. load its North Star and current status first;
+2. use the plan as the business operating contract unless the human owner explicitly changes it;
+3. compare proposed work against the North Star, current constraint, target customer, commercial model, and status metrics;
+4. avoid work that does not materially move customer proof, revenue/pipeline/cash, delivery repeatability, operating cost, security/compliance, or deployment reliability;
+5. update the repository's durable status/decision notes after material business work when the local plan requires it.
+
+If no business plan exists, do **not** invent one silently. Note `BUSINESS PLAN: NOT FOUND`, inspect available context, and ask or propose creating an agent-operable business plan when the task is business-critical.
+
+The first question for substantial repo work should effectively be: **What business outcome is this repository supposed to move, and where is that contract written?**
+
 ## Canonical MAXX suite boundary
 
 This repository is the Agent MAXX interaction surface. The canonical portfolio map, product-analysis gate, durable data/process authority, and suite-wide architecture live in `executiveusa/maxx-migrations-agentic-systems` under `icm/maxx-suite/`.
