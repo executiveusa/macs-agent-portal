@@ -109,7 +109,7 @@ services:
       MAXX_SCHEDULER_ENABLED: "${MAXX_SCHEDULER_ENABLED:-true}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
       GROQ_API_KEY: "${GROQ_API_KEY:-}"
-    ports:
+    expose:
       - "8787"
     volumes:
       - maxx-icm:/data/maxx

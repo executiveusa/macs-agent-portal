@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { MaxxConfig } from "./config.js";
-import { createHermesAdapter, type HermesAdapter } from "./hermes-adapter.js";
+import { createHermesAdapter, type HermesAdapter, type HermesRunStatus } from "./hermes-adapter.js";
 import { createIcmRun } from "./icm-runtime.js";
 import { createStore, type ControlTowerStore } from "./store.js";
 
@@ -385,9 +385,14 @@ function pupContext(pup: Pup) {
     `Standing objective: ${pup.objective}`,
     `Autonomy: ${pup.autonomy}.`,
     "Never expand your own permissions. Never treat drafting as sending. Never claim completion without evidence.",
+    "If your current run was delegated by another Pup, finish that bounded work yourself or stop for Stacy/approval; never delegate delegated work onward.",
     "Sending, publishing, purchasing, deleting, changing permissions, handling secrets, and irreversible external actions remain subject to MAXX approval policy.",
     "Keep the operator experience non-technical: outcome first, short state, one concrete next action when a human decision is needed.",
   ].join("\n");
+}
+
+function isHermesFailure(status: HermesRunStatus) {
+  return status === "failed" || status === "timeout" || status === "error";
 }
 
 export class PupExecutor {
@@ -445,26 +450,32 @@ export class PupExecutor {
     });
 
     try {
+      const configuredTimeout = Number(process.env.MAXX_PUP_RUN_TIMEOUT_MS ?? 900_000);
+      const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout >= 60_000 ? configuredTimeout : 900_000;
       const state = await this.hermes.startRun({
         runId: icm.runId,
         missionId: mission.id,
         objective,
         workspacePath: icm.runPath,
         stage: "pup",
+        timeoutMs,
       });
       const missionStatus =
-        state.status === "failed"
+        isHermesFailure(state.status)
           ? "failed"
           : state.status === "waiting_for_approval"
             ? "needs_operator"
             : state.status === "completed"
               ? "ready"
-              : "working";
+              : state.status === "cancelled"
+                ? "cancelled"
+                : "working";
       await this.store.updateMission(mission.id, missionStatus);
       await this.store.addEvent(icm.runId, "pup.run.started", `${pup.name} runtime state: ${state.status}`, {
         pupId: pup.id,
         trigger,
         hermesStatus: state.status,
+        terminal: state.status === "completed" || state.status === "cancelled" || isHermesFailure(state.status),
       });
       await this.repository.markRun(pup.id, state.status, state.error ?? undefined);
       return { mission, state, trigger };
@@ -566,7 +577,7 @@ export async function registerPupRoutes(app: FastifyInstance, config: MaxxConfig
     if (pup.status === "paused") return reply.code(409).send({ error: "Pup is paused" });
     try {
       const result = await executor.run(pup, "manual", parsed.data.instruction);
-      return reply.code(result.state.status === "failed" ? 502 : 202).send(result);
+      return reply.code(isHermesFailure(result.state.status) ? 502 : result.state.status === "cancelled" ? 409 : 202).send(result);
     } catch (error) {
       return reply.code(502).send({ error: error instanceof Error ? error.message : String(error) });
     }

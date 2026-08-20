@@ -1,0 +1,21 @@
+services:
+  maxx-control-plane:
+    expose:
+      - "8787"
+
+  cloudflared:
+    image: "cloudflare/cloudflared:2026.7.3"
+    restart: unless-stopped
+    depends_on:
+      maxx-control-plane:
+        condition: service_healthy
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token
+      - "${CLOUDFLARE_TUNNEL_TOKEN:?required for cloudflare-split topology}"
+
+# The remotely managed Cloudflare Tunnel must route api.maxx.<domain> to
+# http://maxx-control-plane:8787 on this Compose network. No MAXX runtime
+# port is published on the VPS host in this topology.

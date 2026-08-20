@@ -1,0 +1,176 @@
+name: MAXX Cloudflare Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub Environment containing production secrets
+        required: true
+        default: maxx-production
+      frontend_url:
+        description: Frontend URL, e.g. https://maxx.example.com
+        required: true
+      api_url:
+        description: API URL routed through Cloudflare Tunnel, e.g. https://api.maxx.example.com
+        required: true
+      host:
+        description: VPS IP or SSH hostname
+        required: true
+      ssh_user:
+        description: Root-capable SSH user
+        required: true
+        default: root
+      ssh_port:
+        description: SSH port
+        required: true
+        default: "22"
+      apply_migrations:
+        description: Apply pending Supabase migrations after dry-run
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maxx-cloudflare-production-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+      - name: Control-plane tests
+        run: npm test --prefix services/maxx-control-plane
+      - name: Control-plane typecheck
+        run: npm run typecheck --prefix services/maxx-control-plane
+      - name: Validate Cloudflare Flywheel shell
+        run: bash -n deploy/flywheel/deploy-cloudflare.sh
+
+  migrations:
+    needs: release-gate
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.101.0
+      - name: Require intended database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: test -n "$SUPABASE_DB_URL"
+      - name: Dry-run migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --dry-run
+      - name: Apply migrations
+        if: ${{ inputs.apply_migrations }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase db push --db-url "$SUPABASE_DB_URL"
+
+  frontend:
+    needs: migrations
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build production frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_CONTROL_TOWER_API_URL: ${{ inputs.api_url }}
+        run: npm run build
+      - name: Deploy Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=${{ secrets.CLOUDFLARE_PAGES_PROJECT }} --branch=main
+
+  runtime:
+    needs: [migrations, frontend]
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.MAXX_VPS_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.MAXX_VPS_KNOWN_HOSTS }}
+        run: |
+          test -n "$SSH_PRIVATE_KEY" || { echo "MAXX_VPS_SSH_PRIVATE_KEY missing" >&2; exit 1; }
+          test -n "$SSH_KNOWN_HOSTS" || { echo "MAXX_VPS_KNOWN_HOSTS missing" >&2; exit 1; }
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 0600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/known_hosts
+      - name: Materialize VPS environment
+        env:
+          MAXX_ENV_B64: ${{ secrets.MAXX_VPS_ENV_B64 }}
+        run: |
+          test -n "$MAXX_ENV_B64" || { echo "MAXX_VPS_ENV_B64 missing" >&2; exit 1; }
+          printf '%s' "$MAXX_ENV_B64" | base64 --decode > /tmp/maxx.env
+          chmod 0600 /tmp/maxx.env
+          grep -q '^CLOUDFLARE_TUNNEL_TOKEN=' /tmp/maxx.env || { echo "CLOUDFLARE_TUNNEL_TOKEN missing from VPS env" >&2; exit 1; }
+      - name: Copy secrets
+        run: |
+          ssh -p '${{ inputs.ssh_port }}' '${{ inputs.ssh_user }}@${{ inputs.host }}' 'install -d -m 0700 /opt/maxx/secrets /opt/maxx/releases'
+          scp -P '${{ inputs.ssh_port }}' /tmp/maxx.env '${{ inputs.ssh_user }}@${{ inputs.host }}:/opt/maxx/secrets/maxx.env'
+          ssh -p '${{ inputs.ssh_port }}' '${{ inputs.ssh_user }}@${{ inputs.host }}' 'chmod 0600 /opt/maxx/secrets/maxx.env'
+      - name: Deploy exact MAXX release
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+          FRONTEND_URL: ${{ inputs.frontend_url }}
+          API_URL: ${{ inputs.api_url }}
+        run: |
+          ssh -p '${{ inputs.ssh_port }}' '${{ inputs.ssh_user }}@${{ inputs.host }}' "bash -se" <<EOF
+          set -euo pipefail
+          if [[ ! -d /opt/maxx/app/.git ]]; then
+            git clone https://github.com/${GITHUB_REPOSITORY}.git /opt/maxx/app
+          fi
+          cd /opt/maxx/app
+          previous=\$(git rev-parse HEAD 2>/dev/null || true)
+          [[ -z "\$previous" ]] || printf '%s\n' "\$previous" > /opt/maxx/releases/previous-sha
+          git fetch --prune origin
+          git checkout --detach "$RELEASE_SHA"
+          bash deploy/flywheel/bootstrap-vps.sh
+          chmod +x deploy/flywheel/deploy-cloudflare.sh
+          MAXX_PROFILE=business \
+          MAXX_ENV_FILE=/opt/maxx/secrets/maxx.env \
+          MAXX_FRONTEND_URL="$FRONTEND_URL" \
+          MAXX_API_URL="$API_URL" \
+          bash deploy/flywheel/deploy-cloudflare.sh
+          EOF
+
+  public-proof:
+    needs: runtime
+    runs-on: ubuntu-latest
+    steps:
+      - name: Public frontend
+        run: curl -fsS --max-time 20 '${{ inputs.frontend_url }}' >/dev/null
+      - name: Public API live
+        run: curl -fsS --max-time 20 '${{ inputs.api_url }}/health/live'
+      - name: Public API ready
+        run: curl -fsS --max-time 20 '${{ inputs.api_url }}/health/ready'
+      - name: Status
+        run: |
+          echo "MAXX Cloudflare production deployment reached SMOKE_PASS."
+          echo "Full VERIFIED still requires governed Pup delegation, approval-stop, duplicate-event, multi-workflow, browser-worker, restart/reboot, and rollback evidence."
