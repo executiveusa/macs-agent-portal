@@ -53,6 +53,7 @@ test("HttpHermesAdapter uses Hermes native /v1/runs contract with bearer auth", 
     objective: "Draft donor recap",
     workspacePath: "/workspaces/mission-1",
     stage: "01_intake",
+    timeoutMs: 120_000,
   });
 
   assert.equal(state.status, "running");
@@ -62,6 +63,7 @@ test("HttpHermesAdapter uses Hermes native /v1/runs contract with bearer auth", 
   assert.equal(calls[0].headers?.get("authorization"), "Bearer secret-key");
   assert.equal(calls[0].headers?.get("x-hermes-session-id"), "maxx-run-1");
   assert.equal(calls[0].body?.input, "Draft donor recap");
+  assert.equal(calls[0].body?.timeout_ms, 120_000);
   assert.match(String(calls[0].body?.instructions), /Agent MAXX/);
   assert.match(String(calls[0].body?.instructions), /agent-maxx skill/);
 });
@@ -83,6 +85,34 @@ test("HttpHermesAdapter maps native run status and output", async () => {
   assert.equal(state?.status, "completed");
   assert.equal(state?.progress, 1);
   assert.equal(state?.result?.output, "Completed with evidence");
+});
+
+test("HttpHermesAdapter treats upstream timeout and error states as terminal", async () => {
+  const payloads = [
+    { run_id: "run-timeout", status: "timeout" },
+    { run_id: "run-error", status: "error", error: "provider disconnected" },
+    { run_id: "run-orphaned", status: "orphaned" },
+  ];
+  let index = 0;
+  const fakeFetch = (async () => new Response(JSON.stringify(payloads[index++]), { status: 200 })) as typeof fetch;
+  const adapter = new HttpHermesAdapter("https://hermes.internal", "key", fakeFetch);
+
+  const timedOut = await adapter.getRunState("run-timeout");
+  assert.equal(timedOut?.status, "timeout");
+  assert.equal(timedOut?.progress, 1);
+  assert.ok(timedOut?.endedAt);
+  assert.match(timedOut?.error ?? "", /timed out/i);
+
+  const errored = await adapter.getRunState("run-error");
+  assert.equal(errored?.status, "error");
+  assert.equal(errored?.progress, 1);
+  assert.ok(errored?.endedAt);
+  assert.equal(errored?.error, "provider disconnected");
+
+  const orphaned = await adapter.getRunState("run-orphaned");
+  assert.equal(orphaned?.status, "cancelled");
+  assert.equal(orphaned?.progress, 1);
+  assert.ok(orphaned?.endedAt);
 });
 
 test("HttpHermesAdapter sends approval to Hermes and refreshes state", async () => {
