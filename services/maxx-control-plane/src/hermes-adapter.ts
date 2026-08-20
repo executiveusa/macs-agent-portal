@@ -4,6 +4,8 @@ export type HermesRunStatus =
   | "waiting_for_approval"
   | "completed"
   | "failed"
+  | "timeout"
+  | "error"
   | "cancelled";
 
 export type HermesRunInput = {
@@ -114,8 +116,15 @@ function mapStatus(value: unknown): HermesRunStatus {
       return "completed";
     case "failed":
       return "failed";
+    case "timeout":
+    case "timed_out":
+      return "timeout";
+    case "error":
+      return "error";
     case "cancelled":
     case "stopped":
+    case "interrupted":
+    case "orphaned":
       return "cancelled";
     case "started":
     case "running":
@@ -126,7 +135,7 @@ function mapStatus(value: unknown): HermesRunStatus {
 
 function normalizeRunState(payload: Record<string, unknown>, stage = "hermes"): HermesRunState {
   const status = mapStatus(payload.status);
-  const terminal = status === "completed" || status === "failed" || status === "cancelled";
+  const terminal = status === "completed" || status === "failed" || status === "timeout" || status === "error" || status === "cancelled";
   const output = typeof payload.output === "string" ? payload.output : null;
   const usage = payload.usage && typeof payload.usage === "object" ? payload.usage : null;
   const result = output || usage ? { ...(output ? { output } : {}), ...(usage ? { usage } : {}) } : null;
@@ -137,9 +146,9 @@ function normalizeRunState(payload: Record<string, unknown>, stage = "hermes"): 
     startedAt: isoFromUnknown(payload.started_at ?? payload.created_at) ?? (status === "queued" ? null : new Date().toISOString()),
     endedAt: isoFromUnknown(payload.ended_at) ?? (terminal ? new Date().toISOString() : null),
     stage: String(payload.stage ?? stage),
-    progress: status === "completed" ? 1 : status === "queued" ? 0 : status === "failed" || status === "cancelled" ? 1 : 0.5,
+    progress: status === "completed" ? 1 : status === "queued" ? 0 : terminal ? 1 : 0.5,
     result,
-    error: typeof payload.error === "string" ? payload.error : null,
+    error: typeof payload.error === "string" ? payload.error : status === "timeout" ? "Hermes run timed out" : status === "error" ? "Hermes run ended with an error" : null,
   };
 }
 
@@ -274,6 +283,7 @@ export class HttpHermesAdapter implements HermesAdapter {
         session_id: input.runId,
         instructions,
         ...routeFields(route),
+        ...(input.timeoutMs ? { timeout_ms: input.timeoutMs } : {}),
       }),
     });
     if (!response.ok) throw new Error(`Hermes startRun failed with status ${response.status}`);
