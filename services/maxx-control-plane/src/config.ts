@@ -25,6 +25,8 @@ const schema = z.object({
   MAXX_HERMES_ENABLED: z.string().optional(),
   MAXX_HERMES_ENDPOINT: z.string().url().optional(),
   MAXX_HERMES_API_KEY: z.string().optional(),
+  MAXX_SANDBOX_URL: z.string().url().optional(),
+  MAXX_SANDBOX_KEY: z.string().min(16).optional(),
   MAXX_VOICE_ENABLED: z.string().optional(),
   MAXX_VISION_ENABLED: z.string().optional(),
   MAXX_BROWSER_ENABLED: z.string().optional(),
