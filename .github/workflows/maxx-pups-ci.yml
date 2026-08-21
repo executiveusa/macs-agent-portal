@@ -5,7 +5,14 @@ on:
     paths:
       - "src/**"
       - "services/maxx-control-plane/**"
+      - "services/maxx-sandbox/**"
       - "services/hermes-runtime/profile/skills/maxx-pups/**"
+      - "services/hermes-runtime/profile/skills/maxx-sandbox/**"
+      - "services/hermes-runtime/profile/pups/**"
+      - "services/hermes-runtime/profile/config.yaml"
+      - "services/hermes-runtime/profile/mcp/**"
+      - "services/hermes-runtime/maxx-entrypoint.sh"
+      - "services/hermes-runtime/UPSTREAM.lock"
       - "supabase/migrations/*maxx_pup*.sql"
       - ".github/workflows/maxx-pups-ci.yml"
   workflow_dispatch:
@@ -49,3 +56,22 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
+
+  sandbox:
+    name: Sovereign sandbox isolation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Sandbox tests
+        working-directory: services/maxx-sandbox
+        run: npm test
+      - name: Build sandbox image
+        run: docker build -f services/maxx-sandbox/Dockerfile -t maxx-sandbox:test .
+      - name: Assert no Docker socket or host mount in production compose
+        working-directory: services/maxx-control-plane
+        run: |
+          ! grep -q '/var/run/docker.sock' compose.coolify.yml
+          ! grep -q '/:/' compose.coolify.yml

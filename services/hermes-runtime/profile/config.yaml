@@ -4,6 +4,17 @@ tool_loop_guardrails:
     exact_failure: 5
     idempotent_no_progress: 5
 
+gateway:
+  # MAXX Pups are product-level teammates backed by isolated Hermes profiles.
+  # One gateway serves the bounded local Pup roster so the customer deployment
+  # keeps one process/port while each Pup retains its own SOUL, memory, skills,
+  # model configuration, sessions, and credential scope.
+  multiplex_profiles: true
+  multiplex_profile_allowlist:
+    - chief-pup
+    - superdoer
+    - business-pup
+
 mcp_servers:
   maxx-control-plane:
     command: "python"

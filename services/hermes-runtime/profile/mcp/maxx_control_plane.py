@@ -2,9 +2,9 @@
 """Narrow MCP bridge from isolated MAXX Hermes to the MAXX control plane.
 
 This is intentionally not a general HTTP client. It exposes a fixed set of
-team operations and carries a dedicated server-side credential. The control
-plane remains the authority for operator scope, one-hop delegation, approvals,
-emergency locks, persistence, and mutation policy.
+team and sandbox operations and carries a dedicated server-side credential.
+The control plane remains the authority for operator scope, one-hop delegation,
+approvals, emergency locks, persistence, mutation policy, and sandbox access.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -52,9 +53,10 @@ def _pups() -> list[dict[str, Any]]:
 
 def _find_pup(name: str) -> dict[str, Any]:
     wanted = name.strip().casefold()
-    matches = [pup for pup in _pups() if str(pup.get("name", "")).casefold() == wanted]
+    pups = _pups()
+    matches = [pup for pup in pups if str(pup.get("name", "")).casefold() == wanted]
     if len(matches) != 1:
-        available = ", ".join(str(pup.get("name", "Pup")) for pup in _pups())
+        available = ", ".join(str(pup.get("name", "Pup")) for pup in pups)
         raise RuntimeError(f"Expected exactly one Pup named {name!r}. Available Pups: {available or 'none'}")
     pup = matches[0]
     if pup.get("status") != "active":
@@ -67,6 +69,19 @@ def _chief_pup() -> dict[str, Any]:
     if len(chiefs) != 1:
         raise RuntimeError("MAXX requires exactly one active Chief Pup before automatic delegation can run")
     return chiefs[0]
+
+
+def _pup_workspace_id(pup: dict[str, Any]) -> str:
+    kind = str(pup.get("kind", ""))
+    builtins = {
+        "chief_of_staff": "chief-pup",
+        "superdoer": "superdoer",
+        "business_in_a_box": "business-pup",
+    }
+    if kind in builtins:
+        return builtins[kind]
+    raw = str(pup.get("id", "custom-pup")).replace("-", "")[:32].lower()
+    return f"custom-{raw}"
 
 
 @mcp.tool()
@@ -141,6 +156,62 @@ def fresh_specialist(target_pup_name: str, role: str, objective: str, expected_p
         },
     )
     return json.dumps(payload, ensure_ascii=False)
+
+
+@mcp.tool()
+def sandbox_status() -> str:
+    """Show the capabilities of MAXX's self-hosted scratch computer.
+
+    This is the sovereign replacement for Orgo's shared cloud computer. It has
+    no production credentials, Docker socket, or VPS host filesystem mounted.
+    """
+    return json.dumps(_request("GET", "/v1/sandbox/capabilities"), ensure_ascii=False)
+
+
+@mcp.tool()
+def sandbox_list_files(pup_name: str, path: str = ".") -> str:
+    """List files in one Pup's isolated persistent sandbox workspace."""
+    pup = _find_pup(pup_name)
+    query = urllib.parse.urlencode({"pupId": _pup_workspace_id(pup), "path": path})
+    return json.dumps(_request("GET", f"/v1/sandbox/files/list?{query}"), ensure_ascii=False)
+
+
+@mcp.tool()
+def sandbox_read_file(pup_name: str, path: str) -> str:
+    """Read a UTF-8 file from one Pup's isolated persistent sandbox workspace."""
+    pup = _find_pup(pup_name)
+    query = urllib.parse.urlencode({"pupId": _pup_workspace_id(pup), "path": path})
+    return json.dumps(_request("GET", f"/v1/sandbox/files/read?{query}"), ensure_ascii=False)
+
+
+@mcp.tool()
+def sandbox_write_file(pup_name: str, path: str, content: str) -> str:
+    """Write a UTF-8 file into one Pup's isolated sandbox workspace.
+
+    This never writes to the VPS host filesystem or production repositories.
+    """
+    pup = _find_pup(pup_name)
+    return json.dumps(
+        _request("POST", "/v1/sandbox/files/write", {"pupId": _pup_workspace_id(pup), "path": path, "content": content}),
+        ensure_ascii=False,
+    )
+
+
+@mcp.tool()
+def sandbox_exec(pup_name: str, command: str, cwd: str = ".") -> str:
+    """Run a bounded shell command inside one Pup's isolated MAXX sandbox.
+
+    Use for scratch computation, transforms, local file work, git inspection,
+    and reproducible experiments. The sandbox intentionally has no customer or
+    provider secrets. Consequential external actions must use the dedicated
+    MAXX connectors/approval paths instead of trying to smuggle credentials
+    into this workspace.
+    """
+    pup = _find_pup(pup_name)
+    return json.dumps(
+        _request("POST", "/v1/sandbox/exec", {"pupId": _pup_workspace_id(pup), "command": command, "cwd": cwd}),
+        ensure_ascii=False,
+    )
 
 
 @mcp.tool()

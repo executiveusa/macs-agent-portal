@@ -37,6 +37,13 @@ export type Pup = {
   updatedAt: string;
 };
 
+export type PupRunResult = {
+  mission: { id: string; runId: string; objective: string };
+  state: { runId: string; status: string; error?: string | null };
+  trigger: string;
+  runtimeProfile?: string;
+};
+
 export type PupHandoff = {
   id: string;
   threadId: string;
@@ -91,6 +98,7 @@ export type PupsPayload = {
   pups: Pup[];
   templates: PupTemplate[];
   persistence: "memory" | "supabase";
+  runtime?: "hermes_bot_profiles" | "unconfigured";
   alwaysOn: boolean;
 };
 
@@ -116,9 +124,14 @@ export const pupsApi = {
   patch: (id: string, input: Partial<Pick<Pup, "name" | "objective" | "status" | "autonomy" | "routineEveryMinutes" | "routinePrompt">>) =>
     request<Pup>(`/v1/pups/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   run: (id: string, instruction?: string) =>
-    request<{ mission: { id: string; runId: string; objective: string }; state: { status: string }; trigger: string }>(
+    request<PupRunResult>(
       `/v1/pups/${encodeURIComponent(id)}/run`,
       { method: "POST", body: JSON.stringify({ instruction: instruction || undefined }) },
+    ),
+  approveRun: (id: string, runId: string, choice: "once" | "session" | "deny") =>
+    request<{ state: { runId: string; status: string; error?: string | null }; pup: Pup }>(
+      `/v1/pups/${encodeURIComponent(id)}/runs/${encodeURIComponent(runId)}/approval`,
+      { method: "POST", body: JSON.stringify({ choice }) },
     ),
   chat: (id: string, message: string) =>
     request<{ text: string; model: string }>(`/v1/pups/${encodeURIComponent(id)}/chat`, { method: "POST", body: JSON.stringify({ message }) }),
