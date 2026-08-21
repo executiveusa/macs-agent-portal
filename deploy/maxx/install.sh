@@ -35,6 +35,7 @@ required=(
   MAXX_API_KEY
   MAXX_HERMES_API_KEY
   NCA_TOOLKIT_API_KEY
+  MAXX_SANDBOX_KEY
 )
 for name in "${required[@]}"; do
   if [[ -z "${!name:-}" ]]; then
