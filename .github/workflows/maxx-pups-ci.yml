@@ -6,6 +6,10 @@ on:
       - "src/**"
       - "services/maxx-control-plane/**"
       - "services/hermes-runtime/profile/skills/maxx-pups/**"
+      - "services/hermes-runtime/profile/pups/**"
+      - "services/hermes-runtime/profile/config.yaml"
+      - "services/hermes-runtime/maxx-entrypoint.sh"
+      - "services/hermes-runtime/UPSTREAM.lock"
       - "supabase/migrations/*maxx_pup*.sql"
       - ".github/workflows/maxx-pups-ci.yml"
   workflow_dispatch:
