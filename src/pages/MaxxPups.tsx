@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Bot, Check, Clock3, Loader2, MessageCircle, Pause, Play, Plus, Send, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PupOperationsPanel } from "@/components/pups/PupOperationsPanel";
-import { pupsApi, type Pup, type PupTemplate } from "@/services/pupsApi";
+import { pupsApi, type Pup, type PupRunResult, type PupTemplate } from "@/services/pupsApi";
 
 const scheduleOptions = [
   { label: "Only when I ask", value: null },
@@ -12,9 +12,9 @@ const scheduleOptions = [
   { label: "Every day", value: 1440 },
 ];
 
-function statusText(pup: Pup) {
+function statusText(pup: Pup, pendingRun?: PupRunResult | null) {
   if (pup.status === "paused") return "Paused";
-  if (pup.status === "needs_attention") return "Needs you";
+  if (pup.status === "needs_attention" || pendingRun?.state.status === "waiting_for_approval") return "Needs you";
   if (pup.routineEveryMinutes) return "Always on";
   return "Ready";
 }
@@ -45,10 +45,27 @@ function PupCard({ pup }: { pup: Pup }) {
   const [showChat, setShowChat] = useState(false);
   const [message, setMessage] = useState("");
   const [reply, setReply] = useState("");
+  const [pendingRun, setPendingRun] = useState<PupRunResult | null>(null);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["pups"] });
   const patch = useMutation({ mutationFn: (input: Parameters<typeof pupsApi.patch>[1]) => pupsApi.patch(pup.id, input), onSuccess: refresh });
-  const run = useMutation({ mutationFn: () => pupsApi.run(pup.id), onSuccess: refresh });
+  const run = useMutation({
+    mutationFn: () => pupsApi.run(pup.id),
+    onSuccess: (result) => {
+      setPendingRun(result.state.status === "waiting_for_approval" ? result : null);
+      refresh();
+    },
+  });
+  const approval = useMutation({
+    mutationFn: (choice: "once" | "session" | "deny") => {
+      if (!pendingRun) throw new Error("No Pup run is waiting for approval");
+      return pupsApi.approveRun(pup.id, pendingRun.state.runId, choice);
+    },
+    onSuccess: (result) => {
+      if (result.state.status !== "waiting_for_approval") setPendingRun(null);
+      refresh();
+    },
+  });
   const chat = useMutation({
     mutationFn: () => pupsApi.chat(pup.id, message),
     onSuccess: (result) => {
@@ -58,7 +75,7 @@ function PupCard({ pup }: { pup: Pup }) {
     },
   });
 
-  const state = statusText(pup);
+  const state = statusText(pup, pendingRun);
   const stateClass =
     state === "Always on" || state === "Ready"
       ? "bg-emerald-50 text-emerald-700"
@@ -99,6 +116,19 @@ function PupCard({ pup }: { pup: Pup }) {
         {pup.nextRunAt && <p className="mt-2 text-[11px] text-black/38">Next wake-up: {new Date(pup.nextRunAt).toLocaleString()}</p>}
       </div>
 
+      {pendingRun && (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-900">{pup.name} needs your OK</p>
+          <p className="mt-1 text-xs leading-5 text-amber-800/75">The work reached a real approval boundary. Approve this run once, keep the current session permission, or stop it.</p>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <button onClick={() => approval.mutate("once")} disabled={approval.isPending} className="min-h-10 rounded-xl bg-[#252520] px-3 text-xs font-semibold text-white disabled:opacity-40">Approve once</button>
+            <button onClick={() => approval.mutate("session")} disabled={approval.isPending} className="min-h-10 rounded-xl border border-amber-300 bg-white px-3 text-xs font-semibold text-amber-900 disabled:opacity-40">This session</button>
+            <button onClick={() => approval.mutate("deny")} disabled={approval.isPending} className="min-h-10 rounded-xl border border-black/10 bg-white px-3 text-xs font-semibold text-black/60 disabled:opacity-40">Not now</button>
+          </div>
+          {approval.isError && <p className="mt-2 text-xs text-red-600">{approval.error instanceof Error ? approval.error.message : "MAXX could not resolve that approval."}</p>}
+        </div>
+      )}
+
       {pup.lastRunAt && (
         <div className="mt-4 flex items-start gap-2 rounded-2xl border border-black/[0.06] px-3.5 py-3 text-xs text-black/48">
           <Check size={14} className="mt-0.5 shrink-0 text-emerald-650" />
@@ -112,7 +142,7 @@ function PupCard({ pup }: { pup: Pup }) {
       <div className="mt-5 grid grid-cols-3 gap-2">
         <button
           onClick={() => run.mutate()}
-          disabled={run.isPending || pup.status === "paused"}
+          disabled={run.isPending || pup.status === "paused" || Boolean(pendingRun)}
           className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-[#252520] px-3 text-xs font-semibold text-white disabled:opacity-35"
         >
           {run.isPending ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
@@ -197,7 +227,7 @@ export default function MaxxPups() {
           </div>
           <h1 className="mt-5 text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">Your Pups</h1>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-black/48 sm:text-base">
-            Give MAXX a specialist teammate for work that should keep moving. Pups can prepare and organize work while you are away; important external actions still wait for you.
+            Give MAXX a specialist teammate for work that should keep moving. Each Pup remembers its own job; important external actions still wait for you.
           </p>
         </section>
 
@@ -230,7 +260,7 @@ export default function MaxxPups() {
                 <ShieldCheck size={18} className="mt-0.5 shrink-0 text-[#4f765c]" />
                 <div>
                   <p className="text-sm font-semibold">Pups work inside MAXX</p>
-                  <p className="mt-1 text-xs leading-5 text-black/45">They reuse the same approvals, missions, memory, browser rules, and owner boundary. A Pup is a teammate, not a new server or a new product.</p>
+                  <p className="mt-1 text-xs leading-5 text-black/45">They keep their own job memory, but reuse MAXX's approvals, missions, browser rules, and owner boundary. A Pup is a teammate, not another product you have to manage.</p>
                 </div>
               </div>
             </section>
