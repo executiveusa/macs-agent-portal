@@ -19,6 +19,8 @@ export type PupTemplate = {
   defaultObjective: string;
   role: string;
   autonomy: PupAutonomy;
+  /** Internal Hermes Bot/Profile backing this product-level Pup. */
+  hermesProfile: string;
 };
 
 export type Pup = {
@@ -57,6 +59,7 @@ export const PUP_TEMPLATES: readonly PupTemplate[] = [
       "When specialist work is needed, recommend the smallest specialist Pup rather than pretending to be every specialist at once.",
     ].join(" "),
     autonomy: "safe_actions",
+    hermesProfile: "chief-pup",
   },
   {
     id: "superdoer",
@@ -73,6 +76,7 @@ export const PUP_TEMPLATES: readonly PupTemplate[] = [
       "End work with evidence of what changed and the next decision needed from Stacy, if any.",
     ].join(" "),
     autonomy: "safe_actions",
+    hermesProfile: "superdoer",
   },
   {
     id: "business_in_a_box",
@@ -89,6 +93,7 @@ export const PUP_TEMPLATES: readonly PupTemplate[] = [
       "You may prepare internal work automatically. External communication, spending, publishing, account changes, and irreversible actions remain approval-gated.",
     ].join(" "),
     autonomy: "safe_actions",
+    hermesProfile: "business-pup",
   },
 ] as const;
 
@@ -129,6 +134,10 @@ export interface PupRepository {
 
 function templateFor(kind: PupKind): PupTemplate | undefined {
   return PUP_TEMPLATES.find((template) => template.id === kind);
+}
+
+export function hermesProfileForPup(pup: Pick<Pup, "kind">): string | undefined {
+  return templateFor(pup.kind)?.hermesProfile;
 }
 
 function nextRunIso(minutes: number | null | undefined, from = Date.now()) {
@@ -378,9 +387,11 @@ function toPupRow(pup: Pup) {
 }
 
 function pupContext(pup: Pup) {
+  const profile = hermesProfileForPup(pup);
   return [
     `You are ${pup.name}, a persistent Pup working under Agent MAXX 006.`,
     `Pup type: ${pup.kind}.`,
+    ...(profile ? [`Hermes profile: ${profile}. Your profile SOUL is authoritative for your specialist identity.`] : []),
     `Role: ${pup.role}`,
     `Standing objective: ${pup.objective}`,
     `Autonomy: ${pup.autonomy}.`,
@@ -408,8 +419,13 @@ export class PupExecutor {
   ) {}
 
   async chat(pup: Pup, message: string) {
+    const profile = hermesProfileForPup(pup);
     const result = await this.hermes.chat({
-      sessionId: pup.sessionId,
+      // Built-in Pups use a profile-scoped named conversation so their
+      // relationship survives individual requests. Custom Pups retain the
+      // historical session behavior until dynamic profile provisioning ships.
+      sessionId: profile ? "Bot Chat" : pup.sessionId,
+      profile,
       message: `${pupContext(pup)}\n\nStacy says:\n${message}`,
     });
     await this.repository.markRun(pup.id, "chat", result.text);
@@ -418,6 +434,7 @@ export class PupExecutor {
 
   async run(pup: Pup, trigger: PupRunTrigger, instruction?: string) {
     const missionId = randomUUID();
+    const profile = hermesProfileForPup(pup);
     const runObjective = instruction?.trim() || pup.routinePrompt || pup.objective;
     const auditObjective = `${pup.name}: ${runObjective}`.slice(0, 4_000);
     const objective = [
@@ -444,6 +461,7 @@ export class PupExecutor {
     await this.store.addEvent(icm.runId, "pup.run.created", `${pup.name} woke up`, {
       pupId: pup.id,
       pupKind: pup.kind,
+      hermesProfile: profile ?? "default",
       trigger,
       runObjective,
       standingObjective: pup.objective,
@@ -459,6 +477,7 @@ export class PupExecutor {
         workspacePath: icm.runPath,
         stage: "pup",
         timeoutMs,
+        profile,
       });
       const missionStatus =
         isHermesFailure(state.status)
@@ -473,16 +492,21 @@ export class PupExecutor {
       await this.store.updateMission(mission.id, missionStatus);
       await this.store.addEvent(icm.runId, "pup.run.started", `${pup.name} runtime state: ${state.status}`, {
         pupId: pup.id,
+        hermesProfile: profile ?? "default",
         trigger,
         hermesStatus: state.status,
         terminal: state.status === "completed" || state.status === "cancelled" || isHermesFailure(state.status),
       });
       await this.repository.markRun(pup.id, state.status, state.error ?? undefined);
-      return { mission, state, trigger };
+      return { mission, state, trigger, runtimeProfile: profile ?? "default" };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await this.store.updateMission(mission.id, "failed");
-      await this.store.addEvent(icm.runId, "pup.run.failed", `${pup.name} failed to start`, { pupId: pup.id, error: message });
+      await this.store.addEvent(icm.runId, "pup.run.failed", `${pup.name} failed to start`, {
+        pupId: pup.id,
+        hermesProfile: profile ?? "default",
+        error: message,
+      });
       await this.repository.markRun(pup.id, "failed", message);
       throw error;
     }
@@ -535,6 +559,7 @@ export async function registerPupRoutes(app: FastifyInstance, config: MaxxConfig
     pups: await repository.list(request.operator!.id),
     templates: PUP_TEMPLATES,
     persistence: repository.persistence,
+    runtime: config.featureFlags.MAXX_HERMES_ENABLED ? "hermes_bot_profiles" : "unconfigured",
     alwaysOn: repository.persistence === "supabase" && config.featureFlags.MAXX_SCHEDULER_ENABLED,
   }));
 
@@ -542,6 +567,16 @@ export async function registerPupRoutes(app: FastifyInstance, config: MaxxConfig
     const parsed = createPupSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
     try {
+      // V1 intentionally maps each built-in product role to one persistent
+      // Hermes profile. Prevent duplicate cards from sharing the same profile
+      // identity/memory by accident. Custom profile provisioning is a separate
+      // bounded feature and keeps the prior behavior for now.
+      if (parsed.data.templateId !== "custom") {
+        const existing = await repository.list(request.operator!.id);
+        if (existing.some((pup) => pup.kind === parsed.data.templateId)) {
+          return reply.code(409).send({ error: "That Pup already exists. Talk to or update the existing teammate instead." });
+        }
+      }
       const pup = await repository.create({ ...parsed.data, operatorId: request.operator!.id });
       return reply.code(201).send(pup);
     } catch (error) {
