@@ -60,19 +60,18 @@ jobs:
   sandbox:
     name: Sovereign sandbox isolation
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/maxx-sandbox
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm test
+      - name: Sandbox tests
+        working-directory: services/maxx-sandbox
+        run: npm test
       - name: Build sandbox image
-        run: docker build -f Dockerfile -t maxx-sandbox:test ../..
+        run: docker build -f services/maxx-sandbox/Dockerfile -t maxx-sandbox:test .
       - name: Assert no Docker socket or host mount in production compose
-        working-directory: ../maxx-control-plane
+        working-directory: services/maxx-control-plane
         run: |
           ! grep -q '/var/run/docker.sock' compose.coolify.yml
           ! grep -q '/:/' compose.coolify.yml
