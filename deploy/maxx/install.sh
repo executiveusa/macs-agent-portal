@@ -6,6 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ENV_FILE="${MAXX_ENV_FILE:-$SCRIPT_DIR/.env}"
 COMPOSE_FILE="$REPO_ROOT/services/maxx-control-plane/compose.coolify.yml"
 HERMES_BUILD="$REPO_ROOT/services/hermes-runtime/build-pinned-image.sh"
+SECOND_BRAIN_SEED="$SCRIPT_DIR/seed-second-brain-vault.sh"
 
 for command in docker git python; do
   if ! command -v "$command" >/dev/null 2>&1; then
@@ -74,8 +75,10 @@ echo "Waiting for MAXX control plane readiness..."
 for attempt in $(seq 1 40); do
   if docker compose --env-file "$ENV_FILE" "${compose_args[@]}" exec -T maxx-control-plane \
     wget -qO- http://127.0.0.1:8787/health/ready >/dev/null 2>&1; then
+    MAXX_ENV_FILE="$ENV_FILE" MAXX_COMPOSE_EXTRA="${MAXX_COMPOSE_EXTRA:-}" "$SECOND_BRAIN_SEED" >/dev/null
     echo "Agent MAXX backend is ready."
     echo "Hermes revision: $LOCKED_COMMIT"
+    echo "Second-brain vault: seeded"
     exit 0
   fi
   sleep 3

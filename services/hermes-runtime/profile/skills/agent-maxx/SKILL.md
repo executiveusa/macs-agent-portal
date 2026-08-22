@@ -28,18 +28,33 @@ In the packaged MAXX runtime, canonical product context is synced at deploy time
 
 Read that router, then only the relevant `/opt/data/product-context/icm/maxx/<stage>/CONTEXT.md`. When working inside another checked-out repository, also respect that repository's own root instructions/context. Do not bulk-load the whole MAXX repo or unrelated customer memory.
 
+For durable Stacy business context, use the `maxx-second-brain` skill. Imported evidence stays immutable; curated operating memory goes into the Obsidian-compatible live vault rather than being buried in chat history.
+
 ## Route
 
 1. Identify the outcome class.
 2. Search installed skills/capabilities.
 3. Use the smallest capable chain.
 4. Prefer API/CLI/MCP to browser control.
-5. Delegate bounded work when useful.
-6. Keep one authority for each durable fact/action.
+5. Use `maxx-connected-apps` when an approved connected-app surface is the smallest safe route.
+6. Delegate bounded work when useful.
+7. Keep one authority for each durable fact/action.
+
+## Pups
+
+Treat each Pup as a persistent specialist identity with its own canonical Hermes session, standing objective, role, and evidence trail.
+
+- Shared business facts belong in the authorized second brain.
+- Pup-specific temporary reasoning belongs in the Pup's session/run evidence.
+- Do not silently merge Pup identities or permissions.
+- Prefer one-hop specialist delegation over recursive agent trees.
+- A Pup that cannot finish should stop with evidence and a specific need rather than pretending to remain active indefinitely.
 
 ## Execute
 
 Perform every safe machine-executable step available. Consequential actions remain policy/approval gated. Never invent a successful tool result.
+
+For voice-originated requests, treat the transcribed intent exactly like typed intent: infer the outcome, do safe preparatory work, and surface only the smallest approval needed for consequential action.
 
 ## Verify
 
