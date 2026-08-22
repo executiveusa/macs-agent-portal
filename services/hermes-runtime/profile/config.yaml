@@ -14,6 +14,27 @@ mcp_servers:
     enabled: true
     supports_parallel_tool_calls: false
 
+  # Optional connected-app surfaces harvested from proven Hermes deployments.
+  # maxx-entrypoint.sh enables these only when the matching credential is
+  # present, so an unconfigured integration never crash-loops the gateway.
+  composio:
+    url: "https://connect.composio.dev/mcp"
+    headers:
+      x-consumer-api-key: "${COMPOSIO_CONSUMER_KEY}"
+    enabled: false
+
+  latitude:
+    url: "https://api.latitude.so/v1/mcp"
+    headers:
+      Authorization: "Bearer ${LATITUDE_API_KEY}"
+    enabled: false
+
+  agentmail:
+    url: "https://mcp.agentmail.to/mcp"
+    headers:
+      x-api-key: "${AGENTMAIL_API_KEY}"
+    enabled: false
+
 # Provider/model credentials and defaults are deployment state, not repository state.
 # Configure them in the isolated MAXX Hermes data volume / secret store.
 # MAXX Mode is requested per turn through Hermes `model_options` and does not
