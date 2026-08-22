@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { StubHermesAdapter, HttpHermesAdapter, createHermesAdapter } from "../src/hermes-adapter.js";
+import {
+  StubHermesAdapter,
+  HttpHermesAdapter,
+  createHermesAdapter,
+  deriveHermesProfileApiKey,
+} from "../src/hermes-adapter.js";
 
 test("StubHermesAdapter reports an honest failed state instead of pretending to run", async () => {
   const adapter = new StubHermesAdapter();
@@ -32,6 +37,15 @@ test("StubHermesAdapter round-trips state through getRunState and cancelRun", as
 
   assert.equal(await adapter.getRunState("unknown"), undefined);
   assert.equal(await adapter.cancelRun("unknown"), undefined);
+});
+
+test("deriveHermesProfileApiKey is stable and isolates profile credentials", () => {
+  const master = "deployment-master-key";
+  const chief = deriveHermesProfileApiKey(master, "chief-pup");
+  assert.equal(chief, deriveHermesProfileApiKey(master, "chief-pup"));
+  assert.notEqual(chief, master);
+  assert.notEqual(chief, deriveHermesProfileApiKey(master, "superdoer"));
+  assert.equal(chief.length, 64);
 });
 
 test("HttpHermesAdapter uses Hermes native /v1/runs contract with bearer auth", async () => {
@@ -66,6 +80,28 @@ test("HttpHermesAdapter uses Hermes native /v1/runs contract with bearer auth", 
   assert.equal(calls[0].body?.timeout_ms, 120_000);
   assert.match(String(calls[0].body?.instructions), /Agent MAXX/);
   assert.match(String(calls[0].body?.instructions), /agent-maxx skill/);
+});
+
+test("HttpHermesAdapter routes a Pup run through the profile-prefixed API with a derived key", async () => {
+  const calls: Array<{ url: string; headers: Headers; body: Record<string, unknown> }> = [];
+  const fakeFetch = (async (url: string, init?: RequestInit) => {
+    calls.push({ url: String(url), headers: new Headers(init?.headers), body: JSON.parse(String(init?.body)) });
+    return new Response(JSON.stringify({ run_id: "pup-run-1", status: "started" }), { status: 202 });
+  }) as typeof fetch;
+  const adapter = new HttpHermesAdapter("https://hermes.internal", "master-key", fakeFetch);
+  await adapter.startRun({
+    runId: "maxx-run-2",
+    missionId: "mission-2",
+    objective: "Prepare follow-ups",
+    workspacePath: "/workspaces/mission-2",
+    stage: "pup",
+    profile: "superdoer",
+  });
+
+  assert.equal(calls[0].url, "https://hermes.internal/p/superdoer/v1/runs");
+  assert.equal(calls[0].headers.get("authorization"), `Bearer ${deriveHermesProfileApiKey("master-key", "superdoer")}`);
+  assert.match(String(calls[0].body.instructions), /Hermes Pup profile: superdoer/);
+  assert.match(String(calls[0].body.instructions), /persistent MAXX Pup/);
 });
 
 test("HttpHermesAdapter maps native run status and output", async () => {
@@ -131,6 +167,25 @@ test("HttpHermesAdapter sends approval to Hermes and refreshes state", async () 
   ]);
 });
 
+test("HttpHermesAdapter keeps Pup approval and status traffic inside the Pup profile", async () => {
+  const calls: Array<{ url: string; auth: string | null }> = [];
+  const fakeFetch = (async (url: string, init?: RequestInit) => {
+    calls.push({ url: String(url), auth: new Headers(init?.headers).get("authorization") });
+    if (String(url).endsWith("/approval")) return new Response(JSON.stringify({ resolved: 1 }), { status: 200 });
+    return new Response(JSON.stringify({ run_id: "pup-run", status: "running" }), { status: 200 });
+  }) as typeof fetch;
+  const adapter = new HttpHermesAdapter("https://hermes.internal", "master", fakeFetch);
+  const state = await adapter.resolveApproval("pup-run", "once", "chief-pup");
+  assert.equal(state?.status, "running");
+  assert.deepEqual(calls.map((call) => call.url), [
+    "https://hermes.internal/p/chief-pup/v1/runs/pup-run/approval",
+    "https://hermes.internal/p/chief-pup/v1/runs/pup-run",
+  ]);
+  for (const call of calls) {
+    assert.equal(call.auth, `Bearer ${deriveHermesProfileApiKey("master", "chief-pup")}`);
+  }
+});
+
 test("HttpHermesAdapter uses OpenAI-compatible Hermes chat for the conversational surface", async () => {
   const calls: Array<{ url: string; headers: Headers; body: Record<string, unknown> }> = [];
   const fakeFetch = (async (url: string, init?: RequestInit) => {
@@ -157,6 +212,32 @@ test("HttpHermesAdapter uses OpenAI-compatible Hermes chat for the conversationa
   const messages = calls[0].body.messages as Array<{ role: string; content: string }>;
   assert.equal(messages[0].role, "system");
   assert.match(messages[0].content, /Agent MAXX/);
+});
+
+test("HttpHermesAdapter gives each Pup a persistent Responses API conversation", async () => {
+  const calls: Array<{ url: string; headers: Headers; body: Record<string, unknown> }> = [];
+  const fakeFetch = (async (url: string, init?: RequestInit) => {
+    calls.push({ url: String(url), headers: new Headers(init?.headers), body: JSON.parse(String(init?.body)) });
+    return new Response(
+      JSON.stringify({
+        id: "resp_1",
+        model: "superdoer",
+        output: [{ type: "message", content: [{ type: "output_text", text: "Drafts prepared." }] }],
+        usage: { input_tokens: 8, output_tokens: 3, total_tokens: 11 },
+      }),
+      { status: 200 },
+    );
+  }) as typeof fetch;
+  const adapter = new HttpHermesAdapter("https://hermes.internal", "master-key", fakeFetch);
+  const result = await adapter.chat({ message: "Prepare today's follow-ups", sessionId: "Bot Chat", profile: "superdoer" });
+
+  assert.equal(result.text, "Drafts prepared.");
+  assert.equal(result.usage.totalTokens, 11);
+  assert.equal(calls[0].url, "https://hermes.internal/p/superdoer/v1/responses");
+  assert.equal(calls[0].headers.get("authorization"), `Bearer ${deriveHermesProfileApiKey("master-key", "superdoer")}`);
+  assert.equal(calls[0].body.conversation, "Bot Chat");
+  assert.equal(calls[0].body.store, true);
+  assert.match(String(calls[0].body.instructions), /persistent MAXX Pup/);
 });
 
 test("HttpHermesAdapter surfaces a 404 as undefined, not an error", async () => {

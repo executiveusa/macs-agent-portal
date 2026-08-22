@@ -4,6 +4,13 @@ tool_loop_guardrails:
     exact_failure: 5
     idempotent_no_progress: 5
 
+gateway:
+  multiplex_profiles: true
+  multiplex_profile_allowlist:
+    - chief-pup
+    - superdoer
+    - business-pup
+
 mcp_servers:
   maxx-control-plane:
     command: "python"
@@ -14,9 +21,8 @@ mcp_servers:
     enabled: true
     supports_parallel_tool_calls: false
 
-  # Optional connected-app surfaces harvested from proven Hermes deployments.
-  # maxx-entrypoint.sh enables these only when the matching credential is
-  # present, so an unconfigured integration never crash-loops the gateway.
+  # Optional connected-app surfaces. maxx-entrypoint.sh enables these only
+  # when the matching credential is present so missing keys never crash-loop.
   composio:
     url: "https://connect.composio.dev/mcp"
     headers:
@@ -37,5 +43,5 @@ mcp_servers:
 
 # Provider/model credentials and defaults are deployment state, not repository state.
 # Configure them in the isolated MAXX Hermes data volume / secret store.
-# MAXX Mode is requested per turn through Hermes `model_options` and does not
+# MAXX Mode is requested per turn through Hermes model_options and does not
 # give the browser or customer direct access to provider credentials.

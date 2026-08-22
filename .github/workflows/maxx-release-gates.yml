@@ -45,6 +45,12 @@ jobs:
       - name: Test second-brain ICM and OKF worker
         run: python -m unittest services/second-brain-worker/test_worker.py -v
 
+      - name: Test sovereign MAXX sandbox
+        run: |
+          node --test services/maxx-sandbox/test/*.test.mjs
+          docker build -f services/maxx-sandbox/Dockerfile -t maxx-sandbox:release-gate .
+          ! grep -q '/var/run/docker.sock' services/maxx-control-plane/compose.coolify.yml
+
       - name: Validate shell entrypoints
         run: |
           bash -n services/hermes-runtime/maxx-entrypoint.sh
@@ -57,6 +63,7 @@ jobs:
       - name: Verify reusable MAXX skill catalog will be packaged
         run: |
           test -f skills/browser-hosting-deployer/SKILL.md
+          test -f services/hermes-runtime/profile/skills/maxx-sandbox/SKILL.md
           for skill in pi-packages/maxx/skills/*; do
             test -f "$skill/SKILL.md"
           done
@@ -88,6 +95,7 @@ jobs:
           MAXX_HERMES_API_KEY: abcdef0123456789abcdef0123456789
           MAXX_HERMES_IMAGE: maxx-hermes:test-pinned
           NCA_TOOLKIT_API_KEY: 11111111111111112222222222222222
+          MAXX_SANDBOX_KEY: 33333333333333334444444444444444
           CONTROL_TOWER_ALLOWED_ORIGINS: https://maxx.example.com
         run: docker compose -f services/maxx-control-plane/compose.coolify.yml config --quiet
 

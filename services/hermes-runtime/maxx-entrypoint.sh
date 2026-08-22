@@ -4,18 +4,14 @@ set -euo pipefail
 DATA_DIR="${HERMES_HOME:-/opt/data}"
 SEED_DIR="/opt/maxx-seed"
 CONTEXT_DIR="$DATA_DIR/product-context"
+PUP_PROFILES=("chief-pup" "superdoer" "business-pup")
 
-mkdir -p "$DATA_DIR/skills" "$DATA_DIR/sessions" "$DATA_DIR/memories" "$DATA_DIR/cron" "$DATA_DIR/logs" "$DATA_DIR/home" "$CONTEXT_DIR"
+mkdir -p "$DATA_DIR/skills" "$DATA_DIR/sessions" "$DATA_DIR/memories" "$DATA_DIR/cron" "$DATA_DIR/logs" "$DATA_DIR/home" "$CONTEXT_DIR" "$DATA_DIR/profiles"
 
-# Identity/config become customer/runtime state after first boot. Do not erase
-# onboarding changes during image upgrades.
 if [[ ! -f "$DATA_DIR/SOUL.md" ]]; then
   cp "$SEED_DIR/profile/SOUL.md" "$DATA_DIR/SOUL.md"
 fi
 
-# MAXX owns a small named set of MCP stanzas. Merge those product-managed
-# stanzas without replacing provider defaults or customer-local settings.
-# Optional remote connectors remain parked unless their credential exists.
 python - "$DATA_DIR/config.yaml" "$SEED_DIR/profile/config.yaml" <<'PY'
 import os
 import sys
@@ -34,12 +30,9 @@ if not isinstance(current, dict) or not isinstance(seed, dict):
     raise SystemExit("Hermes config must be a YAML mapping")
 
 seed_servers = seed.get("mcp_servers") or {}
-if not isinstance(seed_servers, dict):
-    raise SystemExit("Seed mcp_servers config must be a mapping")
 servers = current.setdefault("mcp_servers", {})
-if not isinstance(servers, dict):
-    raise SystemExit("Existing mcp_servers config must be a mapping")
-
+if not isinstance(seed_servers, dict) or not isinstance(servers, dict):
+    raise SystemExit("mcp_servers config must be a mapping")
 managed = {
     "maxx-control-plane": None,
     "composio": "COMPOSIO_CONSUMER_KEY",
@@ -54,8 +47,13 @@ for name, env_name in managed.items():
     stanza["enabled"] = True if env_name is None else bool(os.getenv(env_name, "").strip())
     servers[name] = stanza
 
-# Keep MAXX's tested loop hard-stop floor even when an existing runtime config
-# predates this seed. Customer settings outside the managed keys are preserved.
+seed_gateway = seed.get("gateway") or {}
+gateway = current.setdefault("gateway", {})
+if not isinstance(gateway, dict):
+    raise SystemExit("Existing gateway config must be a mapping")
+gateway["multiplex_profiles"] = True
+gateway["multiplex_profile_allowlist"] = list(seed_gateway.get("multiplex_profile_allowlist") or [])
+
 seed_guardrails = seed.get("tool_loop_guardrails")
 if isinstance(seed_guardrails, dict):
     current["tool_loop_guardrails"] = seed_guardrails
@@ -72,9 +70,6 @@ finally:
         os.unlink(temp_path)
 PY
 
-# Skills are progressive-disclosure runtime knowledge. Preserve customer-local
-# skills and overlay versioned product skills in authority order: generic repo
-# skills, legacy specialist catalog, then current MAXX profile skills last.
 if [[ -d "$SEED_DIR/repo-skills" ]]; then
   cp -R "$SEED_DIR/repo-skills/." "$DATA_DIR/skills/"
 fi
@@ -83,10 +78,79 @@ if [[ -d "$SEED_DIR/maxx-specialist-skills" ]]; then
 fi
 cp -R "$SEED_DIR/profile/skills/." "$DATA_DIR/skills/"
 
-# ICM contracts track the tested image and are read progressively by skills.
 rm -rf "$CONTEXT_DIR/icm"
 mkdir -p "$CONTEXT_DIR/icm"
 cp "$SEED_DIR/CONTEXT.md" "$CONTEXT_DIR/CONTEXT.md"
 cp -R "$SEED_DIR/icm/maxx" "$CONTEXT_DIR/icm/maxx"
+
+set_env_value() {
+  local env_file="$1"
+  local key="$2"
+  local value="$3"
+  python - "$env_file" "$key" "$value" <<'PY'
+import os
+import sys
+path, key, value = sys.argv[1:4]
+rows = []
+if os.path.exists(path):
+    with open(path, encoding="utf-8") as handle:
+        rows = handle.read().splitlines()
+updated = []
+written = False
+for row in rows:
+    if row.startswith(f"{key}="):
+        if not written:
+            updated.append(f"{key}={value}")
+            written = True
+    else:
+        updated.append(row)
+if not written:
+    updated.append(f"{key}={value}")
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write("\n".join(updated).rstrip() + "\n")
+PY
+}
+
+derive_profile_key() {
+  local profile="$1"
+  if [[ -z "${API_SERVER_KEY:-}" ]]; then
+    echo ""
+    return
+  fi
+  python - "$API_SERVER_KEY" "$profile" <<'PY'
+import hashlib
+import hmac
+import sys
+master, profile = sys.argv[1:3]
+print(hmac.new(master.encode(), f"maxx-hermes-profile:{profile}".encode(), hashlib.sha256).hexdigest())
+PY
+}
+
+if command -v hermes >/dev/null 2>&1; then
+  for profile in "${PUP_PROFILES[@]}"; do
+    profile_dir="$DATA_DIR/profiles/$profile"
+    case "$profile" in
+      chief-pup) description="Coordinates MAXX work, priorities, proof, and bounded Pup handoffs." ;;
+      superdoer) description="Produces concrete internal work, drafts, research, follow-up prep, and verifiable deliverables." ;;
+      business-pup) description="Moves an owner-supplied business or offer toward revenue, delivery, retention, and sensible automation." ;;
+    esac
+
+    if [[ ! -d "$profile_dir" ]]; then
+      hermes profile create "$profile" --clone-from default --no-alias --description "$description"
+    else
+      hermes profile describe "$profile" --text "$description" >/dev/null 2>&1 || true
+    fi
+
+    mkdir -p "$profile_dir"
+    cp "$SEED_DIR/profile/pups/$profile/SOUL.md" "$profile_dir/SOUL.md"
+    profile_key="$(derive_profile_key "$profile")"
+    if [[ -n "$profile_key" ]]; then
+      set_env_value "$profile_dir/.env" "API_SERVER_KEY" "$profile_key"
+    fi
+    set_env_value "$profile_dir/.env" "API_SERVER_ENABLED" "false"
+  done
+else
+  echo "MAXX warning: hermes CLI not found; Pup profiles were not provisioned" >&2
+fi
 
 exec /opt/hermes/docker/entrypoint-dispatch.sh "$@"

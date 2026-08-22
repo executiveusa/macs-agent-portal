@@ -3,6 +3,8 @@ import { loadConfig } from "./config.js";
 import { registerOperationsHubRoutes } from "./operations-hub.js";
 import { registerPupBrokerRoutes } from "./pup-broker.js";
 import { registerPupRoutes } from "./pups.js";
+import { registerPupRuntimeControlRoutes } from "./pup-runtime-control.js";
+import { registerSandboxRoutes } from "./sandbox-routes.js";
 
 const config = loadConfig();
 const app = buildApp({ config });
@@ -24,8 +26,10 @@ const pupConfig = proactivePupsAllowed
       },
     };
 await registerPupRoutes(app, pupConfig);
+await registerPupRuntimeControlRoutes(app, pupConfig);
 await registerPupBrokerRoutes(app, pupConfig);
 await registerOperationsHubRoutes(app, pupConfig);
+await registerSandboxRoutes(app, pupConfig);
 
 try {
   await app.listen({ host: config.HOST, port: config.PORT });

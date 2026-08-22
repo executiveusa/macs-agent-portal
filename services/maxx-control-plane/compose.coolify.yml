@@ -54,6 +54,39 @@ services:
       retries: 5
       start_period: 45s
 
+  maxx-sandbox:
+    build:
+      context: ../..
+      dockerfile: services/maxx-sandbox/Dockerfile
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8790
+      MAXX_SANDBOX_KEY: "${MAXX_SANDBOX_KEY:?required}"
+      MAXX_SANDBOX_ROOT: /workspace
+      MAXX_SANDBOX_MAX_EXEC_SECONDS: "${MAXX_SANDBOX_MAX_EXEC_SECONDS:-120}"
+      MAXX_SANDBOX_MAX_OUTPUT_BYTES: "${MAXX_SANDBOX_MAX_OUTPUT_BYTES:-100000}"
+    expose:
+      - "8790"
+    volumes:
+      - maxx-sandbox-workspace:/workspace
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: "${MAXX_SANDBOX_MEMORY_LIMIT:-2g}"
+    cpus: "${MAXX_SANDBOX_CPU_LIMIT:-2.0}"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8790/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   maxx-second-brain-worker:
     build:
       context: ../..
@@ -79,6 +112,8 @@ services:
         condition: service_healthy
       maxx-media:
         condition: service_healthy
+      maxx-sandbox:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
@@ -96,6 +131,8 @@ services:
       MAXX_HERMES_ENABLED: "true"
       MAXX_HERMES_ENDPOINT: http://maxx-hermes:8642
       MAXX_HERMES_API_KEY: "${MAXX_HERMES_API_KEY:?required}"
+      MAXX_SANDBOX_URL: http://maxx-sandbox:8790
+      MAXX_SANDBOX_KEY: "${MAXX_SANDBOX_KEY:?required}"
       MAXX_HERMES_FAST_PROVIDER: "${MAXX_HERMES_FAST_PROVIDER:-}"
       MAXX_HERMES_FAST_MODEL: "${MAXX_HERMES_FAST_MODEL:-}"
       MAXX_HERMES_STANDARD_PROVIDER: "${MAXX_HERMES_STANDARD_PROVIDER:-}"
@@ -127,3 +164,4 @@ volumes:
   maxx-icm:
   maxx-hermes-data:
   maxx-media-temp:
+  maxx-sandbox-workspace:

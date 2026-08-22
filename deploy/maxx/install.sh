@@ -36,6 +36,7 @@ required=(
   MAXX_API_KEY
   MAXX_HERMES_API_KEY
   NCA_TOOLKIT_API_KEY
+  MAXX_SANDBOX_KEY
 )
 for name in "${required[@]}"; do
   if [[ -z "${!name:-}" ]]; then
@@ -64,8 +65,6 @@ if [[ -n "${MAXX_COMPOSE_EXTRA:-}" ]]; then
   done
 fi
 
-# Build from the exact reviewed Nous commit before any production containers
-# are started. This prevents an upstream `latest` change from silently changing MAXX.
 MAXX_HERMES_IMAGE="$MAXX_HERMES_IMAGE" "$HERMES_BUILD"
 
 echo "Starting Agent MAXX stack with pinned Hermes image $MAXX_HERMES_IMAGE"
@@ -75,7 +74,7 @@ echo "Waiting for MAXX control plane readiness..."
 for attempt in $(seq 1 40); do
   if docker compose --env-file "$ENV_FILE" "${compose_args[@]}" exec -T maxx-control-plane \
     wget -qO- http://127.0.0.1:8787/health/ready >/dev/null 2>&1; then
-    MAXX_ENV_FILE="$ENV_FILE" MAXX_COMPOSE_EXTRA="${MAXX_COMPOSE_EXTRA:-}" "$SECOND_BRAIN_SEED" >/dev/null
+    MAXX_ENV_FILE="$ENV_FILE" MAXX_COMPOSE_EXTRA="${MAXX_COMPOSE_EXTRA:-}" bash "$SECOND_BRAIN_SEED" >/dev/null
     echo "Agent MAXX backend is ready."
     echo "Hermes revision: $LOCKED_COMMIT"
     echo "Second-brain vault: seeded"
