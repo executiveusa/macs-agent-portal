@@ -20,6 +20,9 @@ services:
       DASHSCOPE_API_KEY: "${DASHSCOPE_API_KEY:-}"
       KIMI_API_KEY: "${KIMI_API_KEY:-}"
       XAI_API_KEY: "${XAI_API_KEY:-}"
+      COMPOSIO_CONSUMER_KEY: "${COMPOSIO_CONSUMER_KEY:-}"
+      LATITUDE_API_KEY: "${LATITUDE_API_KEY:-}"
+      AGENTMAIL_API_KEY: "${AGENTMAIL_API_KEY:-}"
       NCA_TOOLKIT_URL: "http://maxx-media:8080"
       NCA_TOOLKIT_API_KEY: "${NCA_TOOLKIT_API_KEY:?required}"
     volumes:
