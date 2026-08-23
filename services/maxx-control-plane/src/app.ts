@@ -132,16 +132,16 @@ const hermesSteerSchema = z.object({
 
 function dependencies(
   config: MaxxConfig,
-  voice: { inputProviderName?: string; outputProviderName?: string; isInputReady?: () => boolean; isOutputReady?: () => boolean; stt: SpeechInputProvider; tts: SpeechOutputProvider },
-  vision: { adapter: VisionInputAdapter; isReady: () => boolean },
+  voice?: { inputProviderName?: string; outputProviderName?: string; isInputReady?: () => boolean; isOutputReady?: () => boolean; stt?: SpeechInputProvider; tts?: SpeechOutputProvider },
+  vision?: { adapter?: VisionInputAdapter; isReady?: () => boolean },
 ) {
   const hermesConfigured = Boolean(
     config.featureFlags.MAXX_HERMES_ENABLED && config.MAXX_HERMES_ENDPOINT && config.MAXX_HERMES_API_KEY,
   );
-  const inputReady = voice.isInputReady ? voice.isInputReady() : voice.stt.isReady();
-  const outputReady = voice.isOutputReady ? voice.isOutputReady() : voice.tts.isReady();
-  const inputProvider = voice.inputProviderName ?? voice.stt.name;
-  const outputProvider = voice.outputProviderName ?? voice.tts.name;
+  const inputReady = voice?.isInputReady ? voice.isInputReady() : voice?.stt?.isReady ? voice.stt.isReady() : Boolean(config.OPENAI_API_KEY || (config.MAXX_STT_ENDPOINT && config.MAXX_STT_API_KEY));
+  const outputReady = voice?.isOutputReady ? voice.isOutputReady() : voice?.tts?.isReady ? voice.tts.isReady() : Boolean(config.ELEVENLABS_API_KEY || config.OPENAI_API_KEY || (config.MAXX_TTS_ENDPOINT && config.MAXX_TTS_API_KEY));
+  const inputProvider = voice?.inputProviderName ?? voice?.stt?.name ?? config.MAXX_SPEECH_INPUT_PROVIDER ?? "openai";
+  const outputProvider = voice?.outputProviderName ?? voice?.tts?.name ?? config.MAXX_SPEECH_OUTPUT_PROVIDER ?? "elevenlabs";
 
   return {
     supabase: {
@@ -192,12 +192,12 @@ function dependencies(
     },
     vision: {
       configured: Boolean(config.featureFlags.MAXX_VISION_ENABLED),
-      status: !config.featureFlags.MAXX_VISION_ENABLED ? "unavailable" : vision.isReady() ? "ready" : "degraded",
-      adapter: vision.adapter.name,
-      deviceType: vision.adapter.deviceType,
+      status: !config.featureFlags.MAXX_VISION_ENABLED ? "unavailable" : vision?.isReady ? (vision.isReady() ? "ready" : "degraded") : "unavailable",
+      adapter: vision?.adapter?.name ?? config.MAXX_VISION_ADAPTER ?? "phone-camera",
+      deviceType: vision?.adapter?.deviceType ?? "phone",
       detail: !config.featureFlags.MAXX_VISION_ENABLED
         ? "MAXX_VISION_ENABLED is false"
-        : `Vision adapter ${vision.adapter.name} (${vision.adapter.deviceType}) active`,
+        : `Vision adapter ${vision?.adapter?.name ?? "phone-camera"} active`,
     },
     hermes: {
       configured: hermesConfigured,
@@ -252,7 +252,7 @@ export function buildApp(options: AppOptions = {}) {
     });
   const ownerStrategies = options.ownerStrategies ?? new OwnerStrategyStore();
   const scheduler = options.scheduler ?? new Scheduler();
-  const voice =
+  const rawVoice =
     options.voice ??
     createVoiceGateway({
       voiceEnabled: Boolean(config.featureFlags.MAXX_VOICE_ENABLED),
@@ -268,6 +268,15 @@ export function buildApp(options: AppOptions = {}) {
       ttsEndpoint: config.MAXX_TTS_ENDPOINT,
       ttsApiKey: config.MAXX_TTS_API_KEY,
     });
+  const voice = {
+    stt: rawVoice.stt,
+    tts: rawVoice.tts,
+    inputProviderName: "inputProviderName" in rawVoice && rawVoice.inputProviderName ? rawVoice.inputProviderName : (rawVoice.stt as any)?.name ?? "unavailable",
+    outputProviderName: "outputProviderName" in rawVoice && rawVoice.outputProviderName ? rawVoice.outputProviderName : (rawVoice.tts as any)?.name ?? "unavailable",
+    isInputReady: () => ("isInputReady" in rawVoice && rawVoice.isInputReady ? rawVoice.isInputReady() : (rawVoice.stt as any)?.isReady ? (rawVoice.stt as any).isReady() : true),
+    isOutputReady: () => ("isOutputReady" in rawVoice && rawVoice.isOutputReady ? rawVoice.isOutputReady() : (rawVoice.tts as any)?.isReady ? (rawVoice.tts as any).isReady() : true),
+  };
+
   const vision =
     options.vision ??
     createVisionGateway({
@@ -325,10 +334,10 @@ export function buildApp(options: AppOptions = {}) {
       emergencyDisabled: config.emergencyDisabled,
       voice: {
         enabled: Boolean(config.featureFlags.MAXX_VOICE_ENABLED),
-        inputProvider: voice.inputProviderName ?? voice.stt.name,
-        inputReady: voice.isInputReady ? voice.isInputReady() : voice.stt.isReady(),
-        outputProvider: voice.outputProviderName ?? voice.tts.name,
-        outputReady: voice.isOutputReady ? voice.isOutputReady() : voice.tts.isReady(),
+        inputProvider: voice.inputProviderName,
+        inputReady: voice.isInputReady(),
+        outputProvider: voice.outputProviderName,
+        outputReady: voice.isOutputReady(),
       },
     });
   });
@@ -387,10 +396,10 @@ export function buildApp(options: AppOptions = {}) {
       },
       voice: {
         enabled: Boolean(config.featureFlags.MAXX_VOICE_ENABLED),
-        inputProvider: voice.inputProviderName ?? voice.stt.name,
-        inputReady: voice.isInputReady ? voice.isInputReady() : voice.stt.isReady(),
-        outputProvider: voice.outputProviderName ?? voice.tts.name,
-        outputReady: voice.isOutputReady ? voice.isOutputReady() : voice.tts.isReady(),
+        inputProvider: voice.inputProviderName,
+        inputReady: voice.isInputReady(),
+        outputProvider: voice.outputProviderName,
+        outputReady: voice.isOutputReady(),
       },
       featureFlags: config.featureFlags,
       emergencyDisabled: config.emergencyDisabled,
@@ -694,10 +703,10 @@ export function buildApp(options: AppOptions = {}) {
   app.get("/v1/voice/health", async () => ({
     voice: {
       enabled: Boolean(config.featureFlags.MAXX_VOICE_ENABLED),
-      inputProvider: voice.inputProviderName ?? voice.stt.name,
-      inputReady: voice.isInputReady ? voice.isInputReady() : voice.stt.isReady(),
-      outputProvider: voice.outputProviderName ?? voice.tts.name,
-      outputReady: voice.isOutputReady ? voice.isOutputReady() : voice.tts.isReady(),
+      inputProvider: voice.inputProviderName,
+      inputReady: voice.isInputReady(),
+      outputProvider: voice.outputProviderName,
+      outputReady: voice.isOutputReady(),
     },
   }));
 
@@ -708,7 +717,7 @@ export function buildApp(options: AppOptions = {}) {
     try {
       if (!voice.stt.createSession) {
         return reply.code(200).send({
-          provider: voice.inputProviderName ?? voice.stt.name,
+          provider: voice.inputProviderName,
           model: config.OPENAI_REALTIME_MODEL,
           fallback: "direct_audio_transcription",
         });
