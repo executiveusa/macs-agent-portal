@@ -66,11 +66,24 @@ export function createAuthenticator(config: MaxxConfig) {
       return { id: "maxx-machine-client", email: "machine@maxx.local", principal: "machine" };
     }
 
-    if (!jwks || !config.SUPABASE_URL) return null;
-
     const value = request.headers.authorization;
     const token = value?.startsWith("Bearer ") ? value.slice(7) : undefined;
     if (!token) return null;
+
+    if (config.SUPABASE_JWT_SECRET) {
+      try {
+        const { payload } = await jwtVerify(token, new TextEncoder().encode(config.SUPABASE_JWT_SECRET), {
+          audience: "authenticated",
+        });
+        const email = typeof payload.email === "string" ? payload.email : undefined;
+        if (!isAllowedOperator(email, config.allowedEmails)) return null;
+        return { id: String(payload.sub), email: email!, principal: "human" };
+      } catch {
+        // continue to jwks
+      }
+    }
+
+    if (!jwks || !config.SUPABASE_URL) return null;
 
     try {
       const { payload } = await jwtVerify(token, jwks, {

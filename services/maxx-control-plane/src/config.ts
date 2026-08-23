@@ -9,6 +9,7 @@ const schema = z.object({
   HOST: z.string().default("0.0.0.0"),
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_JWT_SECRET: z.string().optional(),
   STACY_ALLOWED_EMAILS: z.string().default(""),
   MAXX_API_KEY: z.string().min(16).optional(),
   MAXX_EVENT_INGEST_KEY: z.string().min(16).optional(),
