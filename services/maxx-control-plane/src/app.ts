@@ -32,6 +32,7 @@ import {
 } from "./voice-gateway.js";
 import { createVisionGateway, type VisionInputAdapter } from "./vision-gateway.js";
 import { createBrowserWorker, type BrowserWorker } from "./browser-worker.js";
+import { DefaultPhoneChatGateway, type PhoneChatGateway } from "./phone-chat.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -52,6 +53,7 @@ type AppOptions = {
   voice?: VoiceGateway | { stt: SpeechInputProvider; tts: SpeechOutputProvider; inputProviderName?: string; outputProviderName?: string; isInputReady?: () => boolean; isOutputReady?: () => boolean };
   vision?: { adapter: VisionInputAdapter; isReady: () => boolean };
   browser?: BrowserWorker;
+  phone?: PhoneChatGateway;
 };
 
 const riskToleranceEnum = z.enum(["conservative", "standard", "permissive"]);
@@ -290,6 +292,7 @@ export function buildApp(options: AppOptions = {}) {
       wsEndpoint: config.MAXX_BROWSER_WS_ENDPOINT,
       executablePath: config.MAXX_BROWSER_EXECUTABLE_PATH,
     });
+  const phone = options.phone ?? new DefaultPhoneChatGateway();
   const app = Fastify({
     logger: config.NODE_ENV !== "test" ? { redact: ["req.headers.authorization", "body.audio", "*.apiKey"] } : false,
   });
@@ -828,6 +831,23 @@ export function buildApp(options: AppOptions = {}) {
         reason: error instanceof Error ? error.message : String(error),
       });
     }
+  });
+
+  // Phone Chat & Mobile Remote Endpoints
+  app.get("/v1/phone/status", async () => phone.getStatus());
+
+  app.post("/v1/phone/pair", async (request, reply) => {
+    if (!request.operator) {
+      return reply.code(401).send({ error: "Operator authentication required" });
+    }
+    const info = await phone.getPairingInfo(request.operator.id);
+    return reply.send(info);
+  });
+
+  app.post("/v1/phone/verify", async (request, reply) => {
+    const body = z.object({ sessionId: z.string(), passcode: z.string() }).parse(request.body);
+    const valid = await phone.verifyPasscode(body.sessionId, body.passcode);
+    return reply.send({ valid, status: valid ? "paired" : "invalid_passcode" });
   });
 
   app.get("/v1/usage/summary", async () => summarizeUsage(await store.listUsage()));

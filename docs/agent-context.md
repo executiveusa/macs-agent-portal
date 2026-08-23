@@ -27,10 +27,12 @@ Agent MAXX Control Plane and Portal for Stacy / MACS Digital Media. Single-brain
 - `services/maxx-control-plane/src/app.ts`: Control plane routing for `/v1/voice/session`, `/v1/voice/transcribe`, `/v1/voice/synthesize`, `/v1/voice/health`.
 - `services/maxx-control-plane/compose.coolify.yml`: Container environment forwarding for voice engine.
 - `src/pages/MaxxChat.tsx`: Automatic mic streaming, auto-commit without manual Send button, ElevenLabs TTS playback, barge-in playback cancellation.
-- `src/services/controlTowerApi.ts`: Frontend client bindings for voice session negotiation, audio transcription, synthesis, and voice health.
+- `services/maxx-control-plane/src/phone-chat.ts`: Mobile phone chat adapter with pairing and status gateway.
+- `services/phone-chat/`: Mobile real-time CDP & WebSocket companion interface.
+- `services/hermes-runtime/profile/skills/maxx-phone-chat/SKILL.md`: ICM-style operating skill for mobile phone chat.
 
 ## Verification Commands & Results
-- **Unit & Integration Test Suite:** `npm test` inside `services/maxx-control-plane` -> 133 passing, 0 failing, 1 skipped.
+- **Unit & Integration Test Suite:** `npm test` inside `services/maxx-control-plane` -> 134 passing, 0 failing, 1 skipped.
 - **Frontend Production Build:** `npm run build` -> Built in 1.48s with 0 errors.
 - **Live Health Diagnostics:** `GET /health/ready` -> `{"status":"ready","voice":{"enabled":true,"inputProvider":"openai","inputReady":true,"outputProvider":"elevenlabs","outputReady":true}}`.
 - **Live Paid Smoke Test 1 (Utterance -> Hermes -> ElevenLabs TTS):** Succeeded (MAXX generated 1-sentence description, ElevenLabs synthesized 218KB audio stream).
@@ -38,4 +40,5 @@ Agent MAXX Control Plane and Portal for Stacy / MACS Digital Media. Single-brain
 
 ## Next Recommended Steps
 1. Perform in-browser voice validation on the live Stacy frontend at `https://maxx.executiveusa.com` with microphone permission.
-2. Hook up Meta DAT / camera feed streaming into `VisionInputAdapter` when smart glasses hardware is paired.
+2. Pair mobile device using `POST /v1/phone/pair` or scan QR code to connect mobile companion interface.
+3. Hook up Meta DAT / camera feed streaming into `VisionInputAdapter` when smart glasses hardware is paired.
