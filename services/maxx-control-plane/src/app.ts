@@ -417,16 +417,18 @@ export function buildApp(options: AppOptions = {}) {
     const strategy = ownerStrategies.get(request.operator!.id);
 
     const hermesAvailable = circuitBreakers.hermes.isAvailable();
-    if (config.featureFlags.MAXX_HERMES_ENABLED && hermes.isConfigured() && hermesAvailable) {
+    const hermesConfigured = hermes.isConfigured ? hermes.isConfigured() : true;
+    if (config.featureFlags.MAXX_HERMES_ENABLED && hermesConfigured && hermesAvailable) {
       try {
         const response = await hermes.chat({
           message: input.message,
           operatorId: request.operator!.id,
+          sessionId: input.runId,
           runId: input.runId,
         });
         circuitBreakers.hermes.recordSuccess();
         return reply.send({
-          id: response.id,
+          id: response.id ?? randomUUID(),
           text: response.text,
           provider: "hermes",
           model: response.model ?? "hermes-agent",
@@ -534,9 +536,10 @@ export function buildApp(options: AppOptions = {}) {
       operatorId: request.operator!.id,
     });
     const run = await createIcmRun({
-      icmRoot: config.MAXX_ICM_ROOT,
+      root: config.MAXX_ICM_ROOT,
       missionId: mission.id,
       objective: input.objective,
+      operatorId: request.operator!.id,
     });
     return reply.code(201).send({ ...mission, runId: run.runId, stages: run.stages });
   });
@@ -616,7 +619,7 @@ export function buildApp(options: AppOptions = {}) {
     try {
       const state = await hermes.startRun(input);
       await store.addEvent(state.runId, "hermes.run.started", `Hermes run started for mission ${input.missionId}`);
-      return reply.code(201).send(state);
+      return reply.code(state.status === "failed" ? 502 : 201).send(state);
     } catch (error) {
       return reply.code(502).send({
         status: "failed",
