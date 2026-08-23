@@ -427,15 +427,29 @@ export function buildApp(options: AppOptions = {}) {
           runId: input.runId,
         });
         circuitBreakers.hermes.recordSuccess();
+        const usage: UsageRecord = {
+          operatorId: request.operator!.id,
+          provider: "hermes",
+          model: response.model ?? "hermes-agent",
+          promptTokens: response.usage?.promptTokens ?? 0,
+          completionTokens: response.usage?.completionTokens ?? 0,
+          estimatedCostUsd: response.usage?.estimatedCostUsd ?? 0,
+          latencyMs: response.usage?.latencyMs ?? 1,
+          runId: input.runId,
+        };
+        await store.addUsage(usage);
+        if (input.runId) {
+          await store.addEvent(input.runId, "assistant.message", response.text);
+        }
         return reply.send({
-          id: response.id ?? randomUUID(),
+          id: (response as any).id ?? randomUUID(),
           text: response.text,
           provider: "hermes",
           model: response.model ?? "hermes-agent",
-          routingReason: response.routingReason ?? "Hermes MAXX primary orchestrator",
+          routingReason: (response as any).routingReason ?? "Hermes MAXX primary orchestrator",
           degraded: false,
-          usage: response.usage,
-          skills: response.skills ?? ["agent-maxx"],
+          usage,
+          skills: (response as any).skills ?? ["agent-maxx"],
         });
       } catch (error) {
         circuitBreakers.hermes.recordFailure();
@@ -468,6 +482,7 @@ export function buildApp(options: AppOptions = {}) {
         operatorId: request.operator!.id,
         provider: decision.provider,
         model: decision.model,
+        runId: input.runId,
       };
 
       if (decision.provider === "groq") {
@@ -484,6 +499,7 @@ export function buildApp(options: AppOptions = {}) {
           operatorId: request.operator!.id,
           provider: "groq",
           model: decision.model,
+          runId: input.runId,
         };
       } else if (decision.provider === "openrouter") {
         const result = await runOpenRouter({
@@ -499,6 +515,7 @@ export function buildApp(options: AppOptions = {}) {
           operatorId: request.operator!.id,
           provider: "openrouter",
           model: decision.model,
+          runId: input.runId,
         };
       } else {
         responseText =
@@ -506,7 +523,10 @@ export function buildApp(options: AppOptions = {}) {
         usage.latencyMs = Date.now() - startedAt;
       }
 
-      await store.recordUsage(usage);
+      await store.addUsage(usage);
+      if (input.runId) {
+        await store.addEvent(input.runId, "assistant.message", responseText);
+      }
       return reply.send({
         id: randomUUID(),
         text: responseText,
@@ -531,22 +551,27 @@ export function buildApp(options: AppOptions = {}) {
       return reply.code(429).send({ error: "Too many mission creates", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
     const input = missionSchema.parse(request.body);
-    const mission = await store.createMission({
-      objective: input.objective,
-      operatorId: request.operator!.id,
-    });
+    const missionId = randomUUID();
     const run = await createIcmRun({
       root: config.MAXX_ICM_ROOT,
-      missionId: mission.id,
+      missionId,
       objective: input.objective,
       operatorId: request.operator!.id,
     });
+    const mission = await store.createMission({
+      id: missionId,
+      objective: input.objective,
+      status: "working",
+      operatorId: request.operator!.id,
+      workspacePath: run.runPath,
+    });
+    await store.addEvent(run.runId, "mission.created", `Mission created: ${input.objective}`);
     return reply.code(201).send({ ...mission, runId: run.runId, stages: run.stages });
   });
   app.patch("/v1/missions/:id", async (request) => {
     const params = z.object({ id: z.string().uuid() }).parse(request.params);
     const input = missionPatchSchema.parse(request.body);
-    return store.updateMissionStatus(params.id, input.status);
+    return store.updateMission(params.id, input.status);
   });
 
   app.get("/v1/approvals", async () => store.listApprovals());
