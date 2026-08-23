@@ -414,141 +414,109 @@ export function buildApp(options: AppOptions = {}) {
     }
 
     const input = chatSchema.parse(request.body);
-    const strategy = ownerStrategies.get(request.operator!.id);
+    const routed = routeModel({ message: input.message, manualModel: input.model });
+    const decision = applyProviderPreference(routed, ownerStrategies.get(request.operator!.id), {
+      groq: Boolean(config.GROQ_API_KEY),
+      openrouter: Boolean(config.OPENROUTER_API_KEY),
+    });
 
-    const hermesAvailable = circuitBreakers.hermes.isAvailable();
-    const hermesConfigured = hermes.isConfigured ? hermes.isConfigured() : true;
-    if (config.featureFlags.MAXX_HERMES_ENABLED && hermesConfigured && hermesAvailable) {
-      try {
-        const response = await hermes.chat({
-          message: input.message,
-          operatorId: request.operator!.id,
-          sessionId: input.runId,
-          runId: input.runId,
-        });
-        circuitBreakers.hermes.recordSuccess();
-        const usage: UsageRecord = {
-          operatorId: request.operator!.id,
-          provider: "hermes",
-          model: response.model ?? "hermes-agent",
-          promptTokens: response.usage?.promptTokens ?? 0,
-          completionTokens: response.usage?.completionTokens ?? 0,
-          estimatedCostUsd: response.usage?.estimatedCostUsd ?? 0,
-          latencyMs: response.usage?.latencyMs ?? 1,
-          runId: input.runId,
-        };
-        await store.addUsage(usage);
-        if (input.runId) {
-          await store.addEvent(input.runId, "assistant.message", response.text);
-        }
-        return reply.send({
-          id: (response as any).id ?? randomUUID(),
-          text: response.text,
-          provider: "hermes",
-          model: response.model ?? "hermes-agent",
-          routingReason: (response as any).routingReason ?? "Hermes MAXX primary orchestrator",
-          degraded: false,
-          usage,
-          skills: (response as any).skills ?? ["agent-maxx"],
-        });
-      } catch (error) {
-        circuitBreakers.hermes.recordFailure();
-        app.log.warn({ err: error }, "Hermes primary orchestrator failed; falling back to direct model routing");
-      }
-    }
+    let result: {
+      text: string;
+      usage: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens?: number;
+        estimatedCostUsd: number;
+        latencyMs: number;
+      };
+      degraded?: boolean;
+    };
+    let effectiveProvider = decision.provider as string;
+    let effectiveModel = decision.model;
+    let routingReason = decision.reason;
+    let degraded = false;
 
-    const decision = applyProviderPreference(
-      routeModel({
-        message: input.message,
-        requestedModel: input.model,
-        groqAvailable: circuitBreakers.groq.isAvailable() && Boolean(config.GROQ_API_KEY),
-        openRouterAvailable: circuitBreakers.openrouter.isAvailable() && Boolean(config.OPENROUTER_API_KEY),
-      }),
-      strategy,
-      {
-        groqAvailable: circuitBreakers.groq.isAvailable() && Boolean(config.GROQ_API_KEY),
-        openRouterAvailable: circuitBreakers.openrouter.isAvailable() && Boolean(config.OPENROUTER_API_KEY),
-      },
+    const hermesPrimary = Boolean(
+      config.featureFlags.MAXX_HERMES_ENABLED && (config.MAXX_HERMES_ENDPOINT || hermes.isConfigured?.()),
     );
 
-    const startedAt = Date.now();
-    try {
-      let responseText = "";
-      let usage: UsageRecord = {
-        promptTokens: 0,
-        completionTokens: 0,
-        estimatedCostUsd: 0,
-        latencyMs: 0,
-        operatorId: request.operator!.id,
-        provider: decision.provider,
-        model: decision.model,
-        runId: input.runId,
-      };
-
-      if (decision.provider === "groq") {
-        const result = await runGroq({
-          apiKey: config.GROQ_API_KEY!,
-          model: decision.model,
-          message: input.message,
-        });
-        circuitBreakers.groq.recordSuccess();
-        responseText = result.text;
-        usage = {
-          ...result.usage,
-          latencyMs: Date.now() - startedAt,
-          operatorId: request.operator!.id,
-          provider: "groq",
-          model: decision.model,
-          runId: input.runId,
-        };
-      } else if (decision.provider === "openrouter") {
-        const result = await runOpenRouter({
-          apiKey: config.OPENROUTER_API_KEY!,
-          model: decision.model,
-          message: input.message,
-        });
-        circuitBreakers.openrouter.recordSuccess();
-        responseText = result.text;
-        usage = {
-          ...result.usage,
-          latencyMs: Date.now() - startedAt,
-          operatorId: request.operator!.id,
-          provider: "openrouter",
-          model: decision.model,
-          runId: input.runId,
-        };
-      } else {
-        responseText =
-          "MAXX direct inference is not configured with working provider keys. Hermes and direct fallback routes are unavailable.";
-        usage.latencyMs = Date.now() - startedAt;
+    if (hermesPrimary) {
+      try {
+        const hermesResult = await hermes.chat({ message: input.message, sessionId: input.runId });
+        result = hermesResult;
+        effectiveProvider = "hermes";
+        effectiveModel = hermesResult.model;
+        routingReason = "Hermes Agent is the primary MAXX orchestrator; installed MAXX skills/tools are available beneath the conversational surface.";
+      } catch (error) {
+        degraded = true;
+        app.log.warn({ error: String(error) }, "Hermes chat failed; falling back to direct model routing");
+        result = await runDirectFallback();
       }
-
-      await store.addUsage(usage);
-      if (input.runId) {
-        await store.addEvent(input.runId, "assistant.message", responseText);
-      }
-      return reply.send({
-        id: randomUUID(),
-        text: responseText,
-        provider: decision.provider,
-        model: decision.model,
-        routingReason: decision.reason,
-        degraded: true,
-        usage,
-      });
-    } catch (error) {
-      if (decision.provider === "groq") circuitBreakers.groq.recordFailure();
-      if (decision.provider === "openrouter") circuitBreakers.openrouter.recordFailure();
-      throw error;
+    } else {
+      result = await runDirectFallback();
     }
+
+    async function runDirectFallback() {
+      if (decision.provider === "groq" && config.GROQ_API_KEY && circuitBreakers.groq.canRequest()) {
+        try {
+          const groqResult = await runGroq({ apiKey: config.GROQ_API_KEY, message: input.message, decision });
+          circuitBreakers.groq.recordSuccess();
+          effectiveProvider = decision.provider;
+          effectiveModel = decision.model;
+          return groqResult;
+        } catch (error) {
+          circuitBreakers.groq.recordFailure();
+          app.log.warn({ error: String(error) }, "Groq failed, falling back to OpenRouter");
+          effectiveProvider = "openrouter";
+          return runOpenRouter({
+            apiKey: config.OPENROUTER_API_KEY,
+            message: input.message,
+            decision: { ...decision, provider: "openrouter" },
+          });
+        }
+      }
+      effectiveProvider = "openrouter";
+      return runOpenRouter({ apiKey: config.OPENROUTER_API_KEY, message: input.message, decision });
+    }
+
+    const usage = {
+      id: randomUUID(),
+      runId: input.runId,
+      model: effectiveModel,
+      ...result.usage,
+      createdAt: new Date().toISOString(),
+    };
+    await store.addUsage(usage);
+    if (input.runId) {
+      await store.addEvent(input.runId, "assistant.message", result.text, {
+        model: effectiveModel,
+        provider: effectiveProvider,
+      });
+    }
+    return reply.send({
+      id: randomUUID(),
+      text: result.text,
+      model: effectiveModel,
+      provider: effectiveProvider,
+      taskClass: decision.taskClass,
+      routingReason,
+      approvalState: decision.taskClass === "high_risk" ? "required" : "not_required",
+      skills: effectiveProvider === "hermes"
+        ? ["agent-maxx"]
+        : decision.taskClass === "research"
+          ? ["maxx-skill-router", "maxx-video-dossier"]
+          : ["maxx-skill-router"],
+      stage: input.runId ? "active" : "conversation",
+      usage,
+      degraded: degraded || Boolean(result.degraded),
+    });
   });
 
-  app.get("/v1/missions", async () => store.listMissions());
   app.post("/v1/missions", async (request, reply) => {
     const limitDecision = rateLimiters.missions.consume(request.operator!.id);
     if (!limitDecision.allowed) {
       reply.header("retry-after", String(limitDecision.retryAfterSeconds));
-      return reply.code(429).send({ error: "Too many mission creates", retryAfterSeconds: limitDecision.retryAfterSeconds });
+      return reply.code(429).send({ error: "Too many mission creations", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
     const input = missionSchema.parse(request.body);
     const missionId = randomUUID();
@@ -560,97 +528,114 @@ export function buildApp(options: AppOptions = {}) {
     });
     const mission = await store.createMission({
       id: missionId,
+      operatorId: request.operator!.id,
       objective: input.objective,
       status: "working",
-      operatorId: request.operator!.id,
+      runId: run.runId,
       workspacePath: run.runPath,
     });
-    await store.addEvent(run.runId, "mission.created", `Mission created: ${input.objective}`);
-    return reply.code(201).send({ ...mission, runId: run.runId, stages: run.stages });
+    await store.addEvent(run.runId, "mission.created", "MAXX created an isolated ICM workspace", {
+      missionId: mission.id,
+      stages: run.stages.map((stage) => stage.id),
+    });
+    return reply.code(201).send({ ...mission, stages: run.stages });
   });
-  app.patch("/v1/missions/:id", async (request) => {
-    const params = z.object({ id: z.string().uuid() }).parse(request.params);
+
+  app.patch("/v1/missions/:id", async (request, reply) => {
     const input = missionPatchSchema.parse(request.body);
-    return store.updateMission(params.id, input.status);
-  });
-
-  app.get("/v1/approvals", async () => store.listApprovals());
-  app.post("/v1/approvals/:id/approve", async (request, reply) => {
-    const approval = await store.decideApproval((request.params as { id: string }).id, "approved", request.operator!.id);
-    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing, expired, or already decided" });
-  });
-  app.post("/v1/approvals/:id/reject", async (request, reply) => {
-    const approval = await store.decideApproval((request.params as { id: string }).id, "rejected", request.operator!.id);
-    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing, expired, or already decided" });
-  });
-
-  app.get("/v1/strategy", async (request) => ownerStrategies.get(request.operator!.id));
-  app.put("/v1/strategy", async (request, reply) => {
-    const limitDecision = rateLimiters.strategy.consume(request.operator!.id);
-    if (!limitDecision.allowed) {
-      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
-      return reply.code(429).send({ error: "Too many strategy updates", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    const mission = await store.updateMission((request.params as { id: string }).id, input.status);
+    if (mission && input.status === "completed" && config.featureFlags.MAXX_MEMORY_ENABLED) {
+      await memory.indexDocument({
+        runId: mission.runId,
+        missionId: mission.id,
+        source: "mission.completed",
+        title: mission.objective.slice(0, 200),
+        content: mission.objective,
+        tags: ["mission", "completed"],
+      });
     }
-    const input: OwnerStrategyInput = strategyInputSchema.parse(request.body);
-    return ownerStrategies.set(request.operator!.id, input);
+    return mission ? reply.send(mission) : reply.code(404).send({ error: "Mission not found" });
   });
 
-  app.get("/v1/skills", async () => TRUSTED_SKILLS);
+  app.get("/v1/runs/:id/events", async (request, reply) => {
+    const runId = (request.params as { id: string }).id;
+    const accept = request.headers.accept ?? "";
+    const events = await store.listEvents(runId);
+    if (!accept.includes("text/event-stream")) return reply.send({ events });
+    reply.raw.setHeader("Content-Type", "text/event-stream");
+    reply.raw.setHeader("Cache-Control", "no-cache");
+    for (const event of events) reply.raw.write(`id: ${event.id}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+    reply.raw.end();
+  });
+
+  app.post("/v1/runs/:id/cancel", async (request) => {
+    const runId = (request.params as { id: string }).id;
+    const mission = (await store.listMissions()).find((item) => item.runId === runId);
+    if (mission) await store.updateMission(mission.id, "cancelled");
+    return store.addEvent(runId, "run.cancelled", "Stacy cancelled the MAXX run");
+  });
+
+  app.get("/v1/skills", async () => ({ skills: TRUSTED_SKILLS }));
   app.post("/v1/skills/:id/run", async (request, reply) => {
     const limitDecision = rateLimiters.skills.consume(request.operator!.id);
     if (!limitDecision.allowed) {
       reply.header("retry-after", String(limitDecision.retryAfterSeconds));
-      return reply.code(429).send({ error: "Too many skill runs", retryAfterSeconds: limitDecision.retryAfterSeconds });
+      return reply.code(429).send({ error: "Too many skill executions", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
-    const skillId = (request.params as { id: string }).id;
-    const skill = TRUSTED_SKILLS.find((item) => item.id === skillId);
-    if (!skill) return reply.code(404).send({ error: "Skill not found" });
-
-    const strategy = ownerStrategies.get(request.operator!.id);
-    if (isActionForbidden(`skill:${skillId}`, strategy)) {
-      return reply.code(403).send({ error: "Action is forbidden by operator strategy", skillId });
-    }
-
-    const body = runSkillSchema.parse(request.body);
-    if (skill.classification === "mutation") {
+    const skill = TRUSTED_SKILLS.find((item) => item.id === (request.params as { id: string }).id);
+    if (!skill) return reply.code(404).send({ error: "Unregistered skill" });
+    const input = runSkillSchema.parse(request.body ?? {});
+    if (skill.approvalPolicy === "approval_required") {
       const approval = await store.createApproval({
-        runId: body.runId ?? "direct-skill",
-        action: `skill:${skill.id}`,
-        summary: `Run ${skill.name} (${skill.id})`,
+        runId: input.runId ?? "standalone",
+        action: `run_skill:${skill.id}`,
+        summary: `Run ${skill.id}`,
       });
       return reply.code(202).send({ status: "approval_required", approval });
     }
-
-    const runId = body.runId ?? randomUUID();
+    if (!config.PI_EXECUTABLE) {
+      return reply.code(503).send({
+        status: "unavailable",
+        skillId: skill.id,
+        reason: "PI_EXECUTABLE is not configured",
+      });
+    }
     const result = await runPiSkill({
-      piExecutable: config.PI_EXECUTABLE,
-      skillId,
-      runId,
-      input: body.input,
+      executable: config.PI_EXECUTABLE,
+      skillId: skill.id,
+      payload: { ...input.input, runId: input.runId, operatorId: request.operator!.id },
     });
-    return reply.send(result);
+    if (input.runId) {
+      await store.addEvent(input.runId, "skill.completed", `${skill.id} exited with code ${result.exitCode}`, {
+        skillId: skill.id,
+        exitCode: result.exitCode,
+      });
+    }
+    return reply.code(result.exitCode === 0 ? 200 : 502).send({
+      status: result.exitCode === 0 ? "completed" : "failed",
+      skillId: skill.id,
+      exitCode: result.exitCode,
+      output: result.stdout,
+      error: result.stderr,
+    });
   });
 
   app.post("/v1/hermes/runs", async (request, reply) => {
     const limitDecision = rateLimiters.hermes.consume(request.operator!.id);
     if (!limitDecision.allowed) {
       reply.header("retry-after", String(limitDecision.retryAfterSeconds));
-      return reply.code(429).send({ error: "Too many hermes run requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
+      return reply.code(429).send({ error: "Too many Hermes run requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
     if (!config.featureFlags.MAXX_HERMES_ENABLED) {
       return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
     }
     const input = hermesRunSchema.parse(request.body);
-    try {
-      const state = await hermes.startRun(input);
-      await store.addEvent(state.runId, "hermes.run.started", `Hermes run started for mission ${input.missionId}`);
-      return reply.code(state.status === "failed" ? 502 : 201).send(state);
-    } catch (error) {
-      return reply.code(502).send({
-        status: "failed",
-        reason: error instanceof Error ? error.message : "Hermes runtime request failed",
-      });
-    }
+    const state = await hermes.startRun(input);
+    await store.addEvent(input.runId, "hermes.run.started", `Hermes run ${state.status}`, {
+      stage: input.stage,
+      hermesRunId: state.runId,
+    });
+    return reply.code(state.status === "failed" ? 502 : 202).send(state);
   });
 
   app.get("/v1/hermes/runs/:id", async (request, reply) => {
@@ -699,6 +684,18 @@ export function buildApp(options: AppOptions = {}) {
     return reply.send({ jobs: scheduler.list() });
   });
 
+  app.get("/v1/strategy", async (request) => ownerStrategies.get(request.operator!.id));
+
+  app.put("/v1/strategy", async (request, reply) => {
+    const limitDecision = rateLimiters.strategy.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many strategy updates", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
+    const input: OwnerStrategyInput = strategyInputSchema.parse(request.body);
+    return ownerStrategies.set(request.operator!.id, input);
+  });
+
   app.post("/v1/memory/documents", async (request, reply) => {
     const limitDecision = rateLimiters.memory.consume(request.operator!.id);
     if (!limitDecision.allowed) {
@@ -720,6 +717,15 @@ export function buildApp(options: AppOptions = {}) {
     const input = memorySearchSchema.parse(request.query);
     const results = await memory.search(input.q, input.limit);
     return reply.send({ results });
+  });
+
+  app.post("/v1/approvals/:id/approve", async (request, reply) => {
+    const approval = await store.decideApproval((request.params as { id: string }).id, "approved", request.operator!.id);
+    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing, expired, or already decided" });
+  });
+  app.post("/v1/approvals/:id/reject", async (request, reply) => {
+    const approval = await store.decideApproval((request.params as { id: string }).id, "rejected", request.operator!.id);
+    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing, expired, or already decided" });
   });
 
   app.post("/v1/browser/sessions", async (request, reply) => {
