@@ -437,7 +437,7 @@ export function buildApp(options: AppOptions = {}) {
     let degraded = false;
 
     const hermesPrimary = Boolean(
-      config.featureFlags.MAXX_HERMES_ENABLED && (config.MAXX_HERMES_ENDPOINT || hermes.isConfigured?.()),
+      config.featureFlags.MAXX_HERMES_ENABLED && (config.MAXX_HERMES_ENDPOINT || (hermes as any).isConfigured?.()),
     );
 
     if (hermesPrimary) {
