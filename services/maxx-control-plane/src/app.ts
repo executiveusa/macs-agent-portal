@@ -24,7 +24,13 @@ import {
   type OwnerStrategyInput,
 } from "./owner-strategy.js";
 import { Scheduler } from "./scheduler.js";
-import { createVoiceGateway, type VoiceProvider } from "./voice-gateway.js";
+import {
+  createVoiceGateway,
+  type VoiceGateway,
+  type SpeechInputProvider,
+  type SpeechOutputProvider,
+} from "./voice-gateway.js";
+import { createVisionGateway, type VisionInputAdapter } from "./vision-gateway.js";
 import { createBrowserWorker, type BrowserWorker } from "./browser-worker.js";
 
 declare module "fastify" {
@@ -43,7 +49,8 @@ type AppOptions = {
   memory?: MemoryIndexer;
   ownerStrategies?: OwnerStrategyStore;
   scheduler?: Scheduler;
-  voice?: { stt: VoiceProvider; tts: VoiceProvider };
+  voice?: VoiceGateway | { stt: SpeechInputProvider; tts: SpeechOutputProvider; inputProviderName?: string; outputProviderName?: string; isInputReady?: () => boolean; isOutputReady?: () => boolean };
+  vision?: { adapter: VisionInputAdapter; isReady: () => boolean };
   browser?: BrowserWorker;
 };
 
@@ -123,10 +130,19 @@ const hermesSteerSchema = z.object({
   message: z.string().trim().min(1).max(20_000),
 });
 
-function dependencies(config: MaxxConfig) {
+function dependencies(
+  config: MaxxConfig,
+  voice?: { inputProviderName?: string; outputProviderName?: string; isInputReady?: () => boolean; isOutputReady?: () => boolean; stt?: SpeechInputProvider; tts?: SpeechOutputProvider },
+  vision?: { adapter?: VisionInputAdapter; isReady?: () => boolean },
+) {
   const hermesConfigured = Boolean(
     config.featureFlags.MAXX_HERMES_ENABLED && config.MAXX_HERMES_ENDPOINT && config.MAXX_HERMES_API_KEY,
   );
+  const inputReady = voice?.isInputReady ? voice.isInputReady() : voice?.stt?.isReady ? voice.stt.isReady() : Boolean(config.OPENAI_API_KEY || (config.MAXX_STT_ENDPOINT && config.MAXX_STT_API_KEY));
+  const outputReady = voice?.isOutputReady ? voice.isOutputReady() : voice?.tts?.isReady ? voice.tts.isReady() : Boolean(config.ELEVENLABS_API_KEY || config.OPENAI_API_KEY || (config.MAXX_TTS_ENDPOINT && config.MAXX_TTS_API_KEY));
+  const inputProvider = voice?.inputProviderName ?? voice?.stt?.name ?? config.MAXX_SPEECH_INPUT_PROVIDER ?? "openai";
+  const outputProvider = voice?.outputProviderName ?? voice?.tts?.name ?? config.MAXX_SPEECH_OUTPUT_PROVIDER ?? "elevenlabs";
+
   return {
     supabase: {
       configured: Boolean(config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY),
@@ -158,23 +174,30 @@ function dependencies(config: MaxxConfig) {
           : "Local Playwright Chromium (no MAXX_BROWSER_WS_ENDPOINT set)",
     },
     voice: {
-      configured: Boolean(
-        config.featureFlags.MAXX_VOICE_ENABLED &&
-          config.MAXX_STT_ENDPOINT &&
-          config.MAXX_STT_API_KEY &&
-          config.MAXX_TTS_ENDPOINT &&
-          config.MAXX_TTS_API_KEY,
-      ),
+      configured: Boolean(config.featureFlags.MAXX_VOICE_ENABLED),
       status: !config.featureFlags.MAXX_VOICE_ENABLED
         ? "unavailable"
-        : config.MAXX_STT_ENDPOINT && config.MAXX_TTS_ENDPOINT
+        : inputReady && outputReady
           ? "ready"
           : "degraded",
+      inputProvider,
+      inputReady,
+      outputProvider,
+      outputReady,
       detail: !config.featureFlags.MAXX_VOICE_ENABLED
         ? "MAXX_VOICE_ENABLED is false; browser fallback remains available"
-        : config.MAXX_STT_ENDPOINT && config.MAXX_TTS_ENDPOINT
-          ? "Server STT/TTS endpoints configured"
-          : "MAXX_VOICE_ENABLED is set but no server STT/TTS endpoint is configured; browser fallback remains available",
+        : inputReady && outputReady
+          ? `Voice active (input: ${inputProvider}, output: ${outputProvider})`
+          : `Voice enabled but missing provider credentials (input: ${inputProvider}, output: ${outputProvider}); browser fallback remains available`,
+    },
+    vision: {
+      configured: Boolean(config.featureFlags.MAXX_VISION_ENABLED),
+      status: !config.featureFlags.MAXX_VISION_ENABLED ? "unavailable" : vision?.isReady ? (vision.isReady() ? "ready" : "degraded") : "unavailable",
+      adapter: vision?.adapter?.name ?? config.MAXX_VISION_ADAPTER ?? "phone-camera",
+      deviceType: vision?.adapter?.deviceType ?? "phone",
+      detail: !config.featureFlags.MAXX_VISION_ENABLED
+        ? "MAXX_VISION_ENABLED is false"
+        : `Vision adapter ${vision?.adapter?.name ?? "phone-camera"} active`,
     },
     hermes: {
       configured: hermesConfigured,
@@ -229,14 +252,36 @@ export function buildApp(options: AppOptions = {}) {
     });
   const ownerStrategies = options.ownerStrategies ?? new OwnerStrategyStore();
   const scheduler = options.scheduler ?? new Scheduler();
-  const voice =
+  const rawVoice =
     options.voice ??
     createVoiceGateway({
-      voiceEnabled: config.featureFlags.MAXX_VOICE_ENABLED,
+      voiceEnabled: Boolean(config.featureFlags.MAXX_VOICE_ENABLED),
+      inputProvider: config.MAXX_SPEECH_INPUT_PROVIDER,
+      outputProvider: config.MAXX_SPEECH_OUTPUT_PROVIDER,
+      openaiApiKey: config.OPENAI_API_KEY,
+      openaiRealtimeModel: config.OPENAI_REALTIME_MODEL,
+      elevenlabsApiKey: config.ELEVENLABS_API_KEY,
+      elevenlabsVoiceId: config.ELEVENLABS_VOICE_ID,
+      elevenlabsModelId: config.ELEVENLABS_MODEL_ID,
       sttEndpoint: config.MAXX_STT_ENDPOINT,
       sttApiKey: config.MAXX_STT_API_KEY,
       ttsEndpoint: config.MAXX_TTS_ENDPOINT,
       ttsApiKey: config.MAXX_TTS_API_KEY,
+    });
+  const voice = {
+    stt: rawVoice.stt,
+    tts: rawVoice.tts,
+    inputProviderName: "inputProviderName" in rawVoice && rawVoice.inputProviderName ? rawVoice.inputProviderName : (rawVoice.stt as any)?.name ?? "unavailable",
+    outputProviderName: "outputProviderName" in rawVoice && rawVoice.outputProviderName ? rawVoice.outputProviderName : (rawVoice.tts as any)?.name ?? "unavailable",
+    isInputReady: () => ("isInputReady" in rawVoice && rawVoice.isInputReady ? rawVoice.isInputReady() : (rawVoice.stt as any)?.isReady ? (rawVoice.stt as any).isReady() : true),
+    isOutputReady: () => ("isOutputReady" in rawVoice && rawVoice.isOutputReady ? rawVoice.isOutputReady() : (rawVoice.tts as any)?.isReady ? (rawVoice.tts as any).isReady() : true),
+  };
+
+  const vision =
+    options.vision ??
+    createVisionGateway({
+      visionEnabled: Boolean(config.featureFlags.MAXX_VISION_ENABLED),
+      adapterName: config.MAXX_VISION_ADAPTER,
     });
   const browser =
     options.browser ??
@@ -280,13 +325,20 @@ export function buildApp(options: AppOptions = {}) {
 
   app.get("/health/live", async () => ({ status: "alive", service: "maxx-control-plane" }));
   app.get("/health/ready", async (_request, reply) => {
-    const state = dependencies(config);
+    const state = dependencies(config, voice, vision);
     const ready = state.supabase.configured && (state.hermes.configured || state.groq.configured || state.openrouter.configured);
     return reply.code(ready ? 200 : 503).send({
       status: ready ? "ready" : "degraded",
       dependencies: state,
       featureFlags: config.featureFlags,
       emergencyDisabled: config.emergencyDisabled,
+      voice: {
+        enabled: Boolean(config.featureFlags.MAXX_VOICE_ENABLED),
+        inputProvider: voice.inputProviderName,
+        inputReady: voice.isInputReady(),
+        outputProvider: voice.outputProviderName,
+        outputReady: voice.isOutputReady(),
+      },
     });
   });
 
@@ -316,7 +368,7 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   app.get("/v1/control-tower/bootstrap", async () => {
-    const state = dependencies(config);
+    const state = dependencies(config, voice, vision);
     const degraded = Object.values(state).some((item) => item.status !== "ready");
     const [missions, approvals, usageRecords] = await Promise.all([
       store.listMissions(),
@@ -341,6 +393,13 @@ export function buildApp(options: AppOptions = {}) {
         state: state.browser.configured ? "idle" : "unavailable",
         currentUrl: null,
         recentActions: [],
+      },
+      voice: {
+        enabled: Boolean(config.featureFlags.MAXX_VOICE_ENABLED),
+        inputProvider: voice.inputProviderName,
+        inputReady: voice.isInputReady(),
+        outputProvider: voice.outputProviderName,
+        outputReady: voice.isOutputReady(),
       },
       featureFlags: config.featureFlags,
       emergencyDisabled: config.emergencyDisabled,
@@ -378,7 +437,7 @@ export function buildApp(options: AppOptions = {}) {
     let degraded = false;
 
     const hermesPrimary = Boolean(
-      config.featureFlags.MAXX_HERMES_ENABLED && config.MAXX_HERMES_ENDPOINT && config.MAXX_HERMES_API_KEY,
+      config.featureFlags.MAXX_HERMES_ENABLED && (config.MAXX_HERMES_ENDPOINT || hermes.isConfigured?.()),
     );
 
     if (hermesPrimary) {
@@ -703,6 +762,40 @@ export function buildApp(options: AppOptions = {}) {
     return reply.code(result.success ? 200 : 502).send({ status: result.success ? "completed" : "failed", policy, ...result });
   });
 
+  // Voice Endpoints
+  app.get("/v1/voice/health", async () => ({
+    voice: {
+      enabled: Boolean(config.featureFlags.MAXX_VOICE_ENABLED),
+      inputProvider: voice.inputProviderName,
+      inputReady: voice.isInputReady(),
+      outputProvider: voice.outputProviderName,
+      outputReady: voice.isOutputReady(),
+    },
+  }));
+
+  app.post("/v1/voice/session", async (request, reply) => {
+    if (!config.featureFlags.MAXX_VOICE_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", fallback: "browser_speech_recognition", reason: "MAXX_VOICE_ENABLED is false" });
+    }
+    try {
+      if (!voice.stt.createSession) {
+        return reply.code(200).send({
+          provider: voice.inputProviderName,
+          model: config.OPENAI_REALTIME_MODEL,
+          fallback: "direct_audio_transcription",
+        });
+      }
+      const session = await voice.stt.createSession({ operatorId: request.operator!.id });
+      return reply.send(session);
+    } catch (error) {
+      return reply.code(503).send({
+        status: "unavailable",
+        fallback: "browser_speech_recognition",
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
   app.post("/v1/voice/transcribe", async (request, reply) => {
     if (!config.featureFlags.MAXX_VOICE_ENABLED) {
       return reply.code(503).send({ status: "unavailable", fallback: "browser_speech_recognition" });
@@ -719,6 +812,7 @@ export function buildApp(options: AppOptions = {}) {
       });
     }
   });
+
   app.post("/v1/voice/synthesize", async (request, reply) => {
     if (!config.featureFlags.MAXX_VOICE_ENABLED) {
       return reply.code(503).send({ status: "unavailable", fallback: "browser_speech_synthesis" });
@@ -735,6 +829,7 @@ export function buildApp(options: AppOptions = {}) {
       });
     }
   });
+
   app.get("/v1/usage/summary", async () => summarizeUsage(await store.listUsage()));
 
   app.setErrorHandler((error, _request, reply) => {

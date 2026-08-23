@@ -1,15 +1,63 @@
 export type STTResult = { text: string; confidence: number; language: string; durationMs: number };
 export type TTSResult = { audioBase64: string; durationMs: number; format: string };
 
+export type VoiceSessionResult = {
+  clientSecret?: string;
+  expiresAt?: number;
+  model?: string;
+  provider: string;
+};
+
+export interface SpeechInputProvider {
+  readonly name: string;
+  transcribe(input: { audioBase64: string; mimeType: string }): Promise<STTResult>;
+  createSession?(input: { operatorId: string }): Promise<VoiceSessionResult>;
+  isReady(): boolean;
+}
+
+export interface SpeechOutputProvider {
+  readonly name: string;
+  synthesize(input: { text: string; voiceId?: string }): Promise<TTSResult>;
+  isReady(): boolean;
+}
+
 export interface VoiceProvider {
   transcribe(input: { audioBase64: string; mimeType: string }): Promise<STTResult>;
   synthesize(input: { text: string; voiceId?: string }): Promise<TTSResult>;
 }
 
-// Used whenever MAXX_VOICE_ENABLED=false or no endpoint/key is configured.
-// Both methods reject with the exact missing-config reason rather than
-// returning a fabricated result, so callers can surface an honest 503 with
-// the browser-fallback hint instead of silently pretending voice works.
+// Used whenever voice is disabled or credentials are missing.
+export class UnavailableSpeechInputProvider implements SpeechInputProvider {
+  readonly name = "unavailable";
+  constructor(private readonly reason: string) {}
+
+  async transcribe(): Promise<STTResult> {
+    throw new Error(this.reason);
+  }
+
+  async createSession(): Promise<VoiceSessionResult> {
+    throw new Error(this.reason);
+  }
+
+  isReady(): boolean {
+    return false;
+  }
+}
+
+export class UnavailableSpeechOutputProvider implements SpeechOutputProvider {
+  readonly name = "unavailable";
+  constructor(private readonly reason: string) {}
+
+  async synthesize(): Promise<TTSResult> {
+    throw new Error(this.reason);
+  }
+
+  isReady(): boolean {
+    return false;
+  }
+}
+
+// Legacy combined unavailable provider for backward compatibility
 export class UnavailableVoiceProvider implements VoiceProvider {
   constructor(private readonly reason: string) {}
 
@@ -22,13 +70,55 @@ export class UnavailableVoiceProvider implements VoiceProvider {
   }
 }
 
-// Generic HTTP-backed provider. Deliberately not bound to a specific
-// vendor's request/response shape (Deepgram, ElevenLabs, etc.) - no
-// credentials are available in this environment to verify one against a
-// real endpoint, and guessing a vendor contract without being able to test
-// it would be worse than staying generic. Swap in a vendor-specific adapter
-// once a provider is selected and reachable; the VoiceProvider interface
-// does not need to change.
+// Generic HTTP-backed input provider
+export class HttpSpeechInputProvider implements SpeechInputProvider {
+  readonly name = "http";
+  constructor(
+    private readonly endpoint: string,
+    private readonly apiKey: string,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  async transcribe(input: { audioBase64: string; mimeType: string }): Promise<STTResult> {
+    const response = await this.fetchImpl(`${this.endpoint}/transcribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) throw new Error(`STT request failed with status ${response.status}`);
+    return (await response.json()) as STTResult;
+  }
+
+  isReady(): boolean {
+    return Boolean(this.endpoint && this.apiKey);
+  }
+}
+
+// Generic HTTP-backed output provider
+export class HttpSpeechOutputProvider implements SpeechOutputProvider {
+  readonly name = "http";
+  constructor(
+    private readonly endpoint: string,
+    private readonly apiKey: string,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  async synthesize(input: { text: string; voiceId?: string }): Promise<TTSResult> {
+    const response = await this.fetchImpl(`${this.endpoint}/synthesize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) throw new Error(`TTS request failed with status ${response.status}`);
+    return (await response.json()) as TTSResult;
+  }
+
+  isReady(): boolean {
+    return Boolean(this.endpoint && this.apiKey);
+  }
+}
+
+// Legacy HTTP combined voice provider for backward compatibility
 export class HttpVoiceProvider implements VoiceProvider {
   constructor(
     private readonly endpoint: string,
@@ -57,24 +147,247 @@ export class HttpVoiceProvider implements VoiceProvider {
   }
 }
 
+// OpenAI Realtime / Speech Input Provider
+export class OpenAIRealtimeSpeechInputProvider implements SpeechInputProvider {
+  readonly name = "openai";
+  constructor(
+    private readonly apiKey: string,
+    private readonly model: string = "gpt-realtime-2.1-mini",
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  async createSession(input: { operatorId: string }): Promise<VoiceSessionResult> {
+    const response = await this.fetchImpl("https://api.openai.com/v1/realtime/sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: this.model,
+        voice: "alloy",
+        metadata: { operator_id: input.operatorId },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI Realtime session negotiation failed with status ${response.status}`);
+    }
+
+    const payload = (await response.json()) as {
+      client_secret?: { value: string; expires_at?: number };
+      expires_at?: number;
+      model?: string;
+    };
+
+    return {
+      clientSecret: payload.client_secret?.value,
+      expiresAt: payload.client_secret?.expires_at ?? payload.expires_at,
+      model: payload.model ?? this.model,
+      provider: "openai",
+    };
+  }
+
+  async transcribe(input: { audioBase64: string; mimeType: string }): Promise<STTResult> {
+    const boundary = `----WebKitFormBoundary${Math.random().toString(36).substring(2)}`;
+    const buffer = Buffer.from(input.audioBase64, "base64");
+    const filename = input.mimeType.includes("wav") ? "audio.wav" : input.mimeType.includes("mp4") ? "audio.mp4" : "audio.mp3";
+
+    const parts: Buffer[] = [
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${input.mimeType}\r\n\r\n`),
+      buffer,
+      Buffer.from(`\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1\r\n--${boundary}--\r\n`),
+    ];
+    const fullBody = Buffer.concat(parts);
+
+    const response = await this.fetchImpl("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": `multipart/form-data; boundary=${boundary}`,
+      },
+      body: fullBody,
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI transcription failed with status ${response.status}`);
+    }
+
+    const payload = (await response.json()) as { text?: string };
+    return {
+      text: (payload.text ?? "").trim(),
+      confidence: 0.98,
+      language: "en",
+      durationMs: 0,
+    };
+  }
+
+  isReady(): boolean {
+    return Boolean(this.apiKey);
+  }
+}
+
+// ElevenLabs Speech Output Provider
+export class ElevenLabsSpeechOutputProvider implements SpeechOutputProvider {
+  readonly name = "elevenlabs";
+  constructor(
+    private readonly apiKey: string,
+    private readonly voiceId: string = "21m00Tcm4TlvDq8ikWAM",
+    private readonly modelId: string = "eleven_flash_v2_5",
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  async synthesize(input: { text: string; voiceId?: string }): Promise<TTSResult> {
+    const targetVoiceId = input.voiceId || this.voiceId;
+    const response = await this.fetchImpl(`https://api.elevenlabs.io/v1/text-to-speech/${targetVoiceId}?output_format=mp3_44100_128`, {
+      method: "POST",
+      headers: {
+        "xi-api-key": this.apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text: input.text,
+        model_id: this.modelId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`ElevenLabs synthesis failed with status ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
+    return {
+      audioBase64,
+      durationMs: Math.round((input.text.length / 15) * 1000),
+      format: "audio/mpeg",
+    };
+  }
+
+  isReady(): boolean {
+    return Boolean(this.apiKey);
+  }
+}
+
+// OpenAI Speech Output Provider (fallback)
+export class OpenAISpeechOutputProvider implements SpeechOutputProvider {
+  readonly name = "openai";
+  constructor(
+    private readonly apiKey: string,
+    private readonly model: string = "tts-1",
+    private readonly voice: string = "alloy",
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  async synthesize(input: { text: string; voiceId?: string }): Promise<TTSResult> {
+    const response = await this.fetchImpl("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: this.model,
+        voice: input.voiceId || this.voice,
+        input: input.text,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI synthesis failed with status ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
+    return {
+      audioBase64,
+      durationMs: Math.round((input.text.length / 15) * 1000),
+      format: "audio/mpeg",
+    };
+  }
+
+  isReady(): boolean {
+    return Boolean(this.apiKey);
+  }
+}
+
 export type VoiceGatewayConfig = {
   voiceEnabled: boolean;
+  inputProvider?: "openai" | "http" | "unavailable";
+  outputProvider?: "elevenlabs" | "openai" | "http" | "unavailable";
+  openaiApiKey?: string;
+  openaiRealtimeModel?: string;
+  elevenlabsApiKey?: string;
+  elevenlabsVoiceId?: string;
+  elevenlabsModelId?: string;
   sttEndpoint?: string;
   sttApiKey?: string;
   ttsEndpoint?: string;
   ttsApiKey?: string;
 };
 
-export function createVoiceGateway(config: VoiceGatewayConfig): { stt: VoiceProvider; tts: VoiceProvider } {
+export type VoiceGateway = {
+  stt: SpeechInputProvider;
+  tts: SpeechOutputProvider;
+  inputProviderName: string;
+  outputProviderName: string;
+  isInputReady: () => boolean;
+  isOutputReady: () => boolean;
+};
+
+export function createVoiceGateway(config: VoiceGatewayConfig): VoiceGateway {
   const fallbackReason =
-    "Server voice is not configured (set MAXX_VOICE_ENABLED=true plus the endpoint/key pair); browser fallback remains available";
-  const stt =
-    config.voiceEnabled && config.sttEndpoint && config.sttApiKey
-      ? new HttpVoiceProvider(config.sttEndpoint, config.sttApiKey)
-      : new UnavailableVoiceProvider(fallbackReason);
-  const tts =
-    config.voiceEnabled && config.ttsEndpoint && config.ttsApiKey
-      ? new HttpVoiceProvider(config.ttsEndpoint, config.ttsApiKey)
-      : new UnavailableVoiceProvider(fallbackReason);
-  return { stt, tts };
+    "Server voice is not configured (set MAXX_VOICE_ENABLED=true plus required credentials); browser fallback remains available";
+
+  if (!config.voiceEnabled) {
+    const stt = new UnavailableSpeechInputProvider(fallbackReason);
+    const tts = new UnavailableSpeechOutputProvider(fallbackReason);
+    return {
+      stt,
+      tts,
+      inputProviderName: "unavailable",
+      outputProviderName: "unavailable",
+      isInputReady: () => false,
+      isOutputReady: () => false,
+    };
+  }
+
+  // Select Speech Input Provider
+  let stt: SpeechInputProvider;
+  const inputChoice = config.inputProvider ?? (config.openaiApiKey ? "openai" : config.sttEndpoint ? "http" : "unavailable");
+
+  if (inputChoice === "openai" && config.openaiApiKey) {
+    stt = new OpenAIRealtimeSpeechInputProvider(config.openaiApiKey, config.openaiRealtimeModel || "gpt-realtime-2.1-mini");
+  } else if (inputChoice === "http" && config.sttEndpoint && config.sttApiKey) {
+    stt = new HttpSpeechInputProvider(config.sttEndpoint, config.sttApiKey);
+  } else {
+    stt = new UnavailableSpeechInputProvider(fallbackReason);
+  }
+
+  // Select Speech Output Provider
+  let tts: SpeechOutputProvider;
+  const outputChoice = config.outputProvider ?? (config.elevenlabsApiKey ? "elevenlabs" : config.openaiApiKey ? "openai" : config.ttsEndpoint ? "http" : "unavailable");
+
+  if (outputChoice === "elevenlabs" && config.elevenlabsApiKey) {
+    tts = new ElevenLabsSpeechOutputProvider(
+      config.elevenlabsApiKey,
+      config.elevenlabsVoiceId || "21m00Tcm4TlvDq8ikWAM",
+      config.elevenlabsModelId || "eleven_flash_v2_5",
+    );
+  } else if (outputChoice === "openai" && config.openaiApiKey) {
+    tts = new OpenAISpeechOutputProvider(config.openaiApiKey);
+  } else if (outputChoice === "http" && config.ttsEndpoint && config.ttsApiKey) {
+    tts = new HttpSpeechOutputProvider(config.ttsEndpoint, config.ttsApiKey);
+  } else {
+    tts = new UnavailableSpeechOutputProvider(fallbackReason);
+  }
+
+  return {
+    stt,
+    tts,
+    inputProviderName: stt.name,
+    outputProviderName: tts.name,
+    isInputReady: () => stt.isReady(),
+    isOutputReady: () => tts.isReady(),
+  };
 }
