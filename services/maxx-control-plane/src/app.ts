@@ -32,6 +32,8 @@ import {
 } from "./voice-gateway.js";
 import { createVisionGateway, type VisionInputAdapter } from "./vision-gateway.js";
 import { createBrowserWorker, type BrowserWorker } from "./browser-worker.js";
+import { registerSandboxRoutes } from "./sandbox-routes.js";
+import { registerPupRoutes } from "./pups.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -407,9 +409,10 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   app.post("/v1/chat", async (request, reply) => {
-    const rateLimit = rateLimiters.chat.check(request.operator!.id);
+    const rateLimit = rateLimiters.chat.consume(request.operator!.id);
     if (!rateLimit.allowed) {
-      return reply.code(429).send({ error: "Too many chat requests", retryAfterMs: rateLimit.retryAfterMs });
+      reply.header("retry-after", String(rateLimit.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many chat requests", retryAfterSeconds: rateLimit.retryAfterSeconds });
     }
 
     const input = chatSchema.parse(request.body);
@@ -541,27 +544,23 @@ export function buildApp(options: AppOptions = {}) {
 
   app.get("/v1/approvals", async () => store.listApprovals());
   app.post("/v1/approvals/:id/approve", async (request, reply) => {
-    const params = z.object({ id: z.string().uuid() }).parse(request.params);
-    const approval = await store.decideApproval(params.id, "approved");
-    if (!approval) return reply.code(404).send({ error: "Approval not found" });
-    return reply.send(approval);
+    const approval = await store.decideApproval((request.params as { id: string }).id, "approved", request.operator!.id);
+    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing, expired, or already decided" });
   });
   app.post("/v1/approvals/:id/reject", async (request, reply) => {
-    const params = z.object({ id: z.string().uuid() }).parse(request.params);
-    const approval = await store.decideApproval(params.id, "rejected");
-    if (!approval) return reply.code(404).send({ error: "Approval not found" });
-    return reply.send(approval);
+    const approval = await store.decideApproval((request.params as { id: string }).id, "rejected", request.operator!.id);
+    return approval ? reply.send(approval) : reply.code(409).send({ error: "Approval is missing, expired, or already decided" });
   });
 
   app.get("/v1/strategy", async (request) => ownerStrategies.get(request.operator!.id));
   app.put("/v1/strategy", async (request, reply) => {
-    const rateLimit = rateLimiters.ownerStrategy.check(request.operator!.id);
-    if (!rateLimit.allowed) {
-      return reply.code(429).send({ error: "Too many strategy updates", retryAfterMs: rateLimit.retryAfterMs });
+    const limitDecision = rateLimiters.strategy.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many strategy updates", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
     const input = strategyInputSchema.parse(request.body) as OwnerStrategyInput;
-    const strategy = await ownerStrategies.set(request.operator!.id, input);
-    return reply.send(strategy);
+    return ownerStrategies.set(request.operator!.id, input);
   });
 
   app.get("/v1/skills", async () => TRUSTED_SKILLS);
@@ -590,9 +589,10 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   app.post("/v1/hermes/runs", async (request, reply) => {
-    const rateLimit = rateLimiters.hermesRuns.check(request.operator!.id);
-    if (!rateLimit.allowed) {
-      return reply.code(429).send({ error: "Too many hermes run requests", retryAfterMs: rateLimit.retryAfterMs });
+    const limitDecision = rateLimiters.hermes.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many hermes run requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
     if (!config.featureFlags.MAXX_HERMES_ENABLED) {
       return reply.code(503).send({ error: "MAXX_HERMES_ENABLED is false; Hermes Agent runtime is disabled" });
@@ -635,9 +635,10 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   app.post("/v1/memory/documents", async (request, reply) => {
-    const rateLimit = rateLimiters.memoryDocuments.check(request.operator!.id);
-    if (!rateLimit.allowed) {
-      return reply.code(429).send({ error: "Too many memory document writes", retryAfterMs: rateLimit.retryAfterMs });
+    const limitDecision = rateLimiters.memory.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many memory writes", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
     if (!config.featureFlags.MAXX_MEMORY_ENABLED) {
       return reply.code(503).send({ error: "MAXX_MEMORY_ENABLED is false" });
@@ -652,23 +653,21 @@ export function buildApp(options: AppOptions = {}) {
     }
     const input = memorySearchSchema.parse(request.query);
     const results = await memory.search(input.q, input.limit);
-    return reply.send({ query: input.q, results });
+    return reply.send({ results });
   });
 
   app.get("/v1/scheduler/jobs", async (_request, reply) => {
     if (!config.featureFlags.MAXX_SCHEDULER_ENABLED) {
       return reply.code(503).send({ error: "MAXX_SCHEDULER_ENABLED is false" });
     }
-    return reply.send(scheduler.list());
+    return reply.send({ jobs: scheduler.list() });
   });
 
   app.post("/v1/browser/sessions", async (request, reply) => {
-    const rateLimit = rateLimiters.browserSessions.check(request.operator!.id);
-    if (!rateLimit.allowed) {
-      return reply.code(429).send({ error: "Too many browser session requests", retryAfterMs: rateLimit.retryAfterMs });
-    }
-    if (!config.featureFlags.MAXX_BROWSER_ENABLED) {
-      return reply.code(503).send({ error: "MAXX_BROWSER_ENABLED is false; browser automation is disabled" });
+    const limitDecision = rateLimiters.browser.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many browser session requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
     const input = browserSchema.parse(request.body);
     const strategy = await ownerStrategies.get(request.operator!.id);
@@ -768,6 +767,10 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   app.get("/v1/usage/summary", async () => summarizeUsage(await store.listUsage()));
+
+  // Register Sandbox and Pup routes
+  registerSandboxRoutes(app, options);
+  registerPupRoutes(app, options);
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof z.ZodError) return reply.code(400).send({ error: "Invalid request", issues: error.issues });
