@@ -1,10 +1,33 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ChatResponse, ControlTowerBootstrap, Mission, OwnerStrategy } from "@/types/controlTower";
 
-const baseUrl = (import.meta.env.VITE_CONTROL_TOWER_API_URL ?? "http://127.0.0.1:8787").replace(/\/$/, "");
+const baseUrl = (import.meta.env.VITE_CONTROL_TOWER_API_URL ?? import.meta.env.VITE_MAXX_CONTROL_PLANE_URL ?? "http://127.0.0.1:8787").replace(/\/$/, "");
 const MAXX_MODE_MARKER = "[[MAXX_MODE:POWER]]";
 
 export type MaxxChatMode = "normal" | "max";
+
+export type VoiceSession = {
+  clientSecret?: string;
+  expiresAt?: number;
+  model?: string;
+  provider: string;
+};
+
+export type VoiceSynthesis = {
+  audioBase64: string;
+  durationMs: number;
+  format: string;
+};
+
+export type VoiceHealth = {
+  voice: {
+    enabled: boolean;
+    inputProvider: string;
+    inputReady: boolean;
+    outputProvider: string;
+    outputReady: boolean;
+  };
+};
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const devBypass = import.meta.env.DEV && import.meta.env.VITE_MAXX_DEV_AUTH_BYPASS === "true";
@@ -57,4 +80,16 @@ export const controlTowerApi = {
     request<{ results: Array<{ document: { id: string; title: string; content: string; createdAt: string }; score: number }> }>(
       `/v1/memory/search?q=${encodeURIComponent(query)}`,
     ),
+  createVoiceSession: () => request<VoiceSession>("/v1/voice/session", { method: "POST" }),
+  transcribeVoice: (audioBase64: string, mimeType = "audio/wav") =>
+    request<{ text: string; confidence: number }>("/v1/voice/transcribe", {
+      method: "POST",
+      body: JSON.stringify({ audioBase64, mimeType }),
+    }),
+  synthesizeVoice: (text: string, voiceId?: string) =>
+    request<VoiceSynthesis>("/v1/voice/synthesize", {
+      method: "POST",
+      body: JSON.stringify({ text, voiceId }),
+    }),
+  getVoiceHealth: () => request<VoiceHealth>("/v1/voice/health"),
 };

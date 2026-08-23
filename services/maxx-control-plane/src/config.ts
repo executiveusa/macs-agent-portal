@@ -20,6 +20,14 @@ const schema = z.object({
   MAXX_BROWSER_WS_ENDPOINT: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
   GROQ_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_REALTIME_MODEL: z.string().default("gpt-realtime-2.1-mini"),
+  ELEVENLABS_API_KEY: z.string().optional(),
+  ELEVEN_LABS_API: z.string().optional(),
+  ELEVENLABS_VOICE_ID: z.string().default("21m00Tcm4TlvDq8ikWAM"),
+  ELEVENLABS_MODEL_ID: z.string().default("eleven_flash_v2_5"),
+  MAXX_SPEECH_INPUT_PROVIDER: z.enum(["openai", "http"]).default("openai"),
+  MAXX_SPEECH_OUTPUT_PROVIDER: z.enum(["elevenlabs", "openai", "http"]).default("elevenlabs"),
   CONTROL_TOWER_ALLOWED_ORIGINS: z.string().default("http://127.0.0.1:4173,http://localhost:4173"),
   MAXX_DEV_AUTH_BYPASS: z.string().optional(),
   MAXX_HERMES_ENABLED: z.string().optional(),
@@ -29,6 +37,7 @@ const schema = z.object({
   MAXX_SANDBOX_KEY: z.string().min(16).optional(),
   MAXX_VOICE_ENABLED: z.string().optional(),
   MAXX_VISION_ENABLED: z.string().optional(),
+  MAXX_VISION_ADAPTER: z.enum(["meta-dat", "vision-claw", "phone-camera", "generic-webrtc-glasses", "unavailable"]).default("phone-camera"),
   MAXX_BROWSER_ENABLED: z.string().optional(),
   MAXX_BROWSER_MUTATIONS_ENABLED: z.string().optional(),
   MAXX_MEMORY_ENABLED: z.string().optional(),
@@ -46,8 +55,10 @@ const schema = z.object({
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
   const parsed = schema.parse(env);
+  const effectiveElevenLabsKey = parsed.ELEVENLABS_API_KEY || parsed.ELEVEN_LABS_API;
   return {
     ...parsed,
+    ELEVENLABS_API_KEY: effectiveElevenLabsKey,
     allowedEmails: parseAllowedEmails(parsed.STACY_ALLOWED_EMAILS),
     allowedOrigins: parsed.CONTROL_TOWER_ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean),
     devAuthBypass: parsed.NODE_ENV !== "production" && parsed.MAXX_DEV_AUTH_BYPASS === "true",

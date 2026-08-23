@@ -1,7 +1,23 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Camera, Check, ChevronDown, ChevronUp, History, LogOut, Mic, MicOff, Settings, ShieldCheck, Sparkles, X } from "lucide-react";
+import {
+  ArrowUp,
+  Camera,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  History,
+  LogOut,
+  Mic,
+  MicOff,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { controlTowerApi, type MaxxChatMode } from "@/services/controlTowerApi";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +27,7 @@ type Message = {
   id: string;
   role: "stacy" | "maxx";
   text: string;
+  audioBase64?: string;
   details?: {
     routingReason?: string;
     latencyMs?: number;
@@ -24,7 +41,7 @@ type SpeechRecognitionLike = {
   start: () => void;
   stop: () => void;
   onresult: (event: { results: ArrayLike<{ 0: { transcript: string } }> }) => void;
-  onerror: () => void;
+  onerror: (event?: any) => void;
   onend: () => void;
 };
 
@@ -35,7 +52,7 @@ const starterPrompts = [
   "Find the leads and follow-ups we are missing, then recommend what to do first.",
 ];
 
-function MaxxAvatar({ maxMode, size = "large" }: { maxMode: boolean; size?: "small" | "large" }) {
+function MaxxAvatar({ maxMode, size = "large", isSpeaking = false }: { maxMode: boolean; size?: "small" | "large"; isSpeaking?: boolean }) {
   const dimension = size === "large" ? "h-28 w-28 sm:h-32 sm:w-32" : "h-11 w-11";
   return (
     <div className={`relative ${dimension} shrink-0 overflow-hidden rounded-[28%] border border-black/10 bg-[#ece9e1]`}>
@@ -43,25 +60,45 @@ function MaxxAvatar({ maxMode, size = "large" }: { maxMode: boolean; size?: "sma
         <motion.img
           key={maxMode ? "max" : "normal"}
           src={maxMode ? "/maxx/maxx-mode.webp" : "/maxx/maxx-avatar.webp"}
-          alt={maxMode ? "Agent MAXX in MAXX Mode" : "Agent MAXX 006"}
+          alt={maxMode ? "Agent MAXX in MAXX Mode" : "Agent MAXX"}
           className="h-full w-full object-cover"
           initial={{ opacity: 0, scale: maxMode ? 0.88 : 1.04, rotate: maxMode ? -3 : 0 }}
-          animate={{ opacity: 1, scale: 1, rotate: 0 }}
+          animate={{ opacity: 1, scale: isSpeaking ? [1, 1.03, 1] : 1, rotate: 0 }}
           exit={{ opacity: 0, scale: maxMode ? 1.05 : 0.94 }}
-          transition={{ duration: 0.28, ease: "easeOut" }}
+          transition={{ duration: 0.28, ease: "easeOut", repeat: isSpeaking ? Infinity : 0, repeatDelay: 0.5 }}
         />
       </AnimatePresence>
+      {isSpeaking && (
+        <div className="absolute inset-0 bg-[#546b5a]/10 ring-2 ring-[#546b5a]/40 ring-inset rounded-[28%] animate-pulse" />
+      )}
       {maxMode && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-[#6f5a93]" />}
     </div>
   );
 }
 
-function WorkState({ pending, response }: { pending: boolean; response?: ChatResponse }) {
+function WorkState({ pending, response, isSpeaking, onStopAudio }: { pending: boolean; response?: ChatResponse; isSpeaking: boolean; onStopAudio: () => void }) {
   if (pending) {
     return (
       <div className="flex items-center gap-2 rounded-2xl border border-black/[0.07] bg-[#f7f5ef] px-4 py-3 text-sm text-black/65">
         <span className="h-2 w-2 animate-pulse rounded-full bg-[#546b5a]" />
-        <span className="font-medium">MAXX is working on it</span>
+        <span className="font-medium">Working…</span>
+      </div>
+    );
+  }
+  if (isSpeaking) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-2xl border border-[#546b5a]/20 bg-[#f4f7f4] px-4 py-3 text-sm text-[#2e4735]">
+        <div className="flex items-center gap-2">
+          <Volume2 size={16} className="animate-pulse text-[#4a6b52]" />
+          <span className="font-medium">MAXX is speaking…</span>
+        </div>
+        <button
+          onClick={onStopAudio}
+          className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold shadow-sm border border-black/10 hover:bg-black/[0.03]"
+        >
+          <VolumeX size={12} />
+          Stop audio
+        </button>
       </div>
     );
   }
@@ -102,15 +139,22 @@ export default function MaxxChat() {
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<MaxxChatMode>("normal");
   const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [proofMessageId, setProofMessageId] = useState<string | null>(null);
+
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
   const bootstrap = useQuery({
     queryKey: ["control-tower"],
     queryFn: controlTowerApi.bootstrap,
     retry: false,
     refetchInterval: 15_000,
   });
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -130,14 +174,51 @@ export default function MaxxChat() {
   const statusTone = status === "Ready" ? "bg-[#4f765c]" : status === "Offline" ? "bg-red-500" : "bg-amber-500";
   const pendingApproval = bootstrap.data?.approvals.find((item) => item.status === "pending");
 
+  // Barge-in: Stop playing audio immediately without disrupting backend tasks
+  const stopAudio = () => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.src = "";
+      currentAudioRef.current = null;
+    }
+    setIsSpeaking(false);
+  };
+
+  // Synthesize and play response with ElevenLabs / Voice Gateway
+  const playResponseAudio = async (text: string) => {
+    try {
+      stopAudio();
+      const synthesis = await controlTowerApi.synthesizeVoice(text);
+      if (synthesis?.audioBase64) {
+        const audioUrl = `data:${synthesis.format || "audio/mpeg"};base64,${synthesis.audioBase64}`;
+        const audio = new Audio(audioUrl);
+        currentAudioRef.current = audio;
+        setIsSpeaking(true);
+        audio.onended = () => {
+          setIsSpeaking(false);
+          currentAudioRef.current = null;
+        };
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          currentAudioRef.current = null;
+        };
+        await audio.play();
+      }
+    } catch {
+      // If server voice synthesis is unavailable or fails, gracefully fall back without error banner
+      setIsSpeaking(false);
+    }
+  };
+
   const chat = useMutation({
     mutationFn: (text: string) => controlTowerApi.chat(text, undefined, undefined, mode),
     onMutate: (text) => {
+      stopAudio(); // Barge-in on send
       setMessages((current) => [...current, { id: crypto.randomUUID(), role: "stacy", text }]);
       setInput("");
       setLastResponse(undefined);
     },
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
       const id = response.id;
       setMessages((current) => [
         ...current,
@@ -154,6 +235,10 @@ export default function MaxxChat() {
       ]);
       setLastResponse(response);
       queryClient.invalidateQueries({ queryKey: ["control-tower"] });
+      // Speak the response through ElevenLabs
+      if (response.text && !isListening) {
+        await playResponseAudio(response.text);
+      }
     },
   });
 
@@ -165,30 +250,113 @@ export default function MaxxChat() {
   const send = (text = input) => {
     const clean = text.trim();
     if (!clean || chat.isPending) return;
+    stopAudio();
     chat.mutate(clean);
   };
 
-  const startVoice = () => {
+  // Voice handler: Tap mic -> Listening -> Stacy speaks -> Utterance commits automatically -> Working
+  const startVoice = async () => {
+    stopAudio(); // Barge-in: user began speaking / tapped mic
     const SpeechRecognition =
       (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike }).SpeechRecognition ??
       (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionLike }).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setMessages((current) => [...current, { id: crypto.randomUUID(), role: "maxx", text: "Voice input is not available in this browser yet. You can type to me here." }]);
+
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onresult = (event) => {
+        const transcriptText = event.results[0][0].transcript;
+        setIsListening(false);
+        if (transcriptText.trim()) {
+          // Automatic utterance commit directly to MAXX
+          send(transcriptText);
+        }
+      };
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
+
+      try {
+        recognition.start();
+        recognitionRef.current = recognition;
+        setIsListening(true);
+      } catch {
+        setIsListening(false);
+      }
       return;
     }
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.onresult = (event) => {
-      setInput(event.results[0][0].transcript);
-      setIsListening(false);
-    };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
-    recognition.start();
-    recognitionRef.current = recognition;
-    setIsListening(true);
+
+    // MediaRecorder Fallback if Web Speech is absent
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunksRef.current = [];
+        const recorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = recorder;
+
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) audioChunksRef.current.push(event.data);
+        };
+
+        recorder.onstop = async () => {
+          setIsListening(false);
+          stream.getTracks().forEach((track) => track.stop());
+          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = async () => {
+            const base64Data = (reader.result as string)?.split(",")[1];
+            if (base64Data) {
+              try {
+                const res = await controlTowerApi.transcribeVoice(base64Data, "audio/wav");
+                if (res?.text?.trim()) {
+                  send(res.text);
+                }
+              } catch {
+                setMessages((current) => [
+                  ...current,
+                  { id: crypto.randomUUID(), role: "maxx", text: "I couldn’t catch that. You can type to me here." },
+                ]);
+              }
+            }
+          };
+        };
+
+        recorder.start();
+        setIsListening(true);
+      } catch {
+        setMessages((current) => [
+          ...current,
+          { id: crypto.randomUUID(), role: "maxx", text: "Microphone access was not granted. You can type to me here." },
+        ]);
+      }
+    } else {
+      setMessages((current) => [
+        ...current,
+        { id: crypto.randomUUID(), role: "maxx", text: "Voice input is not available in this browser. You can type to me here." },
+      ]);
+    }
   };
+
+  const stopVoice = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
+    setIsListening(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopAudio();
+      stopVoice();
+    };
+  }, []);
 
   const recentMissions = useMemo(() => bootstrap.data?.missions.slice(0, 6) ?? [], [bootstrap.data?.missions]);
 
@@ -234,9 +402,9 @@ export default function MaxxChat() {
 
         <section className="flex flex-1 flex-col px-4 pb-3 pt-6 sm:px-8 sm:pt-8">
           <div className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
-            <MaxxAvatar maxMode={mode === "max"} />
+            <MaxxAvatar maxMode={mode === "max"} isSpeaking={isSpeaking} />
             <h1 className="mt-4 text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">What do you need done?</h1>
-            <p className="mt-2 text-sm leading-6 text-black/48">Talk or type normally. MAXX handles the machines underneath.</p>
+            <p className="mt-2 text-sm leading-6 text-black/48">Talk or type normally. MAXX handles the work underneath.</p>
 
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               <button
@@ -247,7 +415,7 @@ export default function MaxxChat() {
                 <Sparkles size={14} />
                 {mode === "max" ? "MAXX Mode on" : "Activate MAXX Mode"}
               </button>
-              <div className="flex items-center gap-2 rounded-full border border-black/[0.07] bg-[#f7f5ef] px-3.5 py-2 text-xs text-black/45" title="Phone and compatible glasses vision is architected but not required for this release">
+              <div className="flex items-center gap-2 rounded-full border border-black/[0.07] bg-[#f7f5ef] px-3.5 py-2 text-xs text-black/45" title="Sensory camera and glasses input boundary ready">
                 <Camera size={14} />
                 MAXX Eyes · coming soon
               </div>
@@ -267,7 +435,19 @@ export default function MaxxChat() {
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.role === "stacy" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[90%] rounded-[20px] px-4 py-3 text-sm leading-6 sm:max-w-[82%] ${message.role === "stacy" ? "rounded-br-md bg-[#dde4e2] text-[#252724]" : "rounded-bl-md bg-[#f0ede6] text-[#2a2925]"}`}>
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-black/45">{message.role === "stacy" ? "Stacy" : "MAXX"}</p>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-black/45">{message.role === "stacy" ? "Stacy" : "MAXX"}</p>
+                    {message.role === "maxx" && (
+                      <button
+                        onClick={() => playResponseAudio(message.text)}
+                        className="text-black/40 hover:text-black/70 p-1"
+                        aria-label="Play response audio"
+                        title="Listen to MAXX"
+                      >
+                        <Volume2 size={13} />
+                      </button>
+                    )}
+                  </div>
                   <p className="whitespace-pre-wrap">{message.text}</p>
                   {message.role === "maxx" && message.details && (
                     <div className="mt-2 border-t border-black/[0.06] pt-2">
@@ -287,7 +467,7 @@ export default function MaxxChat() {
               </div>
             ))}
 
-            <WorkState pending={chat.isPending} response={lastResponse} />
+            <WorkState pending={chat.isPending} response={lastResponse} isSpeaking={isSpeaking} onStopAudio={stopAudio} />
             {chat.isError && (
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800">
                 MAXX could not complete that request yet. Nothing should be treated as done. {chat.error instanceof Error ? chat.error.message : "The private service is unavailable."}
@@ -320,14 +500,16 @@ export default function MaxxChat() {
               <button
                 onClick={() => {
                   if (isListening) {
-                    recognitionRef.current?.stop();
-                    setIsListening(false);
+                    stopVoice();
                   } else {
                     startVoice();
                   }
                 }}
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${isListening ? "bg-red-100 text-red-700" : "bg-[#efede7] text-black/60"}`}
-                aria-label={isListening ? "Stop listening" : "Talk to MAXX"}
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all ${
+                  isListening ? "bg-red-500 text-white animate-pulse" : "bg-[#efede7] text-black/60 hover:bg-[#e4e1d8]"
+                }`}
+                aria-label={isListening ? "Listening... click to stop" : "Talk to Max"}
+                title={isListening ? "Listening — speak now" : "Talk to Max"}
               >
                 {isListening ? <MicOff size={18} /> : <Mic size={18} />}
               </button>
@@ -335,7 +517,15 @@ export default function MaxxChat() {
                 <ArrowUp size={18} />
               </button>
             </div>
-            <p className="mt-2 text-center text-[11px] text-black/32">{isListening ? "Listening — check the words before sending." : mode === "max" ? "MAXX Mode active" : "Voice and text go through your private MAXX account."}</p>
+            <p className="mt-2 text-center text-[11px] text-black/32">
+              {isListening
+                ? "Listening… speak naturally and MAXX will answer."
+                : isSpeaking
+                  ? "Speaking… tap mic or type to interrupt."
+                  : mode === "max"
+                    ? "MAXX Mode active"
+                    : "Voice and text go through your private MAXX account."}
+            </p>
           </div>
         </section>
       </div>

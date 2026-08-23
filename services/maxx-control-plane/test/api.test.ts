@@ -360,3 +360,100 @@ test("browser session route returns 502 when the worker reports failure", async 
   assert.equal(response.json().status, "failed");
   await app.close();
 });
+
+test("voice session requires Stacy operator authentication", async () => {
+  const config = loadConfig({ NODE_ENV: "test", MAXX_VOICE_ENABLED: "true" });
+  const app = buildApp({ config, authenticate: async () => null });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/voice/session",
+  });
+  assert.equal(response.statusCode, 401);
+  await app.close();
+});
+
+test("voice session returns ephemeral credentials when configured", async () => {
+  const config = loadConfig({
+    NODE_ENV: "test",
+    MAXX_VOICE_ENABLED: "true",
+    OPENAI_API_KEY: "sk-test-key",
+  });
+  const app = buildApp({
+    config,
+    authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }),
+    voice: {
+      stt: {
+        name: "openai",
+        isReady: () => true,
+        transcribe: async () => ({ text: "hello", confidence: 1, language: "en", durationMs: 100 }),
+        createSession: async ({ operatorId }) => ({
+          clientSecret: "eph_secret_123",
+          expiresAt: 1789000000,
+          model: "gpt-realtime-2.1-mini",
+          provider: "openai",
+        }),
+      },
+      tts: {
+        name: "elevenlabs",
+        isReady: () => true,
+        synthesize: async () => ({ audioBase64: "mp3base64", durationMs: 500, format: "audio/mpeg" }),
+      },
+    },
+  });
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/voice/session",
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().clientSecret, "eph_secret_123");
+  assert.equal(response.json().provider, "openai");
+
+  const healthRes = await app.inject({ method: "GET", url: "/v1/voice/health" });
+  assert.equal(healthRes.statusCode, 200);
+  assert.equal(healthRes.json().voice.enabled, true);
+  assert.equal(healthRes.json().voice.inputProvider, "openai");
+  assert.equal(healthRes.json().voice.outputProvider, "elevenlabs");
+
+  await app.close();
+});
+
+test("voice synthesize returns audio format through configured output provider", async () => {
+  const config = loadConfig({
+    NODE_ENV: "test",
+    MAXX_VOICE_ENABLED: "true",
+    ELEVENLABS_API_KEY: "eleven-test",
+  });
+  const app = buildApp({
+    config,
+    authenticate: async () => ({ id: "stacy", email: "stacy@example.com" }),
+    voice: {
+      stt: {
+        name: "openai",
+        isReady: () => true,
+        transcribe: async () => ({ text: "test", confidence: 1, language: "en", durationMs: 100 }),
+      },
+      tts: {
+        name: "elevenlabs",
+        isReady: () => true,
+        synthesize: async ({ text }) => ({
+          audioBase64: Buffer.from(`audio-for:${text}`).toString("base64"),
+          durationMs: 400,
+          format: "audio/mpeg",
+        }),
+      },
+    },
+  });
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/voice/synthesize",
+    payload: { text: "Hello Stacy, I am MAXX" },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().format, "audio/mpeg");
+  assert.equal(Buffer.from(response.json().audioBase64, "base64").toString(), "audio-for:Hello Stacy, I am MAXX");
+
+  await app.close();
+});
+
