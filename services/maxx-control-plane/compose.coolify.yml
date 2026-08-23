@@ -107,10 +107,10 @@ services:
       context: ../..
       dockerfile: services/maxx-control-plane/Dockerfile
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       maxx-hermes:
-        condition: service_healthy
-      maxx-media:
         condition: service_healthy
       maxx-sandbox:
         condition: service_healthy

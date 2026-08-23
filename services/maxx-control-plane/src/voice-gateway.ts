@@ -157,16 +157,17 @@ export class OpenAIRealtimeSpeechInputProvider implements SpeechInputProvider {
   ) {}
 
   async createSession(input: { operatorId: string }): Promise<VoiceSessionResult> {
-    const response = await this.fetchImpl("https://api.openai.com/v1/realtime/sessions", {
+    const response = await this.fetchImpl("https://api.openai.com/v1/realtime/client_secrets", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: this.model,
-        voice: "alloy",
-        metadata: { operator_id: input.operatorId },
+        session: {
+          type: "realtime",
+          model: this.model,
+        },
       }),
     });
 
@@ -175,15 +176,16 @@ export class OpenAIRealtimeSpeechInputProvider implements SpeechInputProvider {
     }
 
     const payload = (await response.json()) as {
+      value?: string;
       client_secret?: { value: string; expires_at?: number };
       expires_at?: number;
-      model?: string;
+      session?: { model?: string };
     };
 
     return {
-      clientSecret: payload.client_secret?.value,
-      expiresAt: payload.client_secret?.expires_at ?? payload.expires_at,
-      model: payload.model ?? this.model,
+      clientSecret: payload.value ?? payload.client_secret?.value,
+      expiresAt: payload.expires_at ?? payload.client_secret?.expires_at,
+      model: payload.session?.model ?? this.model,
       provider: "openai",
     };
   }
@@ -227,45 +229,66 @@ export class OpenAIRealtimeSpeechInputProvider implements SpeechInputProvider {
   }
 }
 
-// ElevenLabs Speech Output Provider
 export class ElevenLabsSpeechOutputProvider implements SpeechOutputProvider {
   readonly name = "elevenlabs";
+  private readonly fallbackProvider?: SpeechOutputProvider;
+  private readonly fetchImpl: typeof fetch;
+
   constructor(
     private readonly apiKey: string,
     private readonly voiceId: string = "21m00Tcm4TlvDq8ikWAM",
     private readonly modelId: string = "eleven_flash_v2_5",
-    private readonly fetchImpl: typeof fetch = fetch,
-  ) {}
+    fallbackOrFetch?: SpeechOutputProvider | typeof fetch,
+    fetchImpl: typeof fetch = fetch,
+  ) {
+    if (typeof fallbackOrFetch === "function") {
+      this.fetchImpl = fallbackOrFetch;
+      this.fallbackProvider = undefined;
+    } else {
+      this.fallbackProvider = fallbackOrFetch;
+      this.fetchImpl = fetchImpl;
+    }
+  }
 
   async synthesize(input: { text: string; voiceId?: string }): Promise<TTSResult> {
-    const targetVoiceId = input.voiceId || this.voiceId;
-    const response = await this.fetchImpl(`https://api.elevenlabs.io/v1/text-to-speech/${targetVoiceId}?output_format=mp3_44100_128`, {
-      method: "POST",
-      headers: {
-        "xi-api-key": this.apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        text: input.text,
-        model_id: this.modelId,
-      }),
-    });
+    try {
+      const targetVoiceId = input.voiceId || this.voiceId;
+      const response = await this.fetchImpl(`https://api.elevenlabs.io/v1/text-to-speech/${targetVoiceId}?output_format=mp3_44100_128`, {
+        method: "POST",
+        headers: {
+          "xi-api-key": this.apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: input.text,
+          model_id: this.modelId,
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error(`ElevenLabs synthesis failed with status ${response.status}`);
+      if (!response.ok) {
+        if (this.fallbackProvider) {
+          return await this.fallbackProvider.synthesize(input);
+        }
+        throw new Error(`ElevenLabs synthesis failed with status ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
+      return {
+        audioBase64,
+        durationMs: Math.round((input.text.length / 15) * 1000),
+        format: "audio/mpeg",
+      };
+    } catch (error) {
+      if (this.fallbackProvider) {
+        return await this.fallbackProvider.synthesize(input);
+      }
+      throw error;
     }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
-    return {
-      audioBase64,
-      durationMs: Math.round((input.text.length / 15) * 1000),
-      format: "audio/mpeg",
-    };
   }
 
   isReady(): boolean {
-    return Boolean(this.apiKey);
+    return Boolean(this.apiKey || this.fallbackProvider?.isReady());
   }
 }
 
@@ -368,11 +391,14 @@ export function createVoiceGateway(config: VoiceGatewayConfig): VoiceGateway {
   let tts: SpeechOutputProvider;
   const outputChoice = config.outputProvider ?? (config.elevenlabsApiKey ? "elevenlabs" : config.openaiApiKey ? "openai" : config.ttsEndpoint ? "http" : "unavailable");
 
+  const openAiFallback = config.openaiApiKey ? new OpenAISpeechOutputProvider(config.openaiApiKey) : undefined;
+
   if (outputChoice === "elevenlabs" && config.elevenlabsApiKey) {
     tts = new ElevenLabsSpeechOutputProvider(
       config.elevenlabsApiKey,
       config.elevenlabsVoiceId || "21m00Tcm4TlvDq8ikWAM",
       config.elevenlabsModelId || "eleven_flash_v2_5",
+      openAiFallback,
     );
   } else if (outputChoice === "openai" && config.openaiApiKey) {
     tts = new OpenAISpeechOutputProvider(config.openaiApiKey);

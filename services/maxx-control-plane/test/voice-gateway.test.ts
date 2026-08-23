@@ -43,10 +43,9 @@ test("OpenAIRealtimeSpeechInputProvider creates ephemeral session for operator",
   const provider = new OpenAIRealtimeSpeechInputProvider("sk-openai-test-key", "gpt-realtime-2.1-mini", fakeFetch);
   const session = await provider.createSession({ operatorId: "op-stacy-uuid" });
 
-  assert.equal(requestedUrl, "https://api.openai.com/v1/realtime/sessions");
+  assert.equal(requestedUrl, "https://api.openai.com/v1/realtime/client_secrets");
   assert.equal(requestHeaders.Authorization, "Bearer sk-openai-test-key");
-  assert.equal(requestBody.model, "gpt-realtime-2.1-mini");
-  assert.equal(requestBody.metadata.operator_id, "op-stacy-uuid");
+  assert.equal(requestBody.session.model, "gpt-realtime-2.1-mini");
   assert.equal(session.clientSecret, "eph_token_abc123");
   assert.equal(session.provider, "openai");
   assert.equal(provider.isReady(), true);

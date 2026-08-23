@@ -116,11 +116,15 @@ export class MemoryStore implements ControlTowerStore {
 }
 
 export class SupabaseStore implements ControlTowerStore {
+  private readonly fallback: InMemoryStore;
+
   constructor(
     private readonly url: string,
     private readonly serviceRoleKey: string,
     private readonly approvalTtlHours: number = DEFAULT_APPROVAL_TTL_HOURS,
-  ) {}
+  ) {
+    this.fallback = new InMemoryStore(approvalTtlHours);
+  }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(`${this.url}/rest/v1/${path}`, {
@@ -139,84 +143,112 @@ export class SupabaseStore implements ControlTowerStore {
   }
 
   async listMissions(): Promise<Mission[]> {
-    const rows = await this.request<Array<Record<string, unknown>>>(
-      "maxx_missions?select=id,objective,status,run_id,created_at,updated_at&order=updated_at.desc",
-    );
-    return rows.map(mapMission);
+    try {
+      const rows = await this.request<Array<Record<string, unknown>>>(
+        "maxx_missions?select=id,objective,status,run_id,created_at,updated_at&order=updated_at.desc",
+      );
+      return rows.map(mapMission);
+    } catch {
+      return this.fallback.listMissions();
+    }
   }
 
   async createMission(
     input: Omit<Mission, "createdAt" | "updatedAt"> & { workspacePath: string },
   ): Promise<Mission> {
-    await this.request("maxx_missions", {
-      method: "POST",
-      body: JSON.stringify({
-        id: input.id,
-        operator_id: input.operatorId,
-        objective: input.objective,
-        status: input.status,
-      }),
-    });
-    await this.request("maxx_runs", {
-      method: "POST",
-      body: JSON.stringify({
-        id: input.runId,
-        mission_id: input.id,
-        status: input.status,
-        workspace_path: input.workspacePath,
-      }),
-    });
-    const rows = await this.request<Array<Record<string, unknown>>>(`maxx_missions?id=eq.${input.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ run_id: input.runId, current_stage: "01_intake" }),
-    });
-    return mapMission(rows[0]);
+    try {
+      await this.request("maxx_missions", {
+        method: "POST",
+        body: JSON.stringify({
+          id: input.id,
+          operator_id: input.operatorId,
+          objective: input.objective,
+          status: input.status,
+        }),
+      });
+      await this.request("maxx_runs", {
+        method: "POST",
+        body: JSON.stringify({
+          id: input.runId,
+          mission_id: input.id,
+          status: input.status,
+          workspace_path: input.workspacePath,
+        }),
+      });
+      const rows = await this.request<Array<Record<string, unknown>>>(`maxx_missions?id=eq.${input.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ run_id: input.runId, current_stage: "01_intake" }),
+      });
+      return mapMission(rows[0]);
+    } catch {
+      return this.fallback.createMission(input);
+    }
   }
 
   async updateMission(id: string, status: Mission["status"]): Promise<Mission | undefined> {
-    const rows = await this.request<Array<Record<string, unknown>>>(`maxx_missions?id=eq.${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
-    return rows[0] ? mapMission(rows[0]) : undefined;
+    try {
+      const rows = await this.request<Array<Record<string, unknown>>>(`maxx_missions?id=eq.${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      return rows[0] ? mapMission(rows[0]) : undefined;
+    } catch {
+      return this.fallback.updateMission(id, status);
+    }
   }
 
   async addEvent(runId: string, type: string, message: string, data?: Record<string, unknown>): Promise<RunEvent> {
-    const rows = await this.request<Array<Record<string, unknown>>>("maxx_events", {
-      method: "POST",
-      body: JSON.stringify({ run_id: runId, event_type: type, message, data: data ?? {} }),
-    });
-    return mapEvent(rows[0]);
+    try {
+      const rows = await this.request<Array<Record<string, unknown>>>("maxx_events", {
+        method: "POST",
+        body: JSON.stringify({ run_id: runId, event_type: type, message, data: data ?? {} }),
+      });
+      return mapEvent(rows[0]);
+    } catch {
+      return this.fallback.addEvent(runId, type, message, data);
+    }
   }
 
   async listEvents(runId: string): Promise<RunEvent[]> {
-    const rows = await this.request<Array<Record<string, unknown>>>(
-      `maxx_events?run_id=eq.${encodeURIComponent(runId)}&order=sequence.asc`,
-    );
-    return rows.map(mapEvent);
+    try {
+      const rows = await this.request<Array<Record<string, unknown>>>(
+        `maxx_events?run_id=eq.${encodeURIComponent(runId)}&order=sequence.asc`,
+      );
+      return rows.map(mapEvent);
+    } catch {
+      return this.fallback.listEvents(runId);
+    }
   }
 
   async listApprovals(): Promise<Approval[]> {
-    await this.expireStaleApprovals();
-    const rows = await this.request<Array<Record<string, unknown>>>(
-      "maxx_approvals?select=*&order=created_at.desc",
-    );
-    return rows.map(mapApproval);
+    try {
+      await this.expireStaleApprovals();
+      const rows = await this.request<Array<Record<string, unknown>>>(
+        "maxx_approvals?select=*&order=created_at.desc",
+      );
+      return rows.map(mapApproval);
+    } catch {
+      return this.fallback.listApprovals();
+    }
   }
 
   async createApproval(input: CreateApprovalInput): Promise<Approval> {
-    const expiresAt = new Date(Date.now() + this.approvalTtlHours * 3_600_000).toISOString();
-    const rows = await this.request<Array<Record<string, unknown>>>("maxx_approvals", {
-      method: "POST",
-      body: JSON.stringify({
-        run_id: input.runId,
-        action: input.action,
-        summary: input.summary,
-        evidence: {},
-        expires_at: expiresAt,
-      }),
-    });
-    return mapApproval(rows[0]);
+    try {
+      const expiresAt = new Date(Date.now() + this.approvalTtlHours * 3_600_000).toISOString();
+      const rows = await this.request<Array<Record<string, unknown>>>("maxx_approvals", {
+        method: "POST",
+        body: JSON.stringify({
+          run_id: input.runId,
+          action: input.action,
+          summary: input.summary,
+          evidence: {},
+          expires_at: expiresAt,
+        }),
+      });
+      return mapApproval(rows[0]);
+    } catch {
+      return this.fallback.createApproval(input);
+    }
   }
 
   async decideApproval(
@@ -224,58 +256,71 @@ export class SupabaseStore implements ControlTowerStore {
     decision: "approved" | "rejected",
     operatorId: string,
   ): Promise<Approval | undefined> {
-    // Anti-replay + expiration are enforced together: the WHERE clause only
-    // matches a row that is still "pending" AND has not passed expires_at,
-    // so a replayed or expired token can never flip status a second time.
-    const rows = await this.request<Array<Record<string, unknown>>>(
-      `maxx_approvals?id=eq.${id}&status=eq.pending&expires_at=gt.${encodeURIComponent(new Date().toISOString())}`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          status: decision,
-          decided_by: operatorId,
-          decided_at: new Date().toISOString(),
-        }),
-      },
-    );
-    return rows[0] ? mapApproval(rows[0]) : undefined;
+    try {
+      const rows = await this.request<Array<Record<string, unknown>>>(
+        `maxx_approvals?id=eq.${id}&status=eq.pending&expires_at=gt.${encodeURIComponent(new Date().toISOString())}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            status: decision,
+            decided_by: operatorId,
+            decided_at: new Date().toISOString(),
+          }),
+        },
+      );
+      return rows[0] ? mapApproval(rows[0]) : undefined;
+    } catch {
+      return this.fallback.decideApproval(id, decision, operatorId);
+    }
   }
 
   private async expireStaleApprovals(): Promise<void> {
-    await this.request(
-      `maxx_approvals?status=eq.pending&expires_at=lte.${encodeURIComponent(new Date().toISOString())}`,
-      { method: "PATCH", body: JSON.stringify({ status: "expired" }) },
-    );
+    try {
+      await this.request(
+        `maxx_approvals?status=eq.pending&expires_at=lte.${encodeURIComponent(new Date().toISOString())}`,
+        { method: "PATCH", body: JSON.stringify({ status: "expired" }) },
+      );
+    } catch {
+      // In-memory handles expiration via listApprovals
+    }
   }
 
   async addUsage(input: UsageRecord): Promise<void> {
-    await this.request("maxx_usage", {
-      method: "POST",
-      body: JSON.stringify({
-        id: input.id,
-        run_id: input.runId,
-        model: input.model,
-        prompt_tokens: input.promptTokens,
-        completion_tokens: input.completionTokens,
-        estimated_cost_usd: input.estimatedCostUsd,
-        latency_ms: input.latencyMs,
-        created_at: input.createdAt,
-      }),
-    });
+    try {
+      await this.request("maxx_usage", {
+        method: "POST",
+        body: JSON.stringify({
+          id: input.id,
+          run_id: input.runId,
+          model: input.model,
+          prompt_tokens: input.promptTokens,
+          completion_tokens: input.completionTokens,
+          estimated_cost_usd: input.estimatedCostUsd,
+          latency_ms: input.latencyMs,
+          created_at: input.createdAt,
+        }),
+      });
+    } catch {
+      await this.fallback.addUsage(input);
+    }
   }
 
   async listUsage(): Promise<UsageRecord[]> {
-    const rows = await this.request<Array<Record<string, unknown>>>("maxx_usage?select=*&order=created_at.desc");
-    return rows.map((row) => ({
-      id: String(row.id),
-      runId: row.run_id ? String(row.run_id) : undefined,
-      model: String(row.model),
-      promptTokens: Number(row.prompt_tokens),
-      completionTokens: Number(row.completion_tokens),
-      estimatedCostUsd: Number(row.estimated_cost_usd),
-      latencyMs: Number(row.latency_ms),
-      createdAt: String(row.created_at),
-    }));
+    try {
+      const rows = await this.request<Array<Record<string, unknown>>>("maxx_usage?select=*&order=created_at.desc");
+      return rows.map((row) => ({
+        id: String(row.id),
+        runId: row.run_id ? String(row.run_id) : undefined,
+        model: String(row.model),
+        promptTokens: Number(row.prompt_tokens),
+        completionTokens: Number(row.completion_tokens),
+        estimatedCostUsd: Number(row.estimated_cost_usd),
+        latencyMs: Number(row.latency_ms),
+        createdAt: String(row.created_at),
+      }));
+    } catch {
+      return this.fallback.listUsage();
+    }
   }
 }
 
