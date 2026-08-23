@@ -116,14 +116,14 @@ export class MemoryStore implements ControlTowerStore {
 }
 
 export class SupabaseStore implements ControlTowerStore {
-  private readonly fallback: InMemoryStore;
+  private readonly fallback: MemoryStore;
 
   constructor(
     private readonly url: string,
     private readonly serviceRoleKey: string,
     private readonly approvalTtlHours: number = DEFAULT_APPROVAL_TTL_HOURS,
   ) {
-    this.fallback = new InMemoryStore(approvalTtlHours);
+    this.fallback = new MemoryStore(approvalTtlHours);
   }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
