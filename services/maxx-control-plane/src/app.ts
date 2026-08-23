@@ -769,8 +769,8 @@ export function buildApp(options: AppOptions = {}) {
   app.get("/v1/usage/summary", async () => summarizeUsage(await store.listUsage()));
 
   // Register Sandbox and Pup routes
-  registerSandboxRoutes(app, options);
-  registerPupRoutes(app, options);
+  registerSandboxRoutes(app, config);
+  registerPupRoutes(app, config);
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof z.ZodError) return reply.code(400).send({ error: "Invalid request", issues: error.issues });
