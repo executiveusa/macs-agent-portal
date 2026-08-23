@@ -32,8 +32,6 @@ import {
 } from "./voice-gateway.js";
 import { createVisionGateway, type VisionInputAdapter } from "./vision-gateway.js";
 import { createBrowserWorker, type BrowserWorker } from "./browser-worker.js";
-import { registerSandboxRoutes } from "./sandbox-routes.js";
-import { registerPupRoutes } from "./pups.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -409,14 +407,14 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   app.post("/v1/chat", async (request, reply) => {
-    const rateLimit = rateLimiters.chat.consume(request.operator!.id);
-    if (!rateLimit.allowed) {
-      reply.header("retry-after", String(rateLimit.retryAfterSeconds));
-      return reply.code(429).send({ error: "Too many chat requests", retryAfterSeconds: rateLimit.retryAfterSeconds });
+    const limitDecision = rateLimiters.chat.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many chat requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
 
     const input = chatSchema.parse(request.body);
-    const strategy = await ownerStrategies.get(request.operator!.id);
+    const strategy = ownerStrategies.get(request.operator!.id);
 
     const hermesAvailable = circuitBreakers.hermes.isAvailable();
     if (config.featureFlags.MAXX_HERMES_ENABLED && hermes.isConfigured() && hermesAvailable) {
@@ -431,10 +429,11 @@ export function buildApp(options: AppOptions = {}) {
           id: response.id,
           text: response.text,
           provider: "hermes",
-          model: "hermes-agent-maxx",
+          model: response.model ?? "hermes-agent",
           routingReason: response.routingReason ?? "Hermes MAXX primary orchestrator",
           degraded: false,
           usage: response.usage,
+          skills: response.skills ?? ["agent-maxx"],
         });
       } catch (error) {
         circuitBreakers.hermes.recordFailure();
@@ -524,6 +523,11 @@ export function buildApp(options: AppOptions = {}) {
 
   app.get("/v1/missions", async () => store.listMissions());
   app.post("/v1/missions", async (request, reply) => {
+    const limitDecision = rateLimiters.missions.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many mission creates", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
     const input = missionSchema.parse(request.body);
     const mission = await store.createMission({
       objective: input.objective,
@@ -559,30 +563,41 @@ export function buildApp(options: AppOptions = {}) {
       reply.header("retry-after", String(limitDecision.retryAfterSeconds));
       return reply.code(429).send({ error: "Too many strategy updates", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
-    const input = strategyInputSchema.parse(request.body) as OwnerStrategyInput;
+    const input: OwnerStrategyInput = strategyInputSchema.parse(request.body);
     return ownerStrategies.set(request.operator!.id, input);
   });
 
   app.get("/v1/skills", async () => TRUSTED_SKILLS);
   app.post("/v1/skills/:id/run", async (request, reply) => {
-    const params = z.object({ id: z.string().min(1) }).parse(request.params);
+    const limitDecision = rateLimiters.skills.consume(request.operator!.id);
+    if (!limitDecision.allowed) {
+      reply.header("retry-after", String(limitDecision.retryAfterSeconds));
+      return reply.code(429).send({ error: "Too many skill runs", retryAfterSeconds: limitDecision.retryAfterSeconds });
+    }
+    const skillId = (request.params as { id: string }).id;
+    const skill = TRUSTED_SKILLS.find((item) => item.id === skillId);
+    if (!skill) return reply.code(404).send({ error: "Skill not found" });
+
+    const strategy = ownerStrategies.get(request.operator!.id);
+    if (isActionForbidden(`skill:${skillId}`, strategy)) {
+      return reply.code(403).send({ error: "Action is forbidden by operator strategy", skillId });
+    }
+
     const body = runSkillSchema.parse(request.body);
-    const strategy = await ownerStrategies.get(request.operator!.id);
-
-    if (isActionForbidden(`skill:${params.id}`, strategy)) {
-      return reply.code(403).send({ error: `Skill ${params.id} is forbidden by owner strategy` });
-    }
-
-    if (!config.PI_EXECUTABLE) {
-      return reply.code(503).send({
-        error: "PI_EXECUTABLE is not configured. Pi skill runtime is unavailable on this host.",
+    if (skill.classification === "mutation") {
+      const approval = await store.createApproval({
+        runId: body.runId ?? "direct-skill",
+        action: `skill:${skill.id}`,
+        summary: `Run ${skill.name} (${skill.id})`,
       });
+      return reply.code(202).send({ status: "approval_required", approval });
     }
 
+    const runId = body.runId ?? randomUUID();
     const result = await runPiSkill({
       piExecutable: config.PI_EXECUTABLE,
-      skillId: params.id,
-      runId: body.runId ?? randomUUID(),
+      skillId,
+      runId,
       input: body.input,
     });
     return reply.send(result);
@@ -595,43 +610,65 @@ export function buildApp(options: AppOptions = {}) {
       return reply.code(429).send({ error: "Too many hermes run requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
     if (!config.featureFlags.MAXX_HERMES_ENABLED) {
-      return reply.code(503).send({ error: "MAXX_HERMES_ENABLED is false; Hermes Agent runtime is disabled" });
-    }
-    if (!hermes.isConfigured()) {
-      return reply.code(503).send({
-        error: "MAXX_HERMES_ENDPOINT or MAXX_HERMES_API_KEY is not configured",
-      });
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
     }
     const input = hermesRunSchema.parse(request.body);
-    const result = await hermes.startRun({ ...input, operatorId: request.operator!.id });
-    return reply.code(202).send(result);
+    try {
+      const state = await hermes.startRun(input);
+      await store.addEvent(state.runId, "hermes.run.started", `Hermes run started for mission ${input.missionId}`);
+      return reply.code(201).send(state);
+    } catch (error) {
+      return reply.code(502).send({
+        status: "failed",
+        reason: error instanceof Error ? error.message : "Hermes runtime request failed",
+      });
+    }
   });
+
   app.get("/v1/hermes/runs/:id", async (request, reply) => {
     if (!config.featureFlags.MAXX_HERMES_ENABLED) {
-      return reply.code(503).send({ error: "MAXX_HERMES_ENABLED is false" });
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
     }
-    const params = z.object({ id: z.string().min(1) }).parse(request.params);
-    const status = await hermes.getRun(params.id);
-    if (!status) return reply.code(404).send({ error: "Hermes run not found" });
-    return reply.send(status);
+    const state = await hermes.getRunState((request.params as { id: string }).id);
+    return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
   });
-  app.post("/v1/hermes/runs/:id/approvals/:approvalId", async (request, reply) => {
+
+  app.post("/v1/hermes/runs/:id/approval", async (request, reply) => {
     if (!config.featureFlags.MAXX_HERMES_ENABLED) {
-      return reply.code(503).send({ error: "MAXX_HERMES_ENABLED is false" });
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
     }
-    const params = z.object({ id: z.string().min(1), approvalId: z.string().min(1) }).parse(request.params);
-    const input = hermesApprovalSchema.parse(request.body);
-    const result = await hermes.resolveApproval(params.id, params.approvalId, input.choice as HermesApprovalChoice);
-    return reply.send(result);
+    const { choice } = hermesApprovalSchema.parse(request.body);
+    const runId = (request.params as { id: string }).id;
+    const state = await hermes.resolveApproval(runId, choice as HermesApprovalChoice);
+    if (state) await store.addEvent(state.runId, "hermes.approval.resolved", `Hermes approval resolved: ${choice}`);
+    return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
   });
+
   app.post("/v1/hermes/runs/:id/steer", async (request, reply) => {
     if (!config.featureFlags.MAXX_HERMES_ENABLED) {
-      return reply.code(503).send({ error: "MAXX_HERMES_ENABLED is false" });
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
     }
-    const params = z.object({ id: z.string().min(1) }).parse(request.params);
-    const input = hermesSteerSchema.parse(request.body);
-    const result = await hermes.steer(params.id, input.message);
-    return reply.send(result);
+    const { message } = hermesSteerSchema.parse(request.body);
+    const runId = (request.params as { id: string }).id;
+    const state = await hermes.steerRun(runId, message);
+    if (state) await store.addEvent(state.runId, "hermes.run.steered", "Operator steered Hermes run");
+    return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
+  });
+
+  app.post("/v1/hermes/runs/:id/cancel", async (request, reply) => {
+    if (!config.featureFlags.MAXX_HERMES_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_HERMES_ENABLED is false" });
+    }
+    const state = await hermes.cancelRun((request.params as { id: string }).id);
+    if (state) await store.addEvent(state.runId, "hermes.run.cancelled", "Hermes run cancelled");
+    return state ? reply.send(state) : reply.code(404).send({ error: "Hermes run not found" });
+  });
+
+  app.get("/v1/scheduler/jobs", async (_request, reply) => {
+    if (!config.featureFlags.MAXX_SCHEDULER_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_SCHEDULER_ENABLED is false" });
+    }
+    return reply.send({ jobs: scheduler.list() });
   });
 
   app.post("/v1/memory/documents", async (request, reply) => {
@@ -641,26 +678,20 @@ export function buildApp(options: AppOptions = {}) {
       return reply.code(429).send({ error: "Too many memory writes", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
     if (!config.featureFlags.MAXX_MEMORY_ENABLED) {
-      return reply.code(503).send({ error: "MAXX_MEMORY_ENABLED is false" });
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_MEMORY_ENABLED is false" });
     }
     const input = memoryDocumentSchema.parse(request.body);
-    const doc = await memory.indexDocument(input);
-    return reply.code(201).send(doc);
+    const document = await memory.indexDocument(input);
+    return reply.code(201).send(document);
   });
+
   app.get("/v1/memory/search", async (request, reply) => {
     if (!config.featureFlags.MAXX_MEMORY_ENABLED) {
-      return reply.code(503).send({ error: "MAXX_MEMORY_ENABLED is false" });
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_MEMORY_ENABLED is false" });
     }
     const input = memorySearchSchema.parse(request.query);
     const results = await memory.search(input.q, input.limit);
     return reply.send({ results });
-  });
-
-  app.get("/v1/scheduler/jobs", async (_request, reply) => {
-    if (!config.featureFlags.MAXX_SCHEDULER_ENABLED) {
-      return reply.code(503).send({ error: "MAXX_SCHEDULER_ENABLED is false" });
-    }
-    return reply.send({ jobs: scheduler.list() });
   });
 
   app.post("/v1/browser/sessions", async (request, reply) => {
@@ -670,18 +701,17 @@ export function buildApp(options: AppOptions = {}) {
       return reply.code(429).send({ error: "Too many browser session requests", retryAfterSeconds: limitDecision.retryAfterSeconds });
     }
     const input = browserSchema.parse(request.body);
-    const strategy = await ownerStrategies.get(request.operator!.id);
-
+    const strategy = ownerStrategies.get(request.operator!.id);
     if (isActionForbidden(`browser:${input.action}`, strategy)) {
-      return reply.code(403).send({ error: `Browser action ${input.action} is forbidden by owner strategy` });
+      return reply.code(403).send({ error: "Action is forbidden by operator strategy", action: input.action });
     }
-
     const policy = classifyBrowserAction(input.action as BrowserAction);
-    const isMutation = policy === "approval_required" || ["submit_form", "post", "purchase", "upload", "delete", "change_permissions", "enter_sensitive_data"].includes(input.action);
-
-    if (isMutation && !config.featureFlags.MAXX_BROWSER_MUTATIONS_ENABLED) {
-      return reply.code(403).send({
-        status: "disabled",
+    if (!config.featureFlags.MAXX_BROWSER_ENABLED) {
+      return reply.code(503).send({ status: "unavailable", reason: "MAXX_BROWSER_ENABLED is false", policy });
+    }
+    if (policy === "approval_required" && !config.featureFlags.MAXX_BROWSER_MUTATIONS_ENABLED) {
+      return reply.code(503).send({
+        status: "unavailable",
         reason: "Browser mutations disabled. Set MAXX_BROWSER_MUTATIONS_ENABLED=true to proceed.",
         policy,
       });
@@ -767,10 +797,6 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   app.get("/v1/usage/summary", async () => summarizeUsage(await store.listUsage()));
-
-  // Register Sandbox and Pup routes
-  registerSandboxRoutes(app, config);
-  registerPupRoutes(app, config);
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof z.ZodError) return reply.code(400).send({ error: "Invalid request", issues: error.issues });
