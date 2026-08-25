@@ -1,7 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ChatResponse, ControlTowerBootstrap, Mission, OwnerStrategy } from "@/types/controlTower";
 
-const baseUrl = (import.meta.env.VITE_CONTROL_TOWER_API_URL ?? import.meta.env.VITE_MAXX_CONTROL_PLANE_URL ?? "http://127.0.0.1:8787").replace(/\/$/, "");
+const defaultUrl = typeof window !== "undefined" && window.location.hostname.includes("executiveusa.com")
+  ? window.location.origin
+  : "https://maxx.executiveusa.com";
+
+const baseUrl = (import.meta.env.VITE_CONTROL_TOWER_API_URL ?? import.meta.env.VITE_MAXX_CONTROL_PLANE_URL ?? defaultUrl).replace(/\/$/, "");
 const MAXX_MODE_MARKER = "[[MAXX_MODE:POWER]]";
 
 export type MaxxChatMode = "normal" | "max";

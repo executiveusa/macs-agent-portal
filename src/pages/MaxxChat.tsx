@@ -7,12 +7,14 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Download,
   History,
   LogOut,
   Mic,
   MicOff,
   Settings,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Volume2,
   VolumeX,
@@ -142,6 +144,38 @@ export default function MaxxChat() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [proofMessageId, setProofMessageId] = useState<string | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isPwaInstalled, setIsPwaInstalled] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+
+    if (
+      (typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches) ||
+      (typeof navigator !== "undefined" && (navigator as any).standalone === true)
+    ) {
+      setIsPwaInstalled(true);
+    }
+
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") {
+        setIsPwaInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      alert("To install MAXX on iOS: tap Share (⎋) then select 'Add to Home Screen'. On Android: tap Chrome menu (⋮) then 'Install app'.");
+    }
+  };
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -391,7 +425,17 @@ export default function MaxxChat() {
             <span className={`h-2.5 w-2.5 rounded-full ${statusTone}`} aria-hidden="true" />
             <span className="text-sm text-black/50">{status}</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            {!isPwaInstalled && (
+              <button
+                onClick={handleInstallClick}
+                className="flex h-9 items-center gap-1.5 rounded-full bg-[#24241f] px-3 text-xs font-semibold text-[#f4f2ed] shadow-sm hover:bg-black/80 transition"
+                title="Install MAXX on your phone"
+              >
+                <Smartphone size={13} />
+                <span className="inline">Install App</span>
+              </button>
+            )}
             <button onClick={() => setShowHistory((value) => !value)} className="flex h-10 items-center gap-2 rounded-full px-3 text-sm text-black/55 hover:bg-black/[0.04]" aria-expanded={showHistory}>
               <History size={16} />
               <span className="hidden sm:inline">History</span>
