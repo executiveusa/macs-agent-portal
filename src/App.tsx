@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import MaxxChat from "./pages/MaxxChat";
 import MaxxSettings from "./pages/MaxxSettings";
+import MaxxPups from "./pages/MaxxPups";
 import Shop from "./pages/Shop";
 import Admin from "./pages/Admin";
 import SignIn from "./pages/SignIn";

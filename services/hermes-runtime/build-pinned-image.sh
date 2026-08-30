@@ -6,8 +6,17 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LOCK="$SCRIPT_DIR/UPSTREAM.lock"
 SOURCE_DIR="${MAXX_HERMES_SOURCE_DIR:-$SCRIPT_DIR/.runtime/upstream-source}"
 
+if command -v python3 >/dev/null 2>&1; then
+  PY_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  PY_BIN="python"
+else
+  echo "Missing required command: python3 or python" >&2
+  exit 1
+fi
+
 read_lock() {
-  python - "$LOCK" "$1" <<'PY'
+  "$PY_BIN" - "$LOCK" "$1" <<'PY'
 import json,sys
 with open(sys.argv[1], encoding="utf-8") as handle:
     value=json.load(handle)[sys.argv[2]]

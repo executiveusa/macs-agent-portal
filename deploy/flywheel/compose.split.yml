@@ -1,0 +1,4 @@
+services:
+  maxx-control-plane:
+    ports:
+      - "${MAXX_CONTROL_PLANE_BIND:-127.0.0.1:8788}:8787"

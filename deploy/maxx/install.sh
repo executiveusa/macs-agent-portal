@@ -8,12 +8,21 @@ COMPOSE_FILE="$REPO_ROOT/services/maxx-control-plane/compose.coolify.yml"
 HERMES_BUILD="$REPO_ROOT/services/hermes-runtime/build-pinned-image.sh"
 SECOND_BRAIN_SEED="$SCRIPT_DIR/seed-second-brain-vault.sh"
 
-for command in docker git python; do
+for command in docker git; do
   if ! command -v "$command" >/dev/null 2>&1; then
     echo "Missing required command: $command" >&2
     exit 1
   fi
 done
+
+if command -v python3 >/dev/null 2>&1; then
+  PY_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  PY_BIN="python"
+else
+  echo "Missing required command: python3 or python" >&2
+  exit 1
+fi
 
 docker compose version >/dev/null
 
@@ -45,7 +54,7 @@ for name in "${required[@]}"; do
   fi
 done
 
-LOCKED_COMMIT="$(python - "$REPO_ROOT/services/hermes-runtime/UPSTREAM.lock" <<'PY'
+LOCKED_COMMIT="$("$PY_BIN" - "$REPO_ROOT/services/hermes-runtime/UPSTREAM.lock" <<'PY'
 import json,sys
 with open(sys.argv[1], encoding='utf-8') as handle:
     print(json.load(handle)['commit'])

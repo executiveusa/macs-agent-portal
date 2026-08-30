@@ -1,11 +1,11 @@
-ARG HERMES_IMAGE
+ARG HERMES_IMAGE=maxx-hermes-upstream:latest
 FROM ${HERMES_IMAGE}
 
 USER root
 # The exact pinned Hermes revision declares mcp==1.28.1 in its development
 # dependency set. MAXX needs that same reviewed SDK in production because the
 # isolated Hermes runtime consumes the local MAXX stdio MCP server.
-RUN python -m pip install --no-cache-dir "mcp==1.28.1"
+RUN uv pip install --no-cache-dir "mcp==1.28.1" || python -m pip install --no-cache-dir "mcp==1.28.1"
 COPY --chmod=0755 services/hermes-runtime/maxx-entrypoint.sh /opt/maxx-entrypoint.sh
 COPY services/hermes-runtime/profile /opt/maxx-seed/profile
 COPY skills /opt/maxx-seed/repo-skills

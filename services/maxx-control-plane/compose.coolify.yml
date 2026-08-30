@@ -48,7 +48,7 @@ services:
     volumes:
       - maxx-media-temp:/tmp
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; r=urllib.request.Request('http://127.0.0.1:8080/v1/toolkit/test', headers={'x-api-key':'$${API_KEY}'}); urllib.request.urlopen(r, timeout=5).read()\""]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; r=urllib.request.Request('http://127.0.0.1:8080/v1/toolkit/authenticate', headers={'x-api-key':'$${API_KEY}'}); urllib.request.urlopen(r, timeout=5).read()\""]
       interval: 30s
       timeout: 10s
       retries: 5

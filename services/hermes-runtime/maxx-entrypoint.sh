@@ -6,13 +6,19 @@ SEED_DIR="/opt/maxx-seed"
 CONTEXT_DIR="$DATA_DIR/product-context"
 PUP_PROFILES=("chief-pup" "superdoer" "business-pup")
 
-mkdir -p "$DATA_DIR/skills" "$DATA_DIR/sessions" "$DATA_DIR/memories" "$DATA_DIR/cron" "$DATA_DIR/logs" "$DATA_DIR/home" "$CONTEXT_DIR" "$DATA_DIR/profiles"
+mkdir -p "$DATA_DIR/skills" "$DATA_DIR/sessions" "$DATA_DIR/memories" "$DATA_DIR/cron" "$DATA_DIR/logs/gateways" "$DATA_DIR/home" "$CONTEXT_DIR" "$DATA_DIR/profiles"
+
+if command -v python3 >/dev/null 2>&1; then
+  PY_BIN="python3"
+else
+  PY_BIN="python"
+fi
 
 if [[ ! -f "$DATA_DIR/SOUL.md" ]]; then
   cp "$SEED_DIR/profile/SOUL.md" "$DATA_DIR/SOUL.md"
 fi
 
-python - "$DATA_DIR/config.yaml" "$SEED_DIR/profile/config.yaml" <<'PY'
+"$PY_BIN" - "$DATA_DIR/config.yaml" "$SEED_DIR/profile/config.yaml" <<'PY'
 import os
 import sys
 import tempfile
@@ -87,7 +93,7 @@ set_env_value() {
   local env_file="$1"
   local key="$2"
   local value="$3"
-  python - "$env_file" "$key" "$value" <<'PY'
+  "$PY_BIN" - "$env_file" "$key" "$value" <<'PY'
 import os
 import sys
 path, key, value = sys.argv[1:4]
@@ -117,7 +123,7 @@ derive_profile_key() {
     echo ""
     return
   fi
-  python - "$API_SERVER_KEY" "$profile" <<'PY'
+  "$PY_BIN" - "$API_SERVER_KEY" "$profile" <<'PY'
 import hashlib
 import hmac
 import sys
@@ -152,5 +158,8 @@ if command -v hermes >/dev/null 2>&1; then
 else
   echo "MAXX warning: hermes CLI not found; Pup profiles were not provisioned" >&2
 fi
+
+chmod -R a+rwX "$DATA_DIR" || true
+chown -R 1000:1000 "$DATA_DIR" 2>/dev/null || true
 
 exec /opt/hermes/docker/entrypoint-dispatch.sh "$@"

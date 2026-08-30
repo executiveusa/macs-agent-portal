@@ -1,44 +1,36 @@
 # Agent Context: Agent MAXX Voice & Multi-Sensory Production System
 
 ## Repository Purpose
-Agent MAXX Control Plane and Portal for Stacy / MACS Digital Media. Single-brain architectural orchestrator powering Hermes Agent, autonomous Pups, Second Brain (Obsidian vault), multi-sensory hardware adapters, and production voice gateway.
+Agent MAXX Control Plane and Portal for Stacy / MACS Digital Media. Single-brain architectural orchestrator powering Hermes Agent, autonomous Pups, Second Brain (Obsidian vault), multi-sensory hardware adapters, production voice gateway, and Flywheel deployment lifecycle.
 
 ## Technology Stack
-- **Control Plane API:** Node.js 20, Fastify, TypeScript, Zod, Jose (JWT authentication).
-- **Brain / Primary Orchestrator:** Hermes Agent (`b2c4f1f376167e7e34a88c3dbd544e1fdc848c14`).
-- **Database & Auth:** Self-hosted Supabase (`supabase-db`, `supabase-pooler`, Kong on VPS `31.220.58.212`).
-- **Speech Input:** OpenAI Realtime (`gpt-realtime-2.1-mini`) with browser ephemeral sessions (`POST /v1/voice/session`) and Whisper fallback (`POST /v1/voice/transcribe`).
-- **Speech Output:** ElevenLabs (`eleven_flash_v2_5`, voice ID `21m00Tcm4TlvDq8ikWAM`) with OpenAI audio fallback (`POST /v1/voice/synthesize`).
-- **Vision Adapters:** Extensibility layer (`MetaDATAdapter`, `VisionClawAdapter`, `PhoneCameraAdapter`, `GenericWebRTCGlassesAdapter`).
-- **Frontend Portal:** React 18, Vite, Tailwind CSS, Radix UI, Lucide Icons.
+- **Frontend**: React 18, Vite, TypeScript, Tailwind CSS, Radix UI, Lucide Icons.
+- **Control Plane API**: Node.js 20, Fastify, TypeScript, Zod, Jose (JWT authentication).
+- **Brain / Primary Orchestrator**: Pinned NousResearch Hermes Agent (`services/hermes-runtime/UPSTREAM.lock`).
+- **Database & Auth**: Self-hosted Supabase (`supabase-db`, `supabase-pooler`, Kong on VPS `31.220.58.212`).
+- **Speech Input**: OpenAI Realtime (`gpt-realtime-2.1-mini`) with browser ephemeral sessions and Whisper fallback.
+- **Speech Output**: ElevenLabs (`eleven_flash_v2_5`, voice ID `21m00Tcm4TlvDq8ikWAM`) with OpenAI audio fallback.
+- **Vision Adapters**: Extensibility layer (`MetaDATAdapter`, `VisionClawAdapter`, `PhoneCameraAdapter`, `GenericWebRTCGlassesAdapter`).
+- **Ingress & Edge**: Cloudflare Pages / Vercel (Frontend) + Cloudflare Tunnel (`api.maxx.<DOMAIN>`) -> VPS Host Loopback (`127.0.0.1:8788`).
+- **Deployment**: MAXX Deployment Flywheel (`deploy/flywheel/deploy.sh`, `deploy/maxx/install.sh`, `deploy/maxx/verify.sh`).
 
 ## Main Directories
-- `services/maxx-control-plane/`: Fastify backend handling chat, voice, vision, memory, Pups, missions, and approvals.
-- `services/hermes-runtime/`: Pinned Hermes Agent container definition and entrypoints.
-- `deploy/flywheel/`: VPS Flywheel deployment scripts, compose overlays, and host detection.
-- `src/pages/`: React views including `MaxxChat.tsx` (Stacy voice conversation UI) and `MaxxPups.tsx`.
-- `src/services/`: Frontend API clients (`controlTowerApi.ts`, `pupsApi.ts`).
+- `src/` — React frontend application, UI components, pages (`MaxxChat.tsx`, `MaxxPups.tsx`, `Index.tsx`), hooks, contexts, and API clients.
+- `services/maxx-control-plane/` — Fastify backend service managing Pups, handoffs, workflows, event ingress, voice, vision, approvals, memory, and model routing.
+- `services/hermes-runtime/` — Pinned Hermes container build and runtime overlay.
+- `services/second-brain-worker/` — Background worker syncing durable state and embeddings into `/data/maxx/memory`.
+- `deploy/flywheel/` — Provider-neutral deployment scripts (`bootstrap-vps.sh`, `deploy.sh`, `rollback.sh`, `detect-host.sh`, `compose.split.yml`).
+- `deploy/maxx/` — Canonical installer (`install.sh`), environment templates, and verification suite (`verify.sh`).
+- `supabase/migrations/` — Database schema migrations.
 
-## Files Modified / Added for Voice Gateway
-- `services/maxx-control-plane/src/voice-gateway.ts`: Separated `SpeechInputProvider` and `SpeechOutputProvider`, OpenAI Realtime session creation, ElevenLabs TTS synthesizer.
-- `services/maxx-control-plane/src/vision-gateway.ts`: Multi-sensory hardware abstraction boundary (`VisionInputAdapter`).
-- `services/maxx-control-plane/src/config.ts`: Added OpenAI Realtime and ElevenLabs configuration schemas + direct JWT secret support.
-- `services/maxx-control-plane/src/auth.ts`: Operator JWT authentication supporting self-hosted Supabase HS256/RS256 tokens and JWKS.
-- `services/maxx-control-plane/src/app.ts`: Control plane routing for `/v1/voice/session`, `/v1/voice/transcribe`, `/v1/voice/synthesize`, `/v1/voice/health`.
-- `services/maxx-control-plane/compose.coolify.yml`: Container environment forwarding for voice engine.
-- `src/pages/MaxxChat.tsx`: Automatic mic streaming, auto-commit without manual Send button, ElevenLabs TTS playback, barge-in playback cancellation.
-- `services/maxx-control-plane/src/phone-chat.ts`: Mobile phone chat adapter with pairing and status gateway.
-- `services/phone-chat/`: Mobile real-time CDP & WebSocket companion interface.
-- `services/hermes-runtime/profile/skills/maxx-phone-chat/SKILL.md`: ICM-style operating skill for mobile phone chat.
+## Hardening Gate Applied
+1. **Cloudflare Split Topology**: Added `MAXX_DEPLOY_TOPOLOGY=cloudflare-split` and `compose.split.yml` to bind the control plane strictly to `127.0.0.1:8788`, allowing Cloudflare Tunnel to handle API ingress without VPS port conflicts.
+2. **Supabase Security Migration**: Created `20260821000000_maxx_hardening_gate.sql` guaranteeing `public.handle_updated_at()` exists and setting `public.is_control_tower_operator()` to `SECURITY INVOKER`.
+3. **Control Plane Port Publication**: Changed compose defaults from broad host publication to `expose: - "8787"` and host-loopback publication (`127.0.0.1:8788:8787`).
+4. **Secret Manifest Safety**: Hardened Flywheel run evidence to record sanitized secret manifests (variable names, mode, sha256 checksum) instead of plaintext `.env` snapshots.
+5. **Comprehensive Verifier**: Expanded `deploy/maxx/verify.sh` to test liveness, readiness, 401 unauthorized rejection, normal chat, Power Mode, Pups directory, workflows, and event idempotency.
 
-## Verification Commands & Results
-- **Unit & Integration Test Suite:** `npm test` inside `services/maxx-control-plane` -> 134 passing, 0 failing, 1 skipped.
-- **Frontend Production Build:** `npm run build` -> Built in 1.48s with 0 errors.
-- **Live Health Diagnostics:** `GET /health/ready` -> `{"status":"ready","voice":{"enabled":true,"inputProvider":"openai","inputReady":true,"outputProvider":"elevenlabs","outputReady":true}}`.
-- **Live Paid Smoke Test 1 (Utterance -> Hermes -> ElevenLabs TTS):** Succeeded (MAXX generated 1-sentence description, ElevenLabs synthesized 218KB audio stream).
-- **Live Paid Smoke Test 2 (Approval Gate Recognition):** Succeeded (consequential action recognized, email stopped and held before dispatch).
-
-## Next Recommended Steps
-1. Perform in-browser voice validation on the live Stacy frontend at `https://maxx.executiveusa.com` with microphone permission.
-2. Pair mobile device using `POST /v1/phone/pair` or scan QR code to connect mobile companion interface.
-3. Hook up Meta DAT / camera feed streaming into `VisionInputAdapter` when smart glasses hardware is paired.
+## Verification & Build Commands
+- Frontend Production Build: `npm run build`
+- Local Verification Suite: `bash deploy/maxx/verify.sh`
+- Flywheel Deploy: `sudo MAXX_PROFILE=business MAXX_DEPLOY_TOPOLOGY=cloudflare-split MAXX_DOMAIN=api.maxx.<DOMAIN> MAXX_ENV_FILE=/opt/maxx/secrets/maxx.env bash deploy/flywheel/deploy.sh`

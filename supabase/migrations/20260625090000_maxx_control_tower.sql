@@ -1,7 +1,7 @@
 -- Agent MAXX private control tower. The service role writes runtime records;
 -- authenticated operators can only access rows when their email is allowlisted.
 
-CREATE TABLE public.control_tower_operators (
+CREATE TABLE IF NOT EXISTS public.control_tower_operators (
   email TEXT PRIMARY KEY CHECK (email = lower(email)),
   display_name TEXT NOT NULL DEFAULT 'Stacy',
   active BOOLEAN NOT NULL DEFAULT true,
@@ -25,13 +25,14 @@ AS $$
   );
 $$;
 
+DROP POLICY IF EXISTS "Operators can read their allowlist entry" ON public.control_tower_operators;
 CREATE POLICY "Operators can read their allowlist entry"
 ON public.control_tower_operators
 FOR SELECT
 TO authenticated
 USING (email = lower(COALESCE(auth.jwt() ->> 'email', '')));
 
-CREATE TABLE public.crm_companies (
+CREATE TABLE IF NOT EXISTS public.crm_companies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   domain TEXT,
@@ -41,7 +42,7 @@ CREATE TABLE public.crm_companies (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.crm_contacts (
+CREATE TABLE IF NOT EXISTS public.crm_contacts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID REFERENCES public.crm_companies(id) ON DELETE SET NULL,
   full_name TEXT NOT NULL,
@@ -55,7 +56,7 @@ CREATE TABLE public.crm_contacts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.crm_opportunities (
+CREATE TABLE IF NOT EXISTS public.crm_opportunities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID REFERENCES public.crm_companies(id) ON DELETE SET NULL,
   contact_id UUID REFERENCES public.crm_contacts(id) ON DELETE SET NULL,
@@ -68,7 +69,7 @@ CREATE TABLE public.crm_opportunities (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.crm_activities (
+CREATE TABLE IF NOT EXISTS public.crm_activities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID REFERENCES public.crm_companies(id) ON DELETE CASCADE,
   contact_id UUID REFERENCES public.crm_contacts(id) ON DELETE CASCADE,
@@ -79,7 +80,7 @@ CREATE TABLE public.crm_activities (
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
-CREATE TABLE public.maxx_missions (
+CREATE TABLE IF NOT EXISTS public.maxx_missions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   operator_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   objective TEXT NOT NULL,
@@ -91,7 +92,7 @@ CREATE TABLE public.maxx_missions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.maxx_runs (
+CREATE TABLE IF NOT EXISTS public.maxx_runs (
   id TEXT PRIMARY KEY,
   mission_id UUID NOT NULL REFERENCES public.maxx_missions(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'working'
@@ -104,11 +105,18 @@ CREATE TABLE public.maxx_runs (
   error_summary TEXT
 );
 
-ALTER TABLE public.maxx_missions
-  ADD CONSTRAINT maxx_missions_run_fk
-  FOREIGN KEY (run_id) REFERENCES public.maxx_runs(id) DEFERRABLE INITIALLY DEFERRED;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'maxx_missions_run_fk'
+  ) THEN
+    ALTER TABLE public.maxx_missions
+      ADD CONSTRAINT maxx_missions_run_fk
+      FOREIGN KEY (run_id) REFERENCES public.maxx_runs(id) DEFERRABLE INITIALLY DEFERRED;
+  END IF;
+END $$;
 
-CREATE TABLE public.maxx_stage_runs (
+CREATE TABLE IF NOT EXISTS public.maxx_stage_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id TEXT NOT NULL REFERENCES public.maxx_runs(id) ON DELETE CASCADE,
   stage_id TEXT NOT NULL,
@@ -121,7 +129,7 @@ CREATE TABLE public.maxx_stage_runs (
   UNIQUE (run_id, stage_id)
 );
 
-CREATE TABLE public.maxx_artifacts (
+CREATE TABLE IF NOT EXISTS public.maxx_artifacts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id TEXT NOT NULL REFERENCES public.maxx_runs(id) ON DELETE CASCADE,
   stage_id TEXT NOT NULL,
@@ -133,7 +141,7 @@ CREATE TABLE public.maxx_artifacts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.maxx_events (
+CREATE TABLE IF NOT EXISTS public.maxx_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id TEXT NOT NULL REFERENCES public.maxx_runs(id) ON DELETE CASCADE,
   event_type TEXT NOT NULL,
@@ -143,7 +151,7 @@ CREATE TABLE public.maxx_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.maxx_approvals (
+CREATE TABLE IF NOT EXISTS public.maxx_approvals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id TEXT NOT NULL REFERENCES public.maxx_runs(id) ON DELETE CASCADE,
   requested_by TEXT NOT NULL DEFAULT 'MAXX',
@@ -160,7 +168,7 @@ CREATE TABLE public.maxx_approvals (
   )
 );
 
-CREATE TABLE public.maxx_conversations (
+CREATE TABLE IF NOT EXISTS public.maxx_conversations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   operator_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   mission_id UUID REFERENCES public.maxx_missions(id) ON DELETE SET NULL,
@@ -169,7 +177,7 @@ CREATE TABLE public.maxx_conversations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.maxx_messages (
+CREATE TABLE IF NOT EXISTS public.maxx_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL REFERENCES public.maxx_conversations(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('operator', 'assistant', 'system', 'tool')),
@@ -180,7 +188,7 @@ CREATE TABLE public.maxx_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.maxx_skills (
+CREATE TABLE IF NOT EXISTS public.maxx_skills (
   id TEXT PRIMARY KEY,
   version TEXT NOT NULL,
   purpose TEXT NOT NULL,
@@ -194,7 +202,7 @@ CREATE TABLE public.maxx_skills (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.maxx_skill_runs (
+CREATE TABLE IF NOT EXISTS public.maxx_skill_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   skill_id TEXT NOT NULL REFERENCES public.maxx_skills(id),
   run_id TEXT REFERENCES public.maxx_runs(id) ON DELETE SET NULL,
@@ -205,7 +213,7 @@ CREATE TABLE public.maxx_skill_runs (
   finished_at TIMESTAMPTZ
 );
 
-CREATE TABLE public.maxx_browser_sessions (
+CREATE TABLE IF NOT EXISTS public.maxx_browser_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id TEXT REFERENCES public.maxx_runs(id) ON DELETE SET NULL,
   status TEXT NOT NULL CHECK (status IN ('starting', 'active', 'approval', 'stopped', 'failed')),
@@ -216,7 +224,7 @@ CREATE TABLE public.maxx_browser_sessions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.maxx_usage (
+CREATE TABLE IF NOT EXISTS public.maxx_usage (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id TEXT REFERENCES public.maxx_runs(id) ON DELETE SET NULL,
   model TEXT NOT NULL,
@@ -227,10 +235,10 @@ CREATE TABLE public.maxx_usage (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX maxx_events_run_sequence_idx ON public.maxx_events(run_id, sequence);
-CREATE INDEX maxx_missions_status_idx ON public.maxx_missions(status, updated_at DESC);
-CREATE INDEX maxx_approvals_status_idx ON public.maxx_approvals(status, created_at DESC);
-CREATE INDEX crm_opportunities_stage_idx ON public.crm_opportunities(stage, updated_at DESC);
+CREATE INDEX IF NOT EXISTS maxx_events_run_sequence_idx ON public.maxx_events(run_id, sequence);
+CREATE INDEX IF NOT EXISTS maxx_missions_status_idx ON public.maxx_missions(status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS maxx_approvals_status_idx ON public.maxx_approvals(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS crm_opportunities_stage_idx ON public.crm_opportunities(stage, updated_at DESC);
 
 DO $$
 DECLARE
@@ -244,6 +252,7 @@ BEGIN
   ]
   LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', table_name);
+    EXECUTE format('DROP POLICY IF EXISTS "Control tower operator full access" ON public.%I', table_name);
     EXECUTE format(
       'CREATE POLICY "Control tower operator full access" ON public.%I FOR ALL TO authenticated USING (public.is_control_tower_operator()) WITH CHECK (public.is_control_tower_operator())',
       table_name
@@ -251,26 +260,32 @@ BEGIN
   END LOOP;
 END $$;
 
+DROP TRIGGER IF EXISTS set_crm_companies_updated_at ON public.crm_companies;
 CREATE TRIGGER set_crm_companies_updated_at
 BEFORE UPDATE ON public.crm_companies
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS set_crm_contacts_updated_at ON public.crm_contacts;
 CREATE TRIGGER set_crm_contacts_updated_at
 BEFORE UPDATE ON public.crm_contacts
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS set_crm_opportunities_updated_at ON public.crm_opportunities;
 CREATE TRIGGER set_crm_opportunities_updated_at
 BEFORE UPDATE ON public.crm_opportunities
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS set_maxx_missions_updated_at ON public.maxx_missions;
 CREATE TRIGGER set_maxx_missions_updated_at
 BEFORE UPDATE ON public.maxx_missions
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS set_maxx_conversations_updated_at ON public.maxx_conversations;
 CREATE TRIGGER set_maxx_conversations_updated_at
 BEFORE UPDATE ON public.maxx_conversations
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS set_maxx_browser_sessions_updated_at ON public.maxx_browser_sessions;
 CREATE TRIGGER set_maxx_browser_sessions_updated_at
 BEFORE UPDATE ON public.maxx_browser_sessions
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();

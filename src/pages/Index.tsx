@@ -86,7 +86,12 @@ const SceneFallback = ({
  * 11. Finale      — close back to the audit CTA
  */
 const Index = () => {
-  const [introComplete, setIntroComplete] = useState(() => window.sessionStorage.getItem("maxx_intro_seen") === "1");
+  const [introComplete, setIntroComplete] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("intro") === "1") return false;
+    return true;
+  });
 
   useEffect(() => {
     const handleStartOver = () => {
