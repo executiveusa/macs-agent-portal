@@ -2,23 +2,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const getSupabaseUrl = () => {
-  const envUrl = import.meta.env.VITE_SUPABASE_URL;
-  if (envUrl && !envUrl.includes('sbbuxnyvflczfzvsglpe') && !envUrl.startsWith('http://')) {
-    return envUrl;
-  }
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}/supabase-api`;
-  }
-  return 'http://31.220.58.212:8001';
-};
-
-const SUPABASE_URL = getSupabaseUrl();
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL ||
+  "https://sxkemnqvxlgewrjplcag.supabase.co";
 
 const SUPABASE_PUBLISHABLE_KEY =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzcyNzc2NjczLCJleHAiOjE5MzA0NTY2NzN9.rl1mc-GgpG6nQArbEfFAKOcMvzL7rrgzPFT-LlCiCy4';
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4a2VtbnF2eGxnZXdyanBsY2FnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1OTg4ODIsImV4cCI6MjEwMTE3NDg4Mn0.1Jv-pVmnwenUS7x1GX0PQyFpmPbpflExDDIUxiNFi7E";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
