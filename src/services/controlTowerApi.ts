@@ -1,10 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ChatResponse, ControlTowerBootstrap, Mission, OwnerStrategy } from "@/types/controlTower";
 
-const defaultUrl = typeof window !== "undefined" && window.location.hostname.includes("executiveusa.com")
-  ? window.location.origin
-  : "https://maxx.executiveusa.com";
-
+const TEMP_PUBLIC_DASHBOARD = true;
+const defaultUrl = "https://api.thepaulieffect.com/maxx";
 const baseUrl = (import.meta.env.VITE_CONTROL_TOWER_API_URL ?? import.meta.env.VITE_MAXX_CONTROL_PLANE_URL ?? defaultUrl).replace(/\/$/, "");
 const MAXX_MODE_MARKER = "[[MAXX_MODE:POWER]]";
 
@@ -34,7 +32,7 @@ export type VoiceHealth = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const devBypass = import.meta.env.DEV && import.meta.env.VITE_MAXX_DEV_AUTH_BYPASS === "true";
+  const devBypass = TEMP_PUBLIC_DASHBOARD || (import.meta.env.DEV && import.meta.env.VITE_MAXX_DEV_AUTH_BYPASS === "true");
   const token = devBypass ? undefined : (await supabase.auth.getSession()).data.session?.access_token;
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
