@@ -1,15 +1,13 @@
 import { useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { ArrowRight, CheckCircle2, Lock, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, CheckCircle2, Mail, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 const SignIn = () => {
   const { session, devBypass } = useAuth();
   const location = useLocation();
-  const [email, setEmail] = useState("macsdigitalmedia@gmail.com");
-  const [password, setPassword] = useState("");
-  const [usePasswordMode, setUsePasswordMode] = useState(true);
+  const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -19,33 +17,17 @@ const SignIn = () => {
     return <Navigate to={destination} replace />;
   }
 
-  const handleSignIn = async (event: React.FormEvent) => {
+  const sendMagicLink = async (event: React.FormEvent) => {
     event.preventDefault();
     setPending(true);
     setError("");
-    setNotice("");
-
-    if (usePasswordMode) {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      setPending(false);
-      if (authError) {
-        setError(authError.message);
-      }
-    } else {
-      const { error: authError } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/dashboard` },
-      });
-      setPending(false);
-      if (authError) {
-        setError(authError.message);
-      } else {
-        setNotice("Check your inbox. Your private MAXX link is ready.");
-      }
-    }
+    const { error: authError } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+    });
+    setPending(false);
+    if (authError) setError(authError.message);
+    else setNotice("Check your inbox. Your private MAXX link is ready.");
   };
 
   const signInWithGoogle = async () => {
@@ -89,11 +71,11 @@ const SignIn = () => {
 
           <div className="flex items-center gap-3 py-2 text-[11px] text-black/32">
             <span className="h-px flex-1 bg-black/10" />
-            or sign in with password
+            or use email
             <span className="h-px flex-1 bg-black/10" />
           </div>
 
-          <form onSubmit={handleSignIn} className="space-y-3">
+          <form onSubmit={sendMagicLink} className="space-y-3">
             <label className="block">
               <span className="mb-2 block text-xs font-medium text-black/55">Approved email</span>
               <div className="flex items-center rounded-2xl border border-black/10 bg-white px-4 focus-within:border-black/30">
@@ -108,46 +90,14 @@ const SignIn = () => {
                 />
               </div>
             </label>
-
-            {usePasswordMode && (
-              <label className="block">
-                <span className="mb-2 block text-xs font-medium text-black/55">Password</span>
-                <div className="flex items-center rounded-2xl border border-black/10 bg-white px-4 focus-within:border-black/30">
-                  <Lock size={17} className="text-black/30" />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-transparent px-3 py-3.5 text-[16px] outline-none placeholder:text-black/25"
-                  />
-                </div>
-              </label>
-            )}
-
             <button
               type="submit"
               disabled={pending}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#24241f] px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-50"
             >
-              {pending ? "Signing in…" : usePasswordMode ? "Sign in to MAXX" : "Send magic link"}
+              {pending ? "Sending…" : "Send private sign-in link"}
               {!pending && <ArrowRight size={16} />}
             </button>
-
-            <div className="text-center pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setUsePasswordMode(!usePasswordMode);
-                  setError("");
-                  setNotice("");
-                }}
-                className="text-xs text-black/55 hover:text-black hover:underline"
-              >
-                {usePasswordMode ? "Prefer passwordless magic link?" : "Sign in with password instead"}
-              </button>
-            </div>
           </form>
         </div>
 
