@@ -13,7 +13,6 @@ import MaxxSettings from "./pages/MaxxSettings";
 import MaxxPups from "./pages/MaxxPups";
 import Shop from "./pages/Shop";
 import Admin from "./pages/Admin";
-import SignIn from "./pages/SignIn";
 import Blog from "./pages/Blog";
 import NotFound from "./pages/NotFound";
 
