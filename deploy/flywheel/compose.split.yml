@@ -4,13 +4,15 @@ services:
       - "${MAXX_CONTROL_PLANE_BIND:-127.0.0.1:8788}:8787"
     networks:
       - default
-      - supabase_default
+      - supabase_net
 
   maxx-second-brain-worker:
     networks:
       - default
-      - supabase_default
+      - supabase_net
 
 networks:
-  supabase_default:
+  default:
+  supabase_net:
+    name: supabase_default
     external: true

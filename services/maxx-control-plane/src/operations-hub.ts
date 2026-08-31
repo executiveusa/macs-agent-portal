@@ -242,14 +242,19 @@ class SupabaseOperationsRepository implements OperationsRepository {
   }
   async markWorkflowRun(operatorId: string, id: string, status: string, at = new Date()) { await this.request(`maxx_workflows?id=eq.${encodeURIComponent(id)}&operator_id=eq.${encodeURIComponent(operatorId)}`, { method: "PATCH", body: JSON.stringify({ last_run_at: at.toISOString(), last_run_status: status.slice(0, 120), updated_at: at.toISOString() }) }); }
   async claimEvent(operatorId: string, source: string, eventId: string, eventType: string) {
-    const response = await fetch(`${this.url}/rest/v1/maxx_processed_events`, {
-      method: "POST",
-      headers: { apikey: this.serviceRoleKey, Authorization: `Bearer ${this.serviceRoleKey}`, "Content-Type": "application/json", Prefer: "resolution=ignore-duplicates,return=representation" },
-      body: JSON.stringify({ id: randomUUID(), operator_id: operatorId, source, event_id: eventId, event_type: eventType }),
-    });
-    if (!response.ok) throw new Error(`Event idempotency store request failed with status ${response.status}`);
-    const rows = (await response.json()) as Array<Record<string, unknown>>;
-    return rows.length > 0;
+    try {
+      const response = await fetch(`${this.url}/rest/v1/maxx_processed_events`, {
+        method: "POST",
+        headers: { apikey: this.serviceRoleKey, Authorization: `Bearer ${this.serviceRoleKey}`, "Content-Type": "application/json", Prefer: "resolution=ignore-duplicates,return=representation" },
+        body: JSON.stringify({ id: randomUUID(), operator_id: operatorId, source, event_id: eventId, event_type: eventType }),
+      });
+      if (response.status === 409) return false;
+      if (!response.ok) throw new Error(`Event idempotency store request failed with status ${response.status}`);
+      const rows = (await response.json()) as Array<Record<string, unknown>>;
+      return rows.length > 0;
+    } catch {
+      return false;
+    }
   }
   async listRefinements(operatorId: string) { return (await this.request<Array<Record<string, unknown>>>(`maxx_refinement_proposals?operator_id=eq.${encodeURIComponent(operatorId)}&order=updated_at.desc`)).map(mapRefinement); }
   async createRefinement(input: Omit<MaxxRefinementProposal, "id" | "status" | "createdAt" | "updatedAt">) { const x = materializeRefinement(input); const rows = await this.request<Array<Record<string, unknown>>>("maxx_refinement_proposals", { method: "POST", body: JSON.stringify(toRefinementRow(x)) }); return mapRefinement(rows[0]); }

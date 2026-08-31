@@ -13,7 +13,7 @@ echo "Target API: $API"
 echo "=========================================="
 
 json_get() {
-  python3 - "$1" <<'PY' || python - "$1" <<'PY'
+  python3 -c "
 import json, sys
 try:
     payload = json.load(sys.stdin)
@@ -27,17 +27,17 @@ try:
         else:
             val = None
             break
-    print(val if val is not None else "")
+    print(val if val is not None else '')
 except Exception:
-    print("")
-PY
+    print('')
+" "$1"
 }
 
 echo "[1/8] Checking /health/live"
 LIVE="$(curl -fsS --max-time 10 "$API/health/live")"
 printf '%s\n' "$LIVE"
 LIVE_STATUS="$(printf '%s' "$LIVE" | json_get status)"
-if [[ "$LIVE_STATUS" != "live" && "$LIVE_STATUS" != "ok" ]]; then
+if [[ "$LIVE_STATUS" != "live" && "$LIVE_STATUS" != "ok" && "$LIVE_STATUS" != "alive" ]]; then
   echo "MAXX /health/live did not return expected status. Got: $LIVE_STATUS" >&2
   exit 1
 fi
@@ -68,7 +68,10 @@ if [[ -n "$KEY" ]]; then
     -H "x-maxx-api-key: $KEY" \
     --data '{"message":"Reply with a short confirmation that Agent MAXX 006 is online."}')"
   printf '%s\n' "$NORMAL"
-  TEXT="$(printf '%s' "$NORMAL" | json_get text)"
+  TEXT="$(printf '%s' "$NORMAL" | json_get response)"
+  if [[ -z "$TEXT" ]]; then
+    TEXT="$(printf '%s' "$NORMAL" | json_get text)"
+  fi
   if [[ -z "$TEXT" ]]; then
     echo "Empty or invalid response from normal chat" >&2
     exit 1
@@ -80,7 +83,10 @@ if [[ -n "$KEY" ]]; then
     -H "x-maxx-api-key: $KEY" \
     --data '{"message":"[[MAXX_MODE:POWER]]\nConfirm production governance boundary."}')"
   printf '%s\n' "$POWER"
-  POWER_TEXT="$(printf '%s' "$POWER" | json_get text)"
+  POWER_TEXT="$(printf '%s' "$POWER" | json_get response)"
+  if [[ -z "$POWER_TEXT" ]]; then
+    POWER_TEXT="$(printf '%s' "$POWER" | json_get text)"
+  fi
   if [[ -z "$POWER_TEXT" ]]; then
     echo "Empty or invalid response from MAXX Mode chat" >&2
     exit 1

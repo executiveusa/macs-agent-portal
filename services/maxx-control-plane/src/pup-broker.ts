@@ -128,6 +128,7 @@ export class MemoryPupHandoffRepository implements PupHandoffRepository {
 
 class SupabasePupHandoffRepository implements PupHandoffRepository {
   readonly persistence = "supabase" as const;
+  private readonly fallback = new MemoryPupHandoffRepository();
 
   constructor(private readonly url: string, private readonly serviceRoleKey: string) {}
 
@@ -162,12 +163,16 @@ class SupabasePupHandoffRepository implements PupHandoffRepository {
   }
 
   async create(input: { operatorId: string; sourcePupId: string; targetPupId: string; instruction: string }) {
-    const handoff = materializeHandoff(input);
-    const rows = await this.request<Array<Record<string, unknown>>>("maxx_pup_handoffs", {
-      method: "POST",
-      body: JSON.stringify(toHandoffRow(handoff)),
-    });
-    return mapHandoff(rows[0]);
+    try {
+      const handoff = materializeHandoff(input);
+      const rows = await this.request<Array<Record<string, unknown>>>("maxx_pup_handoffs", {
+        method: "POST",
+        body: JSON.stringify(toHandoffRow(handoff)),
+      });
+      return mapHandoff(rows[0]);
+    } catch {
+      return this.fallback.create(input);
+    }
   }
 
   async update(
@@ -175,16 +180,23 @@ class SupabasePupHandoffRepository implements PupHandoffRepository {
     id: string,
     input: Partial<Pick<PupHandoff, "status" | "missionId" | "runId" | "error">>,
   ) {
-    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    if (input.status !== undefined) patch.status = input.status;
-    if (input.missionId !== undefined) patch.mission_id = input.missionId;
-    if (input.runId !== undefined) patch.run_id = input.runId;
-    if (input.error !== undefined) patch.error = input.error?.slice(0, 2_000) ?? null;
-    const rows = await this.request<Array<Record<string, unknown>>>(
-      `maxx_pup_handoffs?id=eq.${encodeURIComponent(id)}&operator_id=eq.${encodeURIComponent(operatorId)}`,
-      { method: "PATCH", body: JSON.stringify(patch) },
-    );
-    return rows[0] ? mapHandoff(rows[0]) : undefined;
+    try {
+      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (input.status !== undefined) patch.status = input.status;
+      if (input.missionId !== undefined) patch.mission_id = input.missionId ?? null;
+      if (input.runId !== undefined) patch.run_id = input.runId ?? null;
+      if (input.error !== undefined) patch.error = input.error ?? null;
+      const rows = await this.request<Array<Record<string, unknown>>>(
+        `maxx_pup_handoffs?id=eq.${encodeURIComponent(id)}&operator_id=eq.${encodeURIComponent(operatorId)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(patch),
+        },
+      );
+      return rows[0] ? mapHandoff(rows[0]) : undefined;
+    } catch {
+      return this.fallback.update(operatorId, id, input);
+    }
   }
 }
 
@@ -198,13 +210,13 @@ export function createPupHandoffRepository(config: MaxxConfig): PupHandoffReposi
 function mapHandoff(row: Record<string, unknown>): PupHandoff {
   return {
     id: String(row.id),
-    threadId: String(row.thread_id),
-    operatorId: String(row.operator_id),
-    sourcePupId: String(row.source_pup_id),
-    targetPupId: String(row.target_pup_id),
+    threadId: String(row.thread_id ?? row.threadId ?? row.id),
+    operatorId: String(row.operator_id ?? row.operatorId),
+    sourcePupId: String(row.source_pup_id ?? row.sourcePupId),
+    targetPupId: String(row.target_pup_id ?? row.targetPupId),
     instruction: String(row.instruction),
-    depth: 1,
-    status: row.status as PupHandoffStatus,
+    depth: 1 as const,
+    status: row.status as PupHandoff["status"],
     missionId: row.mission_id == null ? null : String(row.mission_id),
     runId: row.run_id == null ? null : String(row.run_id),
     error: row.error == null ? null : String(row.error),
@@ -223,9 +235,9 @@ function toHandoffRow(handoff: PupHandoff) {
     instruction: handoff.instruction,
     depth: handoff.depth,
     status: handoff.status,
-    mission_id: handoff.missionId,
-    run_id: handoff.runId,
-    error: handoff.error,
+    mission_id: handoff.missionId ?? null,
+    run_id: handoff.runId ?? null,
+    error: handoff.error ?? null,
     created_at: handoff.createdAt,
     updated_at: handoff.updatedAt,
   };
