@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { StacyDashboardShell } from "@/components/dashboard/StacyDashboardShell";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import MaxxChat from "./pages/MaxxChat";
@@ -14,7 +13,6 @@ import MaxxSettings from "./pages/MaxxSettings";
 import MaxxPups from "./pages/MaxxPups";
 import Shop from "./pages/Shop";
 import Admin from "./pages/Admin";
-import SignIn from "./pages/SignIn";
 import Blog from "./pages/Blog";
 import NotFound from "./pages/NotFound";
 
@@ -29,24 +27,11 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<MaxxChat />} />
+              <Route path="/home" element={<Index />} />
               <Route path="/blog" element={<Blog />} />
-              <Route
-                path="/dashboard/pups"
-                element={
-                  <ProtectedRoute>
-                    <MaxxPups />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/dashboard/*"
-                element={
-                  <ProtectedRoute>
-                    <MaxxChat />
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="/dashboard/pups" element={<MaxxPups />} />
+              <Route path="/dashboard/*" element={<MaxxChat />} />
               <Route
                 path="/control/settings"
                 element={
@@ -65,7 +50,7 @@ const App = () => (
               />
               <Route path="/shop" element={<Shop />} />
               <Route path="/admin" element={<Admin />} />
-              <Route path="/signin" element={<SignIn />} />
+              <Route path="/signin" element={<MaxxChat />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
