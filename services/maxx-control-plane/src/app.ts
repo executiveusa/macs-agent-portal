@@ -233,6 +233,37 @@ function dependencies(
   } as const;
 }
 
+export function isOriginAllowed(origin: string | undefined, config: MaxxConfig): boolean {
+  if (!origin) return true;
+  const isProd = config.NODE_ENV === "production";
+  if (isProd && (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:"))) {
+    return false;
+  }
+  if (config.allowedOrigins.includes("*") || config.allowedOrigins.includes(origin)) {
+    return true;
+  }
+  if (!isProd && (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:"))) {
+    return true;
+  }
+  try {
+    const parsed = new URL(origin);
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === "macs-agent-portal-main.vercel.app" ||
+      host === "macs-agent-portal-pi.vercel.app" ||
+      host === "thepaulieffect.com" ||
+      host.endsWith(".thepaulieffect.com") ||
+      host === "executiveusa.com" ||
+      host.endsWith(".executiveusa.com")
+    ) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export function buildApp(options: AppOptions = {}) {
   const config = options.config ?? loadConfig({ NODE_ENV: "test" });
   const authenticate = options.authenticate ?? createAuthenticator(config);
@@ -313,19 +344,10 @@ export function buildApp(options: AppOptions = {}) {
 
   app.register(cors, {
     origin: (origin, callback) => {
-      if (
-        !origin ||
-        config.allowedOrigins.includes("*") ||
-        config.allowedOrigins.includes(origin) ||
-        origin.endsWith(".vercel.app") ||
-        origin.includes("executiveusa.com") ||
-        origin.includes("thepaulieffect.com") ||
-        origin.startsWith("http://localhost:") ||
-        origin.startsWith("http://127.0.0.1:")
-      ) {
+      if (isOriginAllowed(origin, config)) {
         return callback(null, true);
       }
-      return callback(null, true);
+      return callback(null, false);
     },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],

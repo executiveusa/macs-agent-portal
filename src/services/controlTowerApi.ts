@@ -1,10 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ChatResponse, ControlTowerBootstrap, Mission, OwnerStrategy } from "@/types/controlTower";
 
-const TEMP_PUBLIC_DASHBOARD = true;
 const defaultUrl = "https://api.thepaulieffect.com/maxx";
 const configuredUrl = import.meta.env.VITE_CONTROL_TOWER_API_URL ?? import.meta.env.VITE_MAXX_CONTROL_PLANE_URL ?? defaultUrl;
-const baseUrl = (TEMP_PUBLIC_DASHBOARD ? defaultUrl : configuredUrl).replace(/\/$/, "");
+const baseUrl = configuredUrl.replace(/\/$/, "");
 const MAXX_MODE_MARKER = "[[MAXX_MODE:POWER]]";
 
 export type MaxxChatMode = "normal" | "max";
@@ -33,7 +32,7 @@ export type VoiceHealth = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const devBypass = TEMP_PUBLIC_DASHBOARD || (import.meta.env.DEV && import.meta.env.VITE_MAXX_DEV_AUTH_BYPASS === "true");
+  const devBypass = import.meta.env.DEV && import.meta.env.VITE_MAXX_DEV_AUTH_BYPASS === "true";
   const token = devBypass ? undefined : (await supabase.auth.getSession()).data.session?.access_token;
   const url = `${baseUrl}${path}`;
 
@@ -49,7 +48,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "network request failed";
-    throw new Error(`MAXX connection failed at ${baseUrl}${path}: ${message}`);
+    throw new Error(`MAXX connection failed at ${baseUrl}${path}: ${message}`, { cause: error });
   }
 
   const payload = await response.json().catch(() => ({}));

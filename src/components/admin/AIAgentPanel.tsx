@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Bot, Zap, Activity } from "lucide-react";
 import { AGENT_MAX_BRAND, AGENT_MAX_PROFILES, AGENT_MAX_PROVIDERS } from "@/config/agentMaxConfig";
-import { runAgentMaxCommand } from "@/services/agentMaxService";
+import { controlTowerApi } from "@/services/controlTowerApi";
 import type { AgentProfile, ProviderId } from "@/types/agentMax";
 
 const AIAgentPanel = () => {
@@ -28,14 +28,13 @@ const AIAgentPanel = () => {
 
     setProcessingCommand(true);
 
-    const result = await runAgentMaxCommand({
-      command: naturalLanguageInput,
-      target: targetAgent,
-      provider,
-      approvalMode,
-    });
+    try {
+      const result = await controlTowerApi.chat(naturalLanguageInput);
+      setLastRunSummary(`${result.text} (${new Date().toLocaleString()})`);
+    } catch (err) {
+      setLastRunSummary(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
-    setLastRunSummary(`${result.summary} (${new Date(result.createdAt).toLocaleString()})`);
     setNaturalLanguageInput("");
     setProcessingCommand(false);
   };

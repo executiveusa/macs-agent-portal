@@ -37,14 +37,31 @@ type Message = {
   };
 };
 
+type SpeechRecognitionErrorLike = {
+  error?: string;
+  message?: string;
+};
+
 type SpeechRecognitionLike = {
   continuous: boolean;
   interimResults: boolean;
   start: () => void;
   stop: () => void;
   onresult: (event: { results: ArrayLike<{ 0: { transcript: string } }> }) => void;
-  onerror: (event?: any) => void;
+  onerror: (event?: SpeechRecognitionErrorLike) => void;
   onend: () => void;
+};
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{
+    outcome: "accepted" | "dismissed";
+    platform?: string;
+  }>;
+};
+
+type NavigatorWithStandalone = Navigator & {
+  standalone?: boolean;
 };
 
 const starterPrompts = [
@@ -108,7 +125,7 @@ function WorkState({ pending, response, isSpeaking, onStopAudio }: { pending: bo
   return (
     <div className={`flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm ${response.degraded ? "border-amber-200 bg-amber-50 text-amber-900" : "border-black/[0.07] bg-[#f7f5ef] text-[#34463a]"}`}>
       <Check size={15} />
-      <span className="font-medium">{response.degraded ? "Done using a backup path" : "Done"}</span>
+      <span className="font-medium">{response.degraded ? "Response ready via backup path" : "Response ready"}</span>
     </div>
   );
 }
@@ -144,29 +161,25 @@ export default function MaxxChat() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [proofMessageId, setProofMessageId] = useState<string | null>(null);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isPwaInstalled, setIsPwaInstalled] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isPwaInstalled, setIsPwaInstalled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const nav = navigator as NavigatorWithStandalone;
+    return window.matchMedia("(display-mode: standalone)").matches || nav.standalone === true;
+  });
 
   useEffect(() => {
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
-
-    if (
-      (typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches) ||
-      (typeof navigator !== "undefined" && (navigator as any).standalone === true)
-    ) {
-      setIsPwaInstalled(true);
-    }
-
     return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
   }, []);
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
-      deferredPrompt.prompt();
+      await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === "accepted") {
         setIsPwaInstalled(true);

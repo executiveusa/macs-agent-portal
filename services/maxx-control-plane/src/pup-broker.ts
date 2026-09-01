@@ -128,7 +128,6 @@ export class MemoryPupHandoffRepository implements PupHandoffRepository {
 
 class SupabasePupHandoffRepository implements PupHandoffRepository {
   readonly persistence = "supabase" as const;
-  private readonly fallback = new MemoryPupHandoffRepository();
 
   constructor(private readonly url: string, private readonly serviceRoleKey: string) {}
 
@@ -163,16 +162,12 @@ class SupabasePupHandoffRepository implements PupHandoffRepository {
   }
 
   async create(input: { operatorId: string; sourcePupId: string; targetPupId: string; instruction: string }) {
-    try {
-      const handoff = materializeHandoff(input);
-      const rows = await this.request<Array<Record<string, unknown>>>("maxx_pup_handoffs", {
-        method: "POST",
-        body: JSON.stringify(toHandoffRow(handoff)),
-      });
-      return mapHandoff(rows[0]);
-    } catch {
-      return this.fallback.create(input);
-    }
+    const handoff = materializeHandoff(input);
+    const rows = await this.request<Array<Record<string, unknown>>>("maxx_pup_handoffs", {
+      method: "POST",
+      body: JSON.stringify(toHandoffRow(handoff)),
+    });
+    return mapHandoff(rows[0]);
   }
 
   async update(
@@ -180,23 +175,19 @@ class SupabasePupHandoffRepository implements PupHandoffRepository {
     id: string,
     input: Partial<Pick<PupHandoff, "status" | "missionId" | "runId" | "error">>,
   ) {
-    try {
-      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-      if (input.status !== undefined) patch.status = input.status;
-      if (input.missionId !== undefined) patch.mission_id = input.missionId ?? null;
-      if (input.runId !== undefined) patch.run_id = input.runId ?? null;
-      if (input.error !== undefined) patch.error = input.error ?? null;
-      const rows = await this.request<Array<Record<string, unknown>>>(
-        `maxx_pup_handoffs?id=eq.${encodeURIComponent(id)}&operator_id=eq.${encodeURIComponent(operatorId)}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify(patch),
-        },
-      );
-      return rows[0] ? mapHandoff(rows[0]) : undefined;
-    } catch {
-      return this.fallback.update(operatorId, id, input);
-    }
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (input.status !== undefined) patch.status = input.status;
+    if (input.missionId !== undefined) patch.mission_id = input.missionId ?? null;
+    if (input.runId !== undefined) patch.run_id = input.runId ?? null;
+    if (input.error !== undefined) patch.error = input.error ?? null;
+    const rows = await this.request<Array<Record<string, unknown>>>(
+      `maxx_pup_handoffs?id=eq.${encodeURIComponent(id)}&operator_id=eq.${encodeURIComponent(operatorId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      },
+    );
+    return rows[0] ? mapHandoff(rows[0]) : undefined;
   }
 }
 

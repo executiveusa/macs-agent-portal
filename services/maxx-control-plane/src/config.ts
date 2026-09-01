@@ -29,7 +29,7 @@ const schema = z.object({
   ELEVENLABS_MODEL_ID: z.string().default("eleven_flash_v2_5"),
   MAXX_SPEECH_INPUT_PROVIDER: z.enum(["openai", "http"]).default("openai"),
   MAXX_SPEECH_OUTPUT_PROVIDER: z.enum(["elevenlabs", "openai", "http"]).default("elevenlabs"),
-  CONTROL_TOWER_ALLOWED_ORIGINS: z.string().default("http://127.0.0.1:4173,http://localhost:4173"),
+  CONTROL_TOWER_ALLOWED_ORIGINS: z.string().default("https://macs-agent-portal-main.vercel.app,https://macs-agent-portal-pi.vercel.app"),
   MAXX_DEV_AUTH_BYPASS: z.string().optional(),
   MAXX_HERMES_ENABLED: z.string().optional(),
   MAXX_HERMES_ENDPOINT: z.string().url().optional(),

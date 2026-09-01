@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import MaxxChat from "./pages/MaxxChat";
 import MaxxSettings from "./pages/MaxxSettings";
 import MaxxPups from "./pages/MaxxPups";
+import SignIn from "./pages/SignIn";
 import Shop from "./pages/Shop";
 import Admin from "./pages/Admin";
 import Blog from "./pages/Blog";
@@ -27,11 +28,33 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<MaxxChat />} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <MaxxChat />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/home" element={<Index />} />
               <Route path="/blog" element={<Blog />} />
-              <Route path="/dashboard/pups" element={<MaxxPups />} />
-              <Route path="/dashboard/*" element={<MaxxChat />} />
+              <Route path="/signin" element={<SignIn />} />
+              <Route
+                path="/dashboard/pups"
+                element={
+                  <ProtectedRoute>
+                    <MaxxPups />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/*"
+                element={
+                  <ProtectedRoute>
+                    <MaxxChat />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/control/settings"
                 element={
@@ -49,8 +72,14 @@ const App = () => (
                 }
               />
               <Route path="/shop" element={<Shop />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/signin" element={<MaxxChat />} />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <Admin />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

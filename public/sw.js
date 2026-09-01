@@ -1,5 +1,5 @@
-const CACHE = "maxx-shell-v2";
-const SHELL = ["/", "/dashboard", "/manifest.webmanifest", "/maxx/maxx-avatar.webp", "/maxx/maxx-mode.webp"];
+const CACHE = "maxx-shell-v3";
+const SHELL = ["/", "/signin", "/dashboard", "/manifest.webmanifest", "/maxx/maxx-avatar.webp", "/maxx/maxx-mode.webp"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).catch(() => undefined));
