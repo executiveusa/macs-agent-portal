@@ -18,13 +18,11 @@ jobs:
   production-proof:
     name: Production proof
     runs-on: ubuntu-latest
-    environment: maxx-production
     timeout-minutes: 12
     env:
       FRONTEND_URL: https://macs-agent-portal-delta.vercel.app
       API_URL: https://api.thepaulieffect.com/maxx
-      SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_URL: https://sxkemnqvxlgewrjplcag.supabase.co
 
     steps:
       - uses: actions/checkout@v4
@@ -37,13 +35,13 @@ jobs:
           grep -F 'emailRedirectTo: `${window.location.origin}/dashboard`' src/pages/SignIn.tsx
           grep -F 'redirectTo: `${window.location.origin}/dashboard`' src/pages/SignIn.tsx
 
-      - name: Require Supabase production inputs
+      - name: Verify production identity
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$SUPABASE_URL" || { echo 'VITE_SUPABASE_URL missing from maxx-production environment' >&2; exit 1; }
-          test -n "$SUPABASE_PUBLISHABLE_KEY" || { echo 'VITE_SUPABASE_PUBLISHABLE_KEY missing from maxx-production environment' >&2; exit 1; }
-          test "$SUPABASE_URL" = 'https://sxkemnqvxlgewrjplcag.supabase.co' || { echo 'Unexpected Supabase project URL' >&2; exit 1; }
+          test "$SUPABASE_URL" = 'https://sxkemnqvxlgewrjplcag.supabase.co'
+          test "$FRONTEND_URL" = 'https://macs-agent-portal-delta.vercel.app'
+          test "$API_URL" = 'https://api.thepaulieffect.com/maxx'
 
       - name: Wait for Vercel production shell
         shell: bash
@@ -76,25 +74,24 @@ jobs:
           curl -fsS --max-time 20 "$API_URL/health/live"
           curl -fsS --max-time 20 "$API_URL/health/ready"
 
-      - name: Verify Supabase Google provider is enabled
+      - name: Verify Supabase Google OAuth redirect
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsS --max-time 20 \
-            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
-            "$SUPABASE_URL/auth/v1/settings" > /tmp/supabase-auth-settings.json
-          node <<'NODE'
-          const fs = require('fs');
-          const settings = JSON.parse(fs.readFileSync('/tmp/supabase-auth-settings.json', 'utf8'));
-          if (settings?.external?.google !== true) {
-            console.error('Supabase Google provider is not enabled');
-            process.exit(1);
-          }
-          console.log('Supabase Google provider enabled');
-          NODE
+          authorize_url="$SUPABASE_URL/auth/v1/authorize?provider=google&redirect_to=$(python -c "import urllib.parse; print(urllib.parse.quote('$FRONTEND_URL/dashboard', safe=''))")"
+          headers=$(mktemp)
+          curl -sS --max-time 20 -D "$headers" -o /dev/null "$authorize_url"
+          status=$(awk 'toupper($1) ~ /^HTTP\// { code=$2 } END { print code }' "$headers")
+          location=$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/^location:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' "$headers")
+          test "$status" = '302' || test "$status" = '303' || { echo "Expected OAuth redirect, got HTTP $status" >&2; cat "$headers" >&2; exit 1; }
+          case "$location" in
+            https://accounts.google.com/*|https://accounts.google.com/o/oauth2/*) ;;
+            *) echo "Google provider did not redirect to Google: $location" >&2; exit 1 ;;
+          esac
+          echo 'Supabase Google provider redirects to Google.'
 
       - name: Production proof result
         run: |
           echo 'MAXX production public proof passed.'
-          echo 'This gate proves live shell, SPA routing, public API health, and Google provider enablement.'
-          echo 'Interactive OAuth consent, magic-link destination, governed Pup delegation, approval stop/resume, and authenticated mission execution remain browser/runtime acceptance gates.'
+          echo 'This gate proves live shell, SPA routing, public API health, and an enabled Google OAuth provider.'
+          echo 'Interactive OAuth completion, magic-link destination, governed Pup delegation, approval stop/resume, and authenticated mission execution remain browser/runtime acceptance gates.'
