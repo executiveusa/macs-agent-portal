@@ -1,6 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const baseUrl = (import.meta.env.VITE_CONTROL_TOWER_API_URL ?? import.meta.env.VITE_MAXX_CONTROL_PLANE_URL ?? "https://api.thepaulieffect.com/maxx").replace(/\/$/, "");
+const TEMP_PUBLIC_DASHBOARD = true;
+const defaultUrl = "https://api.thepaulieffect.com/maxx";
+const configuredUrl = import.meta.env.VITE_CONTROL_TOWER_API_URL ?? import.meta.env.VITE_MAXX_CONTROL_PLANE_URL ?? defaultUrl;
+const baseUrl = (TEMP_PUBLIC_DASHBOARD ? defaultUrl : configuredUrl).replace(/\/$/, "");
 
 export type PupKind = "chief_of_staff" | "superdoer" | "business_in_a_box" | "custom";
 export type PupStatus = "active" | "paused" | "needs_attention";
@@ -103,16 +106,25 @@ export type PupsPayload = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const devBypass = import.meta.env.DEV && import.meta.env.VITE_MAXX_DEV_AUTH_BYPASS === "true";
+  const devBypass = TEMP_PUBLIC_DASHBOARD || (import.meta.env.DEV && import.meta.env.VITE_MAXX_DEV_AUTH_BYPASS === "true");
   const token = devBypass ? undefined : (await supabase.auth.getSession()).data.session?.access_token;
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-  });
+  const url = `${baseUrl}${path}`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "network request failed";
+    throw new Error(`MAXX Pups connection failed at ${baseUrl}${path}: ${message}`);
+  }
+
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error?.message ?? payload.error ?? `MAXX Pups returned ${response.status}`);
   return payload as T;
