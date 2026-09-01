@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const baseUrl = (import.meta.env.VITE_CONTROL_TOWER_API_URL ?? "http://127.0.0.1:8787").replace(/\/$/, "");
+const baseUrl = (import.meta.env.VITE_CONTROL_TOWER_API_URL ?? import.meta.env.VITE_MAXX_CONTROL_PLANE_URL ?? "https://api.thepaulieffect.com/maxx").replace(/\/$/, "");
 
 export type PupKind = "chief_of_staff" | "superdoer" | "business_in_a_box" | "custom";
 export type PupStatus = "active" | "paused" | "needs_attention";

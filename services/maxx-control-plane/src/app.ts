@@ -313,11 +313,30 @@ export function buildApp(options: AppOptions = {}) {
 
   app.register(cors, {
     origin: (origin, callback) => {
-      if (!origin || config.allowedOrigins.includes(origin)) return callback(null, true);
-      callback(new Error("Origin is not allowed"), false);
+      if (
+        !origin ||
+        config.allowedOrigins.includes("*") ||
+        config.allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        origin.includes("executiveusa.com") ||
+        origin.includes("thepaulieffect.com") ||
+        origin.startsWith("http://localhost:") ||
+        origin.startsWith("http://127.0.0.1:")
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
     },
     credentials: true,
-    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-request-id",
+      "x-maxx-hermes-tool-key",
+      "x-api-key",
+      "apikey",
+    ],
   });
 
   app.addHook("onRequest", async (request, reply) => {
