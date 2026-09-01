@@ -1,0 +1,33 @@
+name: Export Vercel Dist
+
+on:
+  push:
+    branches:
+      - ops/vercel-new-account-deploy
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: maxx-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build production frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_CONTROL_TOWER_API_URL: https://api.thepaulieffect.com/maxx
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maxx-vercel-dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 1
