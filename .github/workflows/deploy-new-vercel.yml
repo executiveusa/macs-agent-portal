@@ -1,0 +1,89 @@
+name: Deploy New Vercel
+
+on:
+  push:
+    branches:
+      - ops/vercel-new-account-deploy
+    paths:
+      - .github/workflows/deploy-new-vercel.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_SCOPE: pauli-4426s-projects
+  VERCEL_PROJECT: macs-agent-portal
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: maxx-production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Resolve Vercel token
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          token="${VERCEL_TOKEN:-${VERCEL_API_TOKEN:-}}"
+          test -n "$token" || { echo "Neither VERCEL_TOKEN nor VERCEL_API_TOKEN is configured" >&2; exit 1; }
+          printf '%s' "$token" > "$RUNNER_TEMP/vercel-token"
+          chmod 600 "$RUNNER_TEMP/vercel-token"
+      - name: Create and link project in new team
+        run: |
+          set -euo pipefail
+          token="$(cat "$RUNNER_TEMP/vercel-token")"
+          if ! npx --yes vercel@latest project inspect "$VERCEL_PROJECT" --scope "$VERCEL_SCOPE" --token "$token" >/dev/null 2>&1; then
+            npx --yes vercel@latest project add "$VERCEL_PROJECT" --scope "$VERCEL_SCOPE" --token "$token"
+          fi
+          npx --yes vercel@latest link --yes --project "$VERCEL_PROJECT" --scope "$VERCEL_SCOPE" --token "$token"
+      - name: Persist frontend environment
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_CONTROL_TOWER_API_URL: https://api.thepaulieffect.com/maxx
+        run: |
+          set -euo pipefail
+          token="$(cat "$RUNNER_TEMP/vercel-token")"
+          test -n "$VITE_SUPABASE_URL"
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
+          for key in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VITE_CONTROL_TOWER_API_URL; do
+            value="${!key}"
+            npx --yes vercel@latest env rm "$key" production --yes --scope "$VERCEL_SCOPE" --token "$token" >/dev/null 2>&1 || true
+            printf '%s' "$value" | npx --yes vercel@latest env add "$key" production --scope "$VERCEL_SCOPE" --token "$token"
+          done
+      - name: Connect GitHub repository
+        run: |
+          set -euo pipefail
+          token="$(cat "$RUNNER_TEMP/vercel-token")"
+          npx --yes vercel@latest git connect --yes --scope "$VERCEL_SCOPE" --token "$token"
+      - name: Deploy exact main to production
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_CONTROL_TOWER_API_URL: https://api.thepaulieffect.com/maxx
+        run: |
+          set -euo pipefail
+          token="$(cat "$RUNNER_TEMP/vercel-token")"
+          npx --yes vercel@latest deploy --prod --yes \
+            --scope "$VERCEL_SCOPE" \
+            --project "$VERCEL_PROJECT" \
+            --token "$token" \
+            --build-env "VITE_SUPABASE_URL=$VITE_SUPABASE_URL" \
+            --build-env "VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY" \
+            --build-env "VITE_CONTROL_TOWER_API_URL=$VITE_CONTROL_TOWER_API_URL" \
+            | tee "$RUNNER_TEMP/vercel-deploy.txt"
+      - name: Deployment proof
+        run: |
+          set -euo pipefail
+          echo "main_sha=$(git rev-parse HEAD)"
+          cat "$RUNNER_TEMP/vercel-deploy.txt"
