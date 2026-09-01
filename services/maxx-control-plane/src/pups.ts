@@ -246,7 +246,10 @@ class SupabasePupRepository implements PupRepository {
         ...init?.headers,
       },
     });
-    if (!response.ok) throw new Error(`Pup store request failed with status ${response.status}`);
+    if (!response.ok) {
+      const errBody = await response.text();
+      throw new Error(`Pup store request failed with status ${response.status}: ${errBody}`);
+    }
     const text = await response.text();
     return (text ? JSON.parse(text) : undefined) as T;
   }
