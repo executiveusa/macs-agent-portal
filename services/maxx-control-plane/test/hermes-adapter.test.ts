@@ -99,7 +99,7 @@ test("HttpHermesAdapter routes a Pup run through the profile-prefixed API with a
   });
 
   assert.equal(calls[0].url, "https://hermes.internal/p/superdoer/v1/runs");
-  assert.equal(calls[0].headers.get("authorization"), `Bearer ${deriveHermesProfileApiKey("master-key", "superdoer")}`);
+  assert.equal(calls[0].headers.get("authorization"), "Bearer master-key");
   assert.match(String(calls[0].body.instructions), /Hermes Pup profile: superdoer/);
   assert.match(String(calls[0].body.instructions), /persistent MAXX Pup/);
 });
@@ -182,7 +182,7 @@ test("HttpHermesAdapter keeps Pup approval and status traffic inside the Pup pro
     "https://hermes.internal/p/chief-pup/v1/runs/pup-run",
   ]);
   for (const call of calls) {
-    assert.equal(call.auth, `Bearer ${deriveHermesProfileApiKey("master", "chief-pup")}`);
+    assert.equal(call.auth, "Bearer master");
   }
 });
 
@@ -234,7 +234,7 @@ test("HttpHermesAdapter gives each Pup a persistent Responses API conversation",
   assert.equal(result.text, "Drafts prepared.");
   assert.equal(result.usage.totalTokens, 11);
   assert.equal(calls[0].url, "https://hermes.internal/p/superdoer/v1/responses");
-  assert.equal(calls[0].headers.get("authorization"), `Bearer ${deriveHermesProfileApiKey("master-key", "superdoer")}`);
+  assert.equal(calls[0].headers.get("authorization"), "Bearer master-key");
   assert.equal(calls[0].body.conversation, "Bot Chat");
   assert.equal(calls[0].body.store, true);
   assert.match(String(calls[0].body.instructions), /persistent MAXX Pup/);

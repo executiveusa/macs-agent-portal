@@ -253,9 +253,8 @@ export class HttpHermesAdapter implements HermesAdapter {
     return profile ? `${this.endpoint}/p/${encodeURIComponent(profile)}` : this.endpoint;
   }
 
-  private authKey(profile?: string) {
-    if (!profile || !this.apiKey) return this.apiKey;
-    return deriveHermesProfileApiKey(this.apiKey, profile);
+  private authKey(_profile?: string) {
+    return this.apiKey;
   }
 
   private headers(profile?: string, extra: Record<string, string> = {}) {
