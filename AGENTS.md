@@ -37,9 +37,26 @@ If no business plan exists, do **not** invent one silently. Note `BUSINESS PLAN:
 
 The first question for substantial repo work should effectively be: **What business outcome is this repository supposed to move, and where is that contract written?**
 
+For this repository, the durable local business contract is `docs/business/BUSINESS_PLAN.md`.
+
+## Four-bucket commercial routing
+
+For growth, offer, lead, conversion, sales language, positioning, productization, launch, or commercial experiment work:
+
+1. Read `docs/business/BUSINESS_PLAN.md`.
+2. Treat the public commercial taxonomy as exactly **Reset, Momentum, Scale, Launch**.
+3. Load the canonical commercial rules from `executiveusa/maxx-migrations-agentic-systems`:
+   - `docs/icm/MONEY_MODELS.md`
+   - `icm/growth-engine/SKILL.md`
+   - the one relevant bucket skill only.
+4. Do not duplicate those money models or create a fifth public bucket in this portal.
+5. Use `docs/architecture/four-bucket-growth-client.md` as the portal/backend boundary.
+
+Internal labels such as Client Zero, Built Here, labs, or named products are evidence/capability labels, not public commercial buckets.
+
 ## Canonical MAXX suite boundary
 
-This repository is the Agent MAXX interaction surface. The canonical portfolio map, product-analysis gate, durable data/process authority, and suite-wide architecture live in `executiveusa/maxx-migrations-agentic-systems` under `icm/maxx-suite/`.
+This repository is the Agent MAXX interaction surface. The canonical portfolio map, product-analysis gate, durable data/process authority, suite-wide architecture, and four-bucket commercial engine live in `executiveusa/maxx-migrations-agentic-systems`.
 
 For a new MAXX product, repo, model, workflow, integration, salvage/merge decision, or high-level architecture task, load `icm/maxx-suite/00_router/CONTEXT.md` from that backend repo and only the smallest relevant context folder. Do not autoload or duplicate the full suite catalog here.
 
