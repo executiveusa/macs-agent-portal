@@ -12,12 +12,12 @@ async function call(path, options = {}, auth = true, allowNon2xx = false) {
   }
   const response = await fetch(`${API}${path}`, { ...options, headers });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok && !allowNon2xx) throw new Error(payload.error || payload.message || `MAXX returned ${response.status}`);
+  if (!response.ok && !allowNon2xx) throw new Error(payload.error || payload.reason || payload.message || `MAXX returned ${response.status}`);
   return { ...payload, httpStatus: response.status };
 }
 
 function usage() {
-  console.log(`Agent MAXX CLI\n\nUsage:\n  maxx status\n  maxx chat <message>\n  maxx max <message>\n  maxx mission <objective>\n\nEnvironment:\n  MAXX_API_URL   private MAXX control-plane URL\n  MAXX_API_KEY   deployment-specific machine credential\n`);
+  console.log(`Agent MAXX CLI\n\nUsage:\n  maxx status\n  maxx chat <message>\n  maxx max <message>\n  maxx mission <objective>\n  maxx migrations health\n  maxx migrations manifest\n  maxx migrations route <business condition>\n\nEnvironment:\n  MAXX_API_URL   private MAXX control-plane URL\n  MAXX_API_KEY   deployment-specific machine credential\n`);
 }
 
 const [command, ...args] = process.argv.slice(2);
@@ -41,6 +41,28 @@ try {
     const objective = args.join(" ").trim();
     if (!objective) throw new Error("A mission objective is required");
     console.log(JSON.stringify(await call("/v1/missions", { method: "POST", body: JSON.stringify({ objective }) }), null, 2));
+  } else if (command === "migrations") {
+    const [subcommand, ...rest] = args;
+    if (subcommand === "health") {
+      console.log(JSON.stringify(await call("/v1/migrations/health"), null, 2));
+    } else if (subcommand === "manifest") {
+      console.log(JSON.stringify(await call("/v1/migrations/manifest"), null, 2));
+    } else if (subcommand === "route") {
+      const condition = rest.join(" ").trim();
+      if (!condition) throw new Error("A business condition is required");
+      console.log(
+        JSON.stringify(
+          await call("/v1/migrations/route", {
+            method: "POST",
+            body: JSON.stringify({ condition }),
+          }),
+          null,
+          2,
+        ),
+      );
+    } else {
+      throw new Error("Use: maxx migrations health | manifest | route <business condition>");
+    }
   } else {
     throw new Error(`Unknown command: ${command}`);
   }
