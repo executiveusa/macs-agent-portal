@@ -64,6 +64,7 @@ jobs:
         run: |
           test -f skills/browser-hosting-deployer/SKILL.md
           test -f services/hermes-runtime/profile/skills/maxx-sandbox/SKILL.md
+          test -f services/hermes-runtime/profile/skills/maxx-icm-federation/SKILL.md
           for skill in pi-packages/maxx/skills/*; do
             test -f "$skill/SKILL.md"
           done
@@ -96,6 +97,8 @@ jobs:
           MAXX_HERMES_IMAGE: maxx-hermes:test-pinned
           NCA_TOOLKIT_API_KEY: 11111111111111112222222222222222
           MAXX_SANDBOX_KEY: 33333333333333334444444444444444
+          MAXX_MIGRATIONS_URL: https://migrations.example.com
+          MAXX_MIGRATIONS_API_KEY: 55555555555555556666666666666666
           CONTROL_TOWER_ALLOWED_ORIGINS: https://maxx.example.com
         run: docker compose -f services/maxx-control-plane/compose.coolify.yml config --quiet
 

@@ -19,12 +19,28 @@ For a meaningful choice where alternatives matter, use **3-2-1** when it improve
 
 Do not mechanically force this format onto ordinary conversation.
 
+## ICM federation
+
+ICM means **Interpretable Context Methodology**. It is the shared architecture for understanding where truth lives, what context to load, what stage owns the work, what output is expected, and where the human authority check sits.
+
+The three-repository system is one product:
+- `executiveusa/macsdigitalmedia` — public MACS story, proof, offers and intake;
+- this Agent MAXX product — Stacy interaction, approvals, runtime and governed tools;
+- `executiveusa/maxx-migrations-agentic-systems` — canonical ICM/business backend, money models, four-bucket routing, durable capabilities and evidence contracts.
+
+For cross-repository business work, use the MAXX Migrations tools exposed by your `maxx-control-plane` MCP bridge. Do not reconstruct or memorize a private copy of the backend. Read the canonical manifest/route when needed.
+
+A walk test does not pass because files or integrations exist. Require **motion**: an intended path must actually travel through its handler and transport to the canonical owner and return an observable result with evidence. Keep `TESTED` and `VERIFIED` distinct.
+
+The public commercial buckets are exactly **Reset, Momentum, Scale, Launch**. If classification is unclear, call `maxx_migrations_route` rather than inventing another category.
+
 ## Operating behavior
 
 - Outcome first. Translate the request into the smallest safe executable mission.
 - Inspect before changing brownfield systems.
 - Load only the context and skills needed for this mission.
 - Prefer authoritative API/CLI/MCP interfaces; use browser/computer control when necessary.
+- For canonical business/ICM questions, prefer the MAXX Migrations federation path over duplicated portal memory.
 - Delegate bounded specialist work when it improves speed or quality, but remain accountable for the final result.
 - Use independent verification for consequential work. A builder does not approve its own production/security/public-money result.
 - Distinguish `proposed`, `built`, `tested`, `verified`, `adopted`, and `valuable` accurately.

@@ -3,6 +3,7 @@ import test from "node:test";
 import type { FastifyRequest } from "fastify";
 import { buildApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
+import { registerMigrationsFederationRoutes } from "../src/migrations-federation.js";
 import { eventDispatchHeaders, forwardedHeaders, registerOperationsHubRoutes } from "../src/operations-hub.js";
 import { MemoryPupHandoffRepository, registerPupBrokerRoutes } from "../src/pup-broker.js";
 import { registerPupRoutes } from "../src/pups.js";
@@ -25,12 +26,13 @@ function bridgeConfig(overrides: NodeJS.ProcessEnv = {}) {
   });
 }
 
-async function createApp() {
-  const config = bridgeConfig();
+async function createApp(overrides: NodeJS.ProcessEnv = {}) {
+  const config = bridgeConfig(overrides);
   const app = buildApp({ config });
   await registerPupRoutes(app, config);
   await registerPupBrokerRoutes(app, config, new MemoryPupHandoffRepository());
   await registerOperationsHubRoutes(app, config);
+  await registerMigrationsFederationRoutes(app, config);
   return app;
 }
 
@@ -41,6 +43,41 @@ test("Hermes tool key can see the team but cannot access unrelated control-tower
 
   const blocked = await app.inject({ method: "GET", url: "/v1/control-tower/bootstrap", headers: { "x-maxx-hermes-tool-key": hermesKey } });
   assert.equal(blocked.statusCode, 401);
+  await app.close();
+});
+
+test("Hermes and machine credentials may reach only the bounded migrations federation routes", async () => {
+  const app = await createApp();
+
+  const hermesFederation = await app.inject({
+    method: "GET",
+    url: "/v1/migrations/health",
+    headers: { "x-maxx-hermes-tool-key": hermesKey },
+  });
+  assert.equal(hermesFederation.statusCode, 503);
+  assert.equal(hermesFederation.json().status, "unavailable");
+
+  const machineFederation = await app.inject({
+    method: "GET",
+    url: "/v1/migrations/health",
+    headers: { "x-maxx-api-key": machineKey },
+  });
+  assert.equal(machineFederation.statusCode, 503);
+  assert.equal(machineFederation.json().status, "unavailable");
+
+  const machineBlocked = await app.inject({
+    method: "GET",
+    url: "/v1/pups",
+    headers: { "x-maxx-api-key": machineKey },
+  });
+  assert.equal(machineBlocked.statusCode, 401);
+
+  const badKey = await app.inject({
+    method: "GET",
+    url: "/v1/migrations/health",
+    headers: { "x-maxx-api-key": "wrong-machine-key-0123456789" },
+  });
+  assert.equal(badKey.statusCode, 401);
   await app.close();
 });
 

@@ -13,7 +13,7 @@ async function maxx(path, options = {}, auth = true, allowNon2xx = false) {
   }
   const response = await fetch(`${API}${path}`, { ...options, headers });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok && !allowNon2xx) throw new Error(payload.error || payload.message || `MAXX returned ${response.status}`);
+  if (!response.ok && !allowNon2xx) throw new Error(payload.error || payload.reason || payload.message || `MAXX returned ${response.status}`);
   return { ...payload, httpStatus: response.status };
 }
 
@@ -41,7 +41,7 @@ async function handle(message) {
       result: {
         protocolVersion: params.protocolVersion || "2025-06-18",
         capabilities: { tools: {} },
-        serverInfo: { name: "agent-maxx", version: "0.1.0" },
+        serverInfo: { name: "agent-maxx", version: "0.2.0" },
       },
     };
   }
@@ -78,6 +78,25 @@ async function handle(message) {
               required: ["objective"],
             },
           },
+          {
+            name: "maxx_migrations_health",
+            description: "Check the canonical MAXX Migrations backend through Agent MAXX's governed control plane.",
+            inputSchema: { type: "object", properties: {} },
+          },
+          {
+            name: "maxx_migrations_manifest",
+            description: "Read the canonical ICM federation, ownership map, evidence states and machine surfaces.",
+            inputSchema: { type: "object", properties: {} },
+          },
+          {
+            name: "maxx_migrations_route",
+            description: "Route a business condition to Reset, Momentum, Scale or Launch using the canonical backend.",
+            inputSchema: {
+              type: "object",
+              properties: { condition: { type: "string" } },
+              required: ["condition"],
+            },
+          },
         ],
       },
     };
@@ -102,6 +121,23 @@ async function handle(message) {
       const objective = String(args.objective || "").trim();
       if (!objective) throw new Error("objective is required");
       const payload = await maxx("/v1/missions", { method: "POST", body: JSON.stringify({ objective }) });
+      return result(id, payload, payload);
+    }
+    if (name === "maxx_migrations_health") {
+      const payload = await maxx("/v1/migrations/health");
+      return result(id, payload, payload);
+    }
+    if (name === "maxx_migrations_manifest") {
+      const payload = await maxx("/v1/migrations/manifest");
+      return result(id, payload, payload);
+    }
+    if (name === "maxx_migrations_route") {
+      const condition = String(args.condition || "").trim();
+      if (!condition) throw new Error("condition is required");
+      const payload = await maxx("/v1/migrations/route", {
+        method: "POST",
+        body: JSON.stringify({ condition }),
+      });
       return result(id, payload, payload);
     }
     throw new Error(`Unknown MAXX tool: ${name}`);

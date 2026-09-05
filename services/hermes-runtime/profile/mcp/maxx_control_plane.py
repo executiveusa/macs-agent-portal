@@ -2,9 +2,10 @@
 """Narrow MCP bridge from isolated MAXX Hermes to the MAXX control plane.
 
 This is intentionally not a general HTTP client. It exposes a fixed set of
-team and sandbox operations and carries a dedicated server-side credential.
-The control plane remains the authority for operator scope, one-hop delegation,
-approvals, emergency locks, persistence, mutation policy, and sandbox access.
+team, federation and sandbox operations and carries a dedicated server-side
+credential. The control plane remains the authority for operator scope,
+one-hop delegation, approvals, emergency locks, persistence, mutation policy,
+MAXX Migrations federation credentials, and sandbox access.
 """
 
 from __future__ import annotations
@@ -82,6 +83,30 @@ def _pup_workspace_id(pup: dict[str, Any]) -> str:
         return builtins[kind]
     raw = str(pup.get("id", "custom-pup")).replace("-", "")[:32].lower()
     return f"custom-{raw}"
+
+
+@mcp.tool()
+def maxx_migrations_health() -> str:
+    """Check the canonical MAXX Migrations/ICM backend through the governed control plane."""
+    return json.dumps(_request("GET", "/v1/migrations/health"), ensure_ascii=False)
+
+
+@mcp.tool()
+def maxx_migrations_manifest() -> str:
+    """Read the canonical ICM federation, repository ownership, evidence states and motion gate."""
+    return json.dumps(_request("GET", "/v1/migrations/manifest"), ensure_ascii=False)
+
+
+@mcp.tool()
+def maxx_migrations_route(condition: str) -> str:
+    """Route a business condition through the canonical Reset/Momentum/Scale/Launch backend."""
+    cleaned = condition.strip()
+    if not cleaned:
+        raise RuntimeError("condition is required")
+    return json.dumps(
+        _request("POST", "/v1/migrations/route", {"condition": cleaned}),
+        ensure_ascii=False,
+    )
 
 
 @mcp.tool()

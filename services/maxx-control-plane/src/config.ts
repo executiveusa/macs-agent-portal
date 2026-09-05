@@ -17,6 +17,8 @@ const schema = z.object({
   MAXX_HERMES_TOOL_KEY: z.string().min(16).optional(),
   MAXX_HERMES_TOOL_OPERATOR_ID: z.string().uuid().optional(),
   MAXX_ICM_ROOT: z.string().default(path.resolve(process.cwd(), "workspaces/maxx")),
+  MAXX_MIGRATIONS_URL: z.string().url().optional(),
+  MAXX_MIGRATIONS_API_KEY: z.string().min(16).optional(),
   PI_EXECUTABLE: z.string().optional(),
   MAXX_BROWSER_WS_ENDPOINT: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),

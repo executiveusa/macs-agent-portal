@@ -18,7 +18,16 @@ function pathOf(request: FastifyRequest) {
 
 function machineRouteAllowed(request: FastifyRequest) {
   const path = pathOf(request);
-  return request.method === "POST" && (path === "/v1/chat" || path === "/v1/missions");
+  if (request.method === "POST" && (path === "/v1/chat" || path === "/v1/missions")) {
+    return true;
+  }
+  if (
+    request.method === "GET" &&
+    (path === "/v1/migrations/health" || path === "/v1/migrations/manifest")
+  ) {
+    return true;
+  }
+  return request.method === "POST" && path === "/v1/migrations/route";
 }
 
 function eventRouteAllowed(request: FastifyRequest) {
@@ -28,10 +37,22 @@ function eventRouteAllowed(request: FastifyRequest) {
 function hermesToolRouteAllowed(request: FastifyRequest) {
   const path = pathOf(request);
   if (request.method === "GET" && (path === "/v1/pups" || path === "/v1/workflows")) return true;
-  if (request.method === "GET" && (path === "/v1/sandbox/capabilities" || path === "/v1/sandbox/files/read" || path === "/v1/sandbox/files/list")) return true;
+  if (
+    request.method === "GET" &&
+    (path === "/v1/sandbox/capabilities" ||
+      path === "/v1/sandbox/files/read" ||
+      path === "/v1/sandbox/files/list")
+  )
+    return true;
+  if (
+    request.method === "GET" &&
+    (path === "/v1/migrations/health" || path === "/v1/migrations/manifest")
+  )
+    return true;
   if (request.method !== "POST") return false;
   if (path === "/v1/pup-handoffs" || path === "/v1/workflows" || path === "/v1/refinements") return true;
   if (path === "/v1/sandbox/exec" || path === "/v1/sandbox/files/write") return true;
+  if (path === "/v1/migrations/route") return true;
   return /^\/v1\/pups\/[^/]+\/(run|delegate|fresh-specialist)$/.test(path);
 }
 
