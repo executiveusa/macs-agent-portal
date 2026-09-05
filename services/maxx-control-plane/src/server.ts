@@ -1,5 +1,6 @@
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import { registerMigrationsFederationRoutes } from "./migrations-federation.js";
 import { registerOperationsHubRoutes } from "./operations-hub.js";
 import { registerPupBrokerRoutes } from "./pup-broker.js";
 import { registerPupRoutes } from "./pups.js";
@@ -30,6 +31,7 @@ await registerPupRuntimeControlRoutes(app, pupConfig);
 await registerPupBrokerRoutes(app, pupConfig);
 await registerOperationsHubRoutes(app, pupConfig);
 await registerSandboxRoutes(app, pupConfig);
+await registerMigrationsFederationRoutes(app, config);
 
 try {
   await app.listen({ host: config.HOST, port: config.PORT });
