@@ -57,8 +57,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v2
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
         with:
           version: 2.101.0
       - name: Require intended MAXX database
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.MAXX_VPS_SSH_PRIVATE_KEY }}
