@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:26-alpine AS build
 
 WORKDIR /app/services/maxx-control-plane
 COPY services/maxx-control-plane/package*.json ./
@@ -7,7 +7,7 @@ COPY services/maxx-control-plane/tsconfig.json ./
 COPY services/maxx-control-plane/src ./src
 RUN npm run build && npm prune --omit=dev
 
-FROM node:20-alpine AS runtime
+FROM node:26-alpine AS runtime
 
 ENV NODE_ENV=production
 WORKDIR /app/services/maxx-control-plane
