@@ -1,6 +1,7 @@
 services:
   maxx-hermes:
     image: "${MAXX_HERMES_IMAGE:?build/publish the exact UPSTREAM.lock Hermes revision first}"
+    pull_policy: if_not_present
     restart: unless-stopped
     environment:
       API_SERVER_ENABLED: "true"
