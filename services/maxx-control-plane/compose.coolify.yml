@@ -108,6 +108,8 @@ services:
       context: ../..
       dockerfile: services/maxx-control-plane/Dockerfile
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:8788:8787"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
