@@ -41,8 +41,8 @@ jobs:
   release-gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -62,8 +62,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v2
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
         with:
           version: 2.101.0
       - name: Require intended database
@@ -85,8 +85,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -98,7 +98,7 @@ jobs:
           VITE_CONTROL_TOWER_API_URL: ${{ inputs.api_url }}
         run: npm run build
       - name: Deploy Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -109,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.MAXX_VPS_SSH_PRIVATE_KEY }}
