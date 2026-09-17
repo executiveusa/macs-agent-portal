@@ -18,7 +18,8 @@
     "maxx:restore": "node scripts/maxx-restore.mjs",
     "maxx:browser-smoke": "node scripts/maxx-browser-smoke.mjs",
     "maxx:opusclip": "node scripts/maxx-opusclip.mjs",
-    "maxx:video-dossier": "node scripts/maxx-video-dossier.mjs"
+    "maxx:video-dossier": "node scripts/maxx-video-dossier.mjs",
+    "test:routes": "node scripts/verify-route-contract.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

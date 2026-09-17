@@ -28,14 +28,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <MaxxChat />
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="/" element={<Index />} />
               <Route path="/home" element={<Index />} />
               <Route path="/blog" element={<Blog />} />
               <Route path="/signin" element={<SignIn />} />

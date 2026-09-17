@@ -62,10 +62,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          curl -fsS --max-time 20 "$FRONTEND_URL/" -o /tmp/maxx-public.html
           curl -fsS --max-time 20 "$FRONTEND_URL/signin" -o /tmp/maxx-signin.html
           curl -fsS --max-time 20 "$FRONTEND_URL/dashboard" -o /tmp/maxx-dashboard.html
+          grep -q '<div id="root"></div>' /tmp/maxx-public.html
           grep -q '<div id="root"></div>' /tmp/maxx-signin.html
           grep -q '<div id="root"></div>' /tmp/maxx-dashboard.html
+          npm run test:routes
 
       - name: Verify MAXX public API health
         shell: bash
