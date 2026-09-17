@@ -251,4 +251,4 @@ export class GestureEngine {
       } : null,
     }));
   }
-                                                     }
+}
