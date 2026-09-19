@@ -13,9 +13,10 @@ const schema = z.object({
   STACY_ALLOWED_EMAILS: z.string().default(""),
   MAXX_API_KEY: z.string().min(16).optional(),
   MAXX_EVENT_INGEST_KEY: z.string().min(16).optional(),
-  MAXX_EVENT_OPERATOR_ID: z.string().uuid().optional(),
+  // Lexical UUID only: self-hosted seed operator IDs predate RFC4122 version/variant nibbles.
+  MAXX_EVENT_OPERATOR_ID: z.string().regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, "must be a UUID-shaped identifier").optional(),
   MAXX_HERMES_TOOL_KEY: z.string().min(16).optional(),
-  MAXX_HERMES_TOOL_OPERATOR_ID: z.string().uuid().optional(),
+  MAXX_HERMES_TOOL_OPERATOR_ID: z.string().regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, "must be a UUID-shaped identifier").optional(),
   MAXX_ICM_ROOT: z.string().default(path.resolve(process.cwd(), "workspaces/maxx")),
   MAXX_MIGRATIONS_URL: z.string().url().optional(),
   MAXX_MIGRATIONS_API_KEY: z.string().min(16).optional(),
