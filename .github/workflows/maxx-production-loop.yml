@@ -25,7 +25,7 @@ jobs:
       SUPABASE_URL: https://sxkemnqvxlgewrjplcag.supabase.co
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Reject production auth localhost regression
         shell: bash
