@@ -48,7 +48,11 @@ if [[ "$CURRENT_ORIGIN" != "$UPSTREAM" ]]; then
   exit 1
 fi
 
-git -C "$SOURCE_DIR" fetch --depth=1 origin "$COMMIT"
+if git -C "$SOURCE_DIR" cat-file -e "$COMMIT^{commit}" 2>/dev/null; then
+  echo "Pinned commit $COMMIT already present locally; skipping fetch."
+else
+  git -C "$SOURCE_DIR" fetch --depth=1 origin "$COMMIT"
+fi
 git -C "$SOURCE_DIR" checkout --detach --force "$COMMIT"
 ACTUAL="$(git -C "$SOURCE_DIR" rev-parse HEAD)"
 if [[ "$ACTUAL" != "$COMMIT" ]]; then

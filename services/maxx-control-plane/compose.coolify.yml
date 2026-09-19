@@ -37,7 +37,7 @@ services:
 
   maxx-media:
     build:
-      context: "https://github.com/stephengpope/no-code-architects-toolkit.git#d9bb5679e203e6b5d3b3c2b9ab848a289c645024"
+      context: "/root/mig_phase0_macs_20260918/nca-src/no-code-architects-toolkit-d9bb5679e203e6b5d3b3c2b9ab848a289c645024"
     restart: unless-stopped
     environment:
       API_KEY: "${NCA_TOOLKIT_API_KEY:?required}"
@@ -128,8 +128,6 @@ services:
       MAXX_EVENT_OPERATOR_ID: "${MAXX_EVENT_OPERATOR_ID:-}"
       MAXX_HERMES_TOOL_KEY: "${MAXX_HERMES_TOOL_KEY:-}"
       MAXX_HERMES_TOOL_OPERATOR_ID: "${MAXX_HERMES_TOOL_OPERATOR_ID:-}"
-      MAXX_MIGRATIONS_URL: "${MAXX_MIGRATIONS_URL:?required}"
-      MAXX_MIGRATIONS_API_KEY: "${MAXX_MIGRATIONS_API_KEY:?required}"
       CONTROL_TOWER_ALLOWED_ORIGINS: "${CONTROL_TOWER_ALLOWED_ORIGINS:?required}"
       MAXX_HERMES_ENABLED: "true"
       MAXX_HERMES_ENDPOINT: http://maxx-hermes:8642

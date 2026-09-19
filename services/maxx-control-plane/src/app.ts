@@ -95,7 +95,7 @@ const browserSchema = z.object({
 });
 const runSkillSchema = z.object({
   runId: z.string().optional(),
-  input: z.record(z.unknown()).default({}),
+  input: z.record(z.string(), z.unknown()).default({}),
 });
 const voiceTranscribeSchema = z.object({
   audioBase64: z.string().min(1),
