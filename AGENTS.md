@@ -13,6 +13,10 @@ This repo follows the Emerald Tablets™ operating protocol.
 
 ## ICM federation — mandatory
 
+Start with local `CONTEXT.md`. It points to the one canonical MAXX architecture.
+
+The universal flow is `01_orient -> 02_plan -> 03_work -> 04_verify -> 05_release -> 06_learn`. Local implementation folders and skills are shelves behind that flow, not separate mental models.
+
 ICM means **Interpretable Context Methodology**. Agent MAXX is one member of a three-repository system:
 
 - `executiveusa/macsdigitalmedia` — public storefront;
