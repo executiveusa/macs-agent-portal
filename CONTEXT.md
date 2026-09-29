@@ -1,6 +1,20 @@
-# Agent MAXX — ICM root router
+# Agent MAXX — ICM local map
 
-Agent MAXX is the customer-facing operator product in this repository.
+Agent MAXX is Stacy's simple operator surface. This repository does not define a second operating architecture.
+
+## One architecture
+
+The canonical MAXX ICM map lives in `executiveusa/maxx-migrations-agentic-systems/CONTEXT.md`.
+
+All substantial work follows the same grammar:
+
+`01_orient -> 02_plan -> 03_work -> 04_verify -> 05_release -> 06_learn`
+
+The folders under `icm/maxx/` in this repository are **capability shelves** used by the runtime (identity, experience, runtime, capabilities, release). They are not a competing workflow sequence.
+
+The owner-facing philosophy is simple:
+
+**State the outcome once. Keep complexity backstage. Stop only at real authority boundaries. Return proof.**
 
 ## Product boundary
 
@@ -24,7 +38,7 @@ The walk test cannot pass from docs/builds alone. There must be motion:
 
 Use `/v1/migrations/health`, `/v1/migrations/manifest`, and `/v1/migrations/route` for the bounded federation path. CLI/MCP/Hermes all reach those routes through the control plane. The MAXX Migrations machine credential stays in the control plane and is never given to Hermes or the browser.
 
-## Load only the stage you need
+## Load only the capability shelf you need
 
 | Need | Read |
 |---|---|
