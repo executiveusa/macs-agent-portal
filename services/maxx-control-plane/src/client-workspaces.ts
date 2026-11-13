@@ -12,7 +12,8 @@ export type ClientWorkspace = {
   name: string;
   role: "owner" | "admin" | "operator" | "reviewer" | "viewer";
   status: "active" | "paused" | "archived";
-  pendingApprovalCount: null;
+  pendingApprovalCount: number | null;
+  urgentApprovalCount: number | null;
 };
 export class WorkspaceUnavailable extends Error {
   readonly status = 503;
@@ -95,8 +96,55 @@ export function createClientWorkspaceService(
         id: row.id, organizationId: row.organization_id,
         slug: row.slug, name: row.name,
         role: grant.role, status: row.status as ClientWorkspace["status"],
-        pendingApprovalCount: null, // requires separately verified project join
+        pendingApprovalCount: null,
+        urgentApprovalCount: null,
       });
+    }
+    // Reconcile existing MAXX approvals via action_proposals.project_id.
+    // Do not mix org-wide or unscoped approvals into a client's badge.
+    // Failure or bounded truncation yields UNKNOWN (null), never fabricated zero.
+    try {
+      const orgIds = [...activeOrgs];
+      const pending = await readRows("approvals", {
+        select: "action_proposal_id,organization_id,expires_at",
+        organization_id: "in.(" + orgIds.join(",") + ")",
+        status: "eq.pending", limit: "501",
+      });
+      if (pending.length <= 500) {
+        const proposalIds = [...new Set(pending.map(p => p.action_proposal_id).filter(isUUID))];
+        const proposals = proposalIds.length ? await readRows("action_proposals", {
+          select: "id,project_id,organization_id",
+          id: "in.(" + proposalIds.join(",") + ")", limit: "501",
+        }) : [];
+        if (proposals.length <= 500) {
+          const mapping = new Map<string, {projectId:string;orgId:string}>();
+          for (const row of proposals) {
+            if(isUUID(row.id) && isUUID(row.project_id) && isUUID(row.organization_id)) {
+              mapping.set(row.id,{projectId:row.project_id,orgId:row.organization_id});
+            }
+          }
+          const counts = new Map<string,{pending:number;urgent:number}>();
+          for (const workspace of workspaces) counts.set(workspace.id,{pending:0,urgent:0});
+          for (const approval of pending) {
+            if(!isUUID(approval.action_proposal_id) || !isUUID(approval.organization_id)) continue;
+            const proposal = mapping.get(approval.action_proposal_id);
+            if(!proposal || proposal.orgId !== approval.organization_id) continue;
+            const target = counts.get(proposal.projectId);
+            if(!target) continue;
+            target.pending++;
+            const expiry = typeof approval.expires_at === "string" ? Date.parse(approval.expires_at) : NaN;
+            if(Number.isFinite(expiry) && expiry <= Date.now() + 24*3_600_000) target.urgent++;
+          }
+          for (const workspace of workspaces) {
+            const count = counts.get(workspace.id);
+            workspace.pendingApprovalCount = count?.pending ?? null;
+            workspace.urgentApprovalCount = count?.urgent ?? null;
+          }
+        }
+      }
+    } catch {
+      // Optional reporting source unavailable. Workspaces remain authorized,
+      // while approval indicators remain UNKNOWN and cannot turn falsely green.
     }
     return workspaces.sort((a,b) => a.name.localeCompare(b.name));
   }
