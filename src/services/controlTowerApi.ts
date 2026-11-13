@@ -84,7 +84,7 @@ export const controlTowerApi = {
     request<{id:string;slug:string;status:"active"}>("/v1/client-workspaces",{
       method:"POST",body:JSON.stringify({organizationId,name,slug}),
     }),
-  advanceClientArchive: (projectId:string,step:"start"|"acknowledge"|"type_name"|"archive",
+  advanceClientArchive: (projectId:string,step:"start"|"acknowledge"|"type_name"|"archive"|"cancel",
       requestId?:string,typedName?:string) =>
     request<{requestId:string;projectId:string;state:string;recoveryUntil:string|null}>(
       `/v1/client-workspaces/${encodeURIComponent(projectId)}/archive`,{
