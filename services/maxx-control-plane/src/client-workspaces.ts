@@ -114,7 +114,7 @@ export function createClientWorkspaceService(config:Cfg,enabled:boolean,request:
     return {id:r.id,status:r.status,slug:r.slug};
   }
   async function archiveStep(
-    userId:string,projectId:string,step:"start"|"acknowledge"|"type_name"|"archive"|"restore",
+    userId:string,projectId:string,step:"start"|"acknowledge"|"type_name"|"archive"|"restore"|"cancel",
     requestId?:string,typedName?:string,
   ) {
     if(!isUUID(userId)||!isUUID(projectId)) throw new WorkspaceForbidden();
