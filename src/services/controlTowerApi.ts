@@ -14,7 +14,8 @@ export type AuthorizedWorkspace = {
   name: string;
   role: "owner" | "admin" | "operator" | "reviewer" | "viewer";
   status: "active" | "paused" | "archived";
-  pendingApprovalCount: null;
+  pendingApprovalCount: number | null;
+  urgentApprovalCount: number | null;
 };
 export type ClientWorkspacesResponse = {
   status: "VERIFIED";
