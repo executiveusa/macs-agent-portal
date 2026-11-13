@@ -15,7 +15,7 @@ const requestId="eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const row={
   id:project,organizationId:org,slug:"bunna-restaurant",name:"BUNNA RESTAURANT",
   role:"operator",status:"active",archiveRequestId:null,recoveryUntil:null,
-  pendingApprovalCount:2,urgentApprovalCount:1,
+  pendingApprovalCount:2,urgentApprovalCount:1,approvalCoverage:"maxx_only",
   suggestedTasks:["Check Bunna lunch paid receipts"],promptsSource:"verified",
 };
 const config={SUPABASE_URL:"https://example.supabase.co",SUPABASE_SERVICE_ROLE_KEY:"server-key-not-public"};
