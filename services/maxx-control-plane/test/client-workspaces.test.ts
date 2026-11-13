@@ -131,3 +131,27 @@ test("verified zero pending is distinct from an unavailable approvals source", a
   assert.equal(list[0]?.pendingApprovalCount,0);
   assert.equal(list[0]?.urgentApprovalCount,0);
 });
+
+test("stored prompt templates are project scoped and cannot leak other clients", async () => {
+  const request = (async(input: URL | RequestInfo, init?: RequestInit) => {
+    const u = new URL(String(input));
+    if (u.pathname.endsWith("/memberships")) return Response.json([{ organization_id: org }]);
+    if (u.pathname.endsWith("/project_memberships")) return Response.json([
+      { organization_id: org, project_id: project, role: "operator" },
+    ]);
+    if (u.pathname.endsWith("/projects")) return Response.json([
+      { id: project, organization_id: org, slug: "bunna-restaurant", name: "BUNNA RESTAURANT", status: "active" },
+    ]);
+    if (u.pathname.endsWith("/project_prompt_templates")) return Response.json([
+      { project_id: project, organization_id: org, title: "Review Bunna group lunch receipts", position: 1 },
+      { project_id: forbiddenProject, organization_id: foreignOrg, title: "SECRET FOREIGN COMPANY", position: 2 },
+    ]);
+    if (u.pathname.endsWith("/approvals")) return Response.json([]);
+    return Response.json([], { status: 404 });
+  }) as typeof fetch;
+  const svc = createClientWorkspaceService(config, true, request);
+  const workspaces = await svc.listForUser(alice);
+  assert.equal(workspaces[0]?.promptsSource, "verified");
+  assert.deepEqual(workspaces[0]?.suggestedTasks, ["Review Bunna group lunch receipts"]);
+  assert.equal(JSON.stringify(workspaces).includes("SECRET FOREIGN"), false);
+});
