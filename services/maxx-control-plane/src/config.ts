@@ -48,6 +48,7 @@ const schema = z.object({
   MAXX_SCHEDULER_ENABLED: z.string().optional(),
   MAXX_PRODUCTION_MUTATIONS_ENABLED: z.string().optional(),
   MAXX_EMERGENCY_DISABLE: z.string().optional(),
+  MAXX_CLIENT_WORKSPACES_ENABLED: z.string().optional(),
   MAXX_APPROVAL_TTL_HOURS: z.coerce.number().positive().default(24),
   MAXX_MEMORY_INDEX_PATH: z.string().optional(),
   MAXX_STT_ENDPOINT: z.string().url().optional(),
@@ -68,6 +69,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     devAuthBypass: parsed.NODE_ENV !== "production" && parsed.MAXX_DEV_AUTH_BYPASS === "true",
     featureFlags: loadFeatureFlags(env),
     emergencyDisabled: isEmergencyDisabled(env),
+    clientWorkspacesEnabled: parsed.MAXX_CLIENT_WORKSPACES_ENABLED === "true",
     memoryIndexPath: parsed.MAXX_MEMORY_INDEX_PATH ?? path.join(parsed.MAXX_ICM_ROOT, "memory", "index.jsonl"),
   };
 }
