@@ -40,7 +40,7 @@ export function ClientWorkspaceSwitcher({selectedSlug,onSelect,verifiedWorkspace
     w.slug==="macs-digital-media")?.organizationId ??
     verifiedWorkspaces.find(w=>["owner","admin"].includes(w.role))?.organizationId;
   const alertUnknown=connectionState!=="verified" || verifiedWorkspaces.length===0 ||
-    verifiedWorkspaces.some(w=>w.pendingApprovalCount===null || w.urgentApprovalCount===null);
+    verifiedWorkspaces.some(w=>w.pendingApprovalCount===null || w.urgentApprovalCount===null || w.approvalCoverage==="maxx_only");
   const pendingTotal=verifiedWorkspaces.reduce((sum,w)=>sum+(w.pendingApprovalCount??0),0);
   const urgentTotal=verifiedWorkspaces.reduce((sum,w)=>sum+(w.urgentApprovalCount??0),0);
   const tone=urgentTotal>0?"bg-red-500":pendingTotal>0?"bg-amber-500":
@@ -115,7 +115,7 @@ export function ClientWorkspaceSwitcher({selectedSlug,onSelect,verifiedWorkspace
       </div>}
       {view==="alerts"&&<div className="mt-4 space-y-3 text-sm">
         <div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-full ${tone}`}/><strong>Needs attention</strong></div>
-        <p className="text-black/60">{alertUnknown?"Some approval data is unavailable. Unknown never means zero.":
+        <p className="text-black/60">{alertUnknown?"MAXX project approvals are counted, but older unassigned approvals still require reconciliation. Zero does not mean all clear.":
           pendingTotal>0?`${pendingTotal} verified pending approvals`:"No verified pending client approvals."}</p>
         {verifiedWorkspaces.filter(w=>(w.pendingApprovalCount??0)>0).map(w=>
           <div className="flex justify-between gap-2 rounded-lg border p-3 text-xs" key={w.id}>
