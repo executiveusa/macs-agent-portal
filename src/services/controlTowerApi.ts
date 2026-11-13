@@ -16,6 +16,8 @@ export type AuthorizedWorkspace = {
   status: "active" | "paused" | "archived";
   pendingApprovalCount: number | null;
   urgentApprovalCount: number | null;
+  suggestedTasks: string[];
+  promptsSource: "verified" | "unavailable";
 };
 export type ClientWorkspacesResponse = {
   status: "VERIFIED";
