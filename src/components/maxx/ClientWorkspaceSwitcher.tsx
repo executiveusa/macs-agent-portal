@@ -87,7 +87,7 @@ export function ClientWorkspaceSwitcher({selectedSlug,onSelect,verifiedWorkspace
       <Bell size={17}/><span className={`absolute right-1 top-1 h-2.5 w-2.5 rounded-full ring-2 ring-white ${tone}`}/>
     </button>
     {open&&<div role="dialog" aria-label="Client workspaces"
-      className="absolute left-0 top-12 z-50 w-[min(375px,calc(100vw-24px))] max-h-[min(78dvh,630px)] overflow-y-auto rounded-2xl border border-black/10 bg-[#fffefa] p-3 shadow-2xl">
+      className="fixed inset-x-3 top-[4.5rem] z-50 max-h-[min(78dvh,630px)] overflow-y-auto rounded-2xl border border-black/10 bg-[#fffefa] p-3 shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[min(375px,calc(100vw-48px))]" onKeyDown={e=>{if(e.key==="Escape")setOpen(false);}}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <strong className="text-sm text-[#24241f]">My client workspaces</strong>
         <button type="button" aria-label="Close client menu" onClick={()=>setOpen(false)} className="rounded-full p-2 hover:bg-black/5"><X size={16}/></button>
