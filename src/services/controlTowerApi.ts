@@ -7,6 +7,20 @@ const baseUrl = configuredUrl.replace(/\/$/, "");
 const MAXX_MODE_MARKER = "[[MAXX_MODE:POWER]]";
 
 export type MaxxChatMode = "normal" | "max";
+export type AuthorizedWorkspace = {
+  id: string;
+  organizationId: string;
+  slug: string;
+  name: string;
+  role: "owner" | "admin" | "operator" | "reviewer" | "viewer";
+  status: "active" | "paused" | "archived";
+  pendingApprovalCount: null;
+};
+export type ClientWorkspacesResponse = {
+  status: "VERIFIED";
+  workspaces: AuthorizedWorkspace[];
+  note: string;
+};
 
 export type VoiceSession = {
   clientSecret?: string;
@@ -60,13 +74,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const controlTowerApi = {
   bootstrap: () => request<ControlTowerBootstrap>("/v1/control-tower/bootstrap"),
-  chat: (message: string, model?: string, runId?: string, mode: MaxxChatMode = "normal") =>
+  listClientWorkspaces: () => request<ClientWorkspacesResponse>("/v1/client-workspaces"),
+  chat: (message: string, model?: string, runId?: string, mode: MaxxChatMode = "normal", workspaceId?: string) =>
     request<ChatResponse>("/v1/chat", {
       method: "POST",
       body: JSON.stringify({
         message: mode === "max" ? `${MAXX_MODE_MARKER}\n${message}` : message,
         model: model || undefined,
         runId,
+        workspaceId,
       }),
     }),
   createMission: (objective: string) =>
