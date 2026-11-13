@@ -1,4 +1,4 @@
-import Fastify, { type FastifyRequest } from "fastify";
+import Fastify, { type FastifyRequest, type FastifyReply } from "fastify";
 import cors from "@fastify/cors";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -33,7 +33,7 @@ import {
 import { createVisionGateway, type VisionInputAdapter } from "./vision-gateway.js";
 import { createBrowserWorker, type BrowserWorker } from "./browser-worker.js";
 import { DefaultPhoneChatGateway, type PhoneChatGateway } from "./phone-chat.js";
-import { createClientWorkspaceService, WorkspaceForbidden, WorkspaceUnavailable } from "./client-workspaces.js";
+import { createClientWorkspaceService, WorkspaceForbidden, WorkspaceUnavailable, WorkspaceConflict, WorkspaceInvalid } from "./client-workspaces.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -55,6 +55,7 @@ type AppOptions = {
   vision?: { adapter: VisionInputAdapter; isReady: () => boolean };
   browser?: BrowserWorker;
   phone?: PhoneChatGateway;
+  clientWorkspaces?: ReturnType<typeof createClientWorkspaceService>;
 };
 
 const riskToleranceEnum = z.enum(["conservative", "standard", "permissive"]);
@@ -286,7 +287,8 @@ export function buildApp(options: AppOptions = {}) {
       indexPath: config.memoryIndexPath,
     });
   const ownerStrategies = options.ownerStrategies ?? new OwnerStrategyStore();
-  const clientWorkspaces = createClientWorkspaceService(config, config.clientWorkspacesEnabled);
+  const clientWorkspaces = options.clientWorkspaces ??
+    createClientWorkspaceService(config, config.clientWorkspacesEnabled);
   const scheduler = options.scheduler ?? new Scheduler();
   const rawVoice =
     options.voice ??
@@ -430,6 +432,64 @@ export function buildApp(options: AppOptions = {}) {
       const status = error instanceof WorkspaceForbidden ? 403 : 503;
       return reply.code(status).send({status:"UNAVAILABLE",error:"Client workspace access cannot be verified"});
     }
+  });
+
+  // These are explicit, audited server-side operations. Never expose a direct
+  // Supabase table write or allow the browser to supply the acting user ID.
+  const clientCreateSchema = z.object({
+    organizationId:z.string().uuid(),
+    name:z.string().trim().min(2).max(100),
+    slug:z.string().regex(/^[a-z][a-z0-9-]{2,60}$/),
+  });
+  const archiveStepSchema = z.object({
+    step:z.enum(["start","acknowledge","type_name","archive"]),
+    requestId:z.string().uuid().optional(),
+    typedName:z.string().max(100).optional(),
+  });
+  const archiveProjectSchema = z.object({projectId:z.string().uuid()});
+  function clientRequestError(error:unknown,reply:FastifyReply) {
+    const status = error instanceof WorkspaceForbidden ? 403 :
+      error instanceof WorkspaceConflict ? 409 :
+      error instanceof WorkspaceInvalid ? 400 : 503;
+    return reply.code(status).send({
+      status:status===503?"UNAVAILABLE":"DENIED",
+      error: status===503?"Client workspace service is unavailable" :
+        status===403?"Not authorized for this client":
+        status===409?"Client state has changed or needs confirmation":"Invalid client request",
+    });
+  }
+  app.post("/v1/client-workspaces",async(request,reply)=>{
+    if(request.operator?.principal==="machine") return reply.code(403).send({error:"Human session required"});
+    const parsed = clientCreateSchema.safeParse(request.body);
+    if(!parsed.success) return reply.code(400).send({error:"Invalid client details"});
+    try {
+      const item=await clientWorkspaces.createClient(
+        request.operator!.id,parsed.data.organizationId,parsed.data.name,parsed.data.slug);
+      return reply.code(201).header("cache-control","no-store").send(item);
+    } catch(error) { return clientRequestError(error,reply); }
+  });
+  app.post("/v1/client-workspaces/:projectId/archive",async(request,reply)=>{
+    if(request.operator?.principal==="machine") return reply.code(403).send({error:"Human session required"});
+    const params=archiveProjectSchema.safeParse(request.params);
+    const body=archiveStepSchema.safeParse(request.body);
+    if(!params.success || !body.success) return reply.code(400).send({error:"Invalid archive confirmation"});
+    try {
+      const result=await clientWorkspaces.archiveStep(
+        request.operator!.id,params.data.projectId,body.data.step,
+        body.data.requestId,body.data.typedName);
+      return reply.header("cache-control","no-store").send(result);
+    } catch(error) { return clientRequestError(error,reply); }
+  });
+  app.post("/v1/client-workspaces/:projectId/restore",async(request,reply)=>{
+    if(request.operator?.principal==="machine") return reply.code(403).send({error:"Human session required"});
+    const params=archiveProjectSchema.safeParse(request.params);
+    const body=z.object({requestId:z.string().uuid()}).safeParse(request.body);
+    if(!params.success || !body.success) return reply.code(400).send({error:"Invalid restore request"});
+    try {
+      const result=await clientWorkspaces.archiveStep(
+        request.operator!.id,params.data.projectId,"restore",body.data.requestId);
+      return reply.header("cache-control","no-store").send(result);
+    } catch(error) { return clientRequestError(error,reply); }
   });
 
   app.get("/v1/control-tower/bootstrap", async () => {
