@@ -24,6 +24,7 @@ import { Link } from "react-router-dom";
 import { controlTowerApi, type MaxxChatMode } from "@/services/controlTowerApi";
 import { useAuth } from "@/hooks/useAuth";
 import { ClientWorkspaceSwitcher } from "@/components/maxx/ClientWorkspaceSwitcher";
+import { MaxxSettingsDrawer } from "@/components/maxx/MaxxSettingsDrawer";
 import { canSendClientTask, catalogItem } from "@/lib/maxx-client-workspaces";
 import type { Approval, ChatResponse } from "@/types/controlTower";
 
@@ -160,6 +161,7 @@ export default function MaxxChat() {
   const authSubject = session?.user.id ?? "no-auth-session";
   const [input, setInput] = useState("");
   const [selectedClientSlug,setSelectedClientSlug] = useState<string|null>(null);
+  const [settingsOpen,setSettingsOpen] = useState(false);
   const [clientNotice,setClientNotice] = useState("");
   const workspaceKey = authSubject + ":" + (selectedClientSlug ?? "general");
   const workspaceKeyRef = useRef(workspaceKey);
@@ -490,14 +492,21 @@ export default function MaxxChat() {
               <History size={16} />
               <span className="hidden sm:inline">History</span>
             </button>
-            <Link to="/control/settings" className="flex h-10 w-10 items-center justify-center rounded-full text-black/50 hover:bg-black/[0.04]" aria-label="Advanced settings">
+            <button type="button" onClick={()=>setSettingsOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-black/50 hover:bg-black/[0.04]"
+              aria-label="Open MAXX settings and navigation" aria-haspopup="dialog" aria-expanded={settingsOpen}>
               <Settings size={17} />
-            </Link>
+            </button>
             <button onClick={() => signOut()} className="flex h-10 w-10 items-center justify-center rounded-full text-black/50 hover:bg-black/[0.04]" aria-label="Sign out">
               <LogOut size={17} />
             </button>
           </div>
         </header>
+
+        <MaxxSettingsDrawer
+          open={settingsOpen} onOpenChange={setSettingsOpen}
+          onOpenHistory={()=>setShowHistory(true)}
+        />
 
         {showHistory && (
           <section className="border-b border-black/[0.07] bg-[#faf8f3] px-4 py-4 sm:px-6">
