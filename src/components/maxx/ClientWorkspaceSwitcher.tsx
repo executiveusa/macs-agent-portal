@@ -15,15 +15,27 @@ export function ClientWorkspaceSwitcher({selectedSlug, onSelect, verifiedWorkspa
   const [view,setView] = useState<"switch" | "manage" | "alerts">("switch");
   const selected = selectedSlug ? catalogItem(selectedSlug) : null;
   const approvedSlugs = new Set(verifiedWorkspaces.map(item => item.slug));
-  // No fabricated approval counts. The canonical approvals join is a later
-  // source-verified module; an unknown value never maps to a green badge.
-  const alertUnknown = verifiedWorkspaces.some(item => item.pendingApprovalCount === null);
+  const alertUnknown = connectionState !== "verified" || verifiedWorkspaces.length === 0 ||
+    verifiedWorkspaces.some(item => item.pendingApprovalCount === null || item.urgentApprovalCount === null);
+  const pendingTotal = verifiedWorkspaces.reduce((sum,item)=>sum+(item.pendingApprovalCount ?? 0),0);
+  const urgentTotal = verifiedWorkspaces.reduce((sum,item)=>sum+(item.urgentApprovalCount ?? 0),0);
+  const alertTone = urgentTotal > 0 ? "bg-red-500" : pendingTotal > 0 ? "bg-amber-500" :
+    alertUnknown ? "bg-slate-400" : "bg-emerald-600";
+  const alertLabel = urgentTotal > 0 ? `${urgentTotal} urgent client approvals` :
+    pendingTotal > 0 ? `${pendingTotal} pending client approvals` :
+    alertUnknown ? "Client approval status unknown" : "No pending client approvals";
   return (
-    <div className="relative min-w-0">
+    <div className="relative flex min-w-0 items-center gap-1">
       <button type="button" onClick={() => {setOpen(!open);setView("switch");}}
         className="flex h-10 max-w-[48vw] items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 text-xs font-semibold text-black/70 hover:border-black/20 sm:max-w-[280px]"
         aria-haspopup="dialog" aria-expanded={open} aria-label="Switch client workspace">
         <span className="truncate">{selected?.name ?? "General MAXX"}</span><ChevronDown size={14}/>
+      </button>
+      <button type="button" onClick={() => {setOpen(true);setView("alerts");}}
+        aria-label={alertLabel} title={alertLabel}
+        className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white text-black/65 hover:bg-black/[0.03]">
+        <Bell size={17}/>
+        <span className={`absolute right-1 top-1 h-2.5 w-2.5 rounded-full ring-2 ring-white ${alertTone}`}/>
       </button>
       {open && <div role="dialog" aria-label="Client workspaces"
         className="absolute left-0 top-12 z-50 w-[min(360px,calc(100vw-28px))] max-h-[min(75dvh,620px)] overflow-y-auto rounded-2xl border border-black/10 bg-[#fffefa] p-3 shadow-2xl">
@@ -56,14 +68,23 @@ export function ClientWorkspaceSwitcher({selectedSlug, onSelect, verifiedWorkspa
           })}
           <p className="pt-2 text-xs text-black/45">Company names are preloaded. Records and actions require verified account and client membership.</p>
         </div>}
-        {view === "alerts" && <div className="mt-4 space-y-2 text-sm">
-          <div className="flex items-center gap-2"><Bell size={16}/><strong>Needs attention</strong></div>
-          <p className="text-black/60">
-            {connectionState !== "verified" ? "Approval status unavailable until MAXX verifies your client permissions." :
-             alertUnknown ? "Client permissions verified. Project-specific approval counts are not connected yet." :
-             "No project approval records were returned."}
+        {view === "alerts" && <div className="mt-4 space-y-3 text-sm">
+          <div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-full ${alertTone}`}/><strong>Needs attention</strong></div>
+          <p role="status" className="text-black/60">
+            {alertUnknown ? "Some approval records are unavailable. Known pending items are shown without treating unknown as zero." :
+              pendingTotal > 0 ? `${pendingTotal} verified pending actions across authorized clients.` :
+              "No pending actions found in your verified client workspaces."}
           </p>
-          <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Instinct notification dispatch remains disabled until the authenticated FastAPI bridge and delivery receipts are tested.</p>
+          {verifiedWorkspaces.filter(item=>(item.pendingApprovalCount ?? 0)>0).map(item=>(
+            <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-black/10 bg-white p-3">
+              <span className="text-xs font-semibold">{item.name}</span>
+              <span className="text-xs text-amber-800">
+                {item.pendingApprovalCount} waiting
+                {(item.urgentApprovalCount ?? 0)>0 ? ` · ${item.urgentApprovalCount} urgent` : ""}
+              </span>
+            </div>
+          ))}
+          <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Instinct notifications are not enabled until the authenticated agent bridge and delivery receipts are independently tested. You can review approvals in their existing secure control-plane screen.</p>
         </div>}
         {view === "manage" && <div className="mt-4 space-y-3 text-sm">
           <div className="flex items-center gap-2"><Plus size={16}/><strong>Add a client</strong></div>
