@@ -14,6 +14,8 @@ export type AuthorizedWorkspace = {
   name: string;
   role: "owner" | "admin" | "operator" | "reviewer" | "viewer";
   status: "active" | "paused" | "archived";
+  archiveRequestId: string | null;
+  recoveryUntil: string | null;
   pendingApprovalCount: number | null;
   urgentApprovalCount: number | null;
   suggestedTasks: string[];
