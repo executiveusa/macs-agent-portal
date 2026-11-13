@@ -156,16 +156,18 @@ function ApprovalCard({ approval, onDecision, pending }: { approval: Approval; o
 
 export default function MaxxChat() {
   const queryClient = useQueryClient();
-  const { signOut } = useAuth();
+  const { signOut, session } = useAuth();
+  const authSubject = session?.user.id ?? "no-auth-session";
   const [input, setInput] = useState("");
   const [selectedClientSlug,setSelectedClientSlug] = useState<ClientSlug|null>(null);
   const [clientNotice,setClientNotice] = useState("");
-  const workspaceKey = selectedClientSlug ?? "general";
+  const workspaceKey = authSubject + ":" + (selectedClientSlug ?? "general");
   const workspaceKeyRef = useRef(workspaceKey);
   workspaceKeyRef.current = workspaceKey;
   const workspaceQuery = useQuery({
-    queryKey: ["maxx-client-workspaces"],
+    queryKey: ["maxx-client-workspaces",authSubject],
     queryFn: controlTowerApi.listClientWorkspaces,
+    enabled: Boolean(session?.user.id),
     retry:false, refetchInterval:30_000,
   });
   const verifiedWorkspaces = workspaceQuery.data?.workspaces ?? [];
@@ -222,9 +224,19 @@ export default function MaxxChat() {
     refetchInterval: 15_000,
   });
 
-  const [messagesByWorkspace,setMessagesByWorkspace] = useState<Record<string,Message[]>>({
-    general: [{id:"welcome",role:"maxx",text:"I’m ready. Tell me the outcome you want, and I’ll figure out the work underneath."}],
-  });
+  const [messagesByWorkspace,setMessagesByWorkspace] = useState<Record<string,Message[]>>({});
+  // Session transitions cannot reuse a previous operator's selected client.
+  const priorSubjectRef = useRef(authSubject);
+  useEffect(() => {
+    if (priorSubjectRef.current !== authSubject) {
+      priorSubjectRef.current = authSubject;
+      setSelectedClientSlug(null);
+      setMessagesByWorkspace({});
+      setResponsesByWorkspace({});
+      setClientNotice("");
+      queryClient.removeQueries({queryKey:["maxx-client-workspaces"]});
+    }
+  }, [authSubject,queryClient]);
   const messages: Message[] = messagesByWorkspace[workspaceKey] ?? [{
     id:"welcome-"+workspaceKey,role:"maxx",
     text:selectedClientSlug ? "Select an outcome. Client records and actions require verified access." : "I’m ready. Tell me the outcome you want.",
@@ -314,6 +326,10 @@ export default function MaxxChat() {
       setInput("");
       setClientNotice("");
     },
+    onError: (_error,{key}) => {
+      appendWorkspaceMessage(key,{id:crypto.randomUUID(),role:"maxx",
+        text:"That request was not completed. Please verify client access and the MAXX connection before retrying."});
+    },
     onSuccess: async (response,{key}) => {
       appendWorkspaceMessage(key,{id:response.id,role:"maxx",text:response.text,details:{
         routingReason:response.routingReason,
@@ -322,6 +338,7 @@ export default function MaxxChat() {
       }});
       setResponsesByWorkspace(current=>({...current,[key]:response}));
       queryClient.invalidateQueries({queryKey:["control-tower"]});
+      queryClient.invalidateQueries({queryKey:["maxx-client-workspaces",authSubject]});
       if(response.text && !isListening && workspaceKeyRef.current===key) await playResponseAudio(response.text);
     },
   });
