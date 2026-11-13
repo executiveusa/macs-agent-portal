@@ -18,6 +18,7 @@ export type AuthorizedWorkspace = {
   recoveryUntil: string | null;
   pendingApprovalCount: number | null;
   urgentApprovalCount: number | null;
+  approvalCoverage: "maxx_only";
   suggestedTasks: string[];
   promptsSource: "verified" | "unavailable";
 };
