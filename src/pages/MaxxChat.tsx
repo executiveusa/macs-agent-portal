@@ -172,7 +172,10 @@ export default function MaxxChat() {
   const verifiedWorkspace = selectedClientSlug
     ? verifiedWorkspaces.find(x=>x.slug===selectedClientSlug) : undefined;
   const clientPrompts = selectedClientSlug
-    ? catalogItem(selectedClientSlug)?.suggestedTasks ?? [] : starterPrompts;
+    ? (verifiedWorkspace?.promptsSource === "verified" && verifiedWorkspace.suggestedTasks.length > 0
+        ? verifiedWorkspace.suggestedTasks
+        : catalogItem(selectedClientSlug)?.suggestedTasks ?? [])
+    : starterPrompts;
   const [mode, setMode] = useState<MaxxChatMode>("normal");
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
