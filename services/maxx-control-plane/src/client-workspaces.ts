@@ -8,6 +8,8 @@ export type ClientWorkspace = {
   name: string;
   role: "owner" | "admin" | "operator" | "reviewer" | "viewer";
   status: "active" | "paused" | "archived";
+  archiveRequestId: string | null;
+  recoveryUntil: string | null;
   pendingApprovalCount: number | null;
   urgentApprovalCount: number | null;
   suggestedTasks: string[];
@@ -45,6 +47,8 @@ function parseWorkspace(row: unknown): ClientWorkspace {
       !statuses.includes(String(r.status)) || !Array.isArray(r.suggestedTasks) ||
       r.suggestedTasks.length > 20 || !r.suggestedTasks.every(x => typeof x === "string" && x.length <= 300) ||
       r.promptsSource !== "verified" ||
+      (r.archiveRequestId!==null && !isUUID(r.archiveRequestId)) ||
+      (r.recoveryUntil!==null && typeof r.recoveryUntil!=="string") ||
       ![r.pendingApprovalCount,r.urgentApprovalCount].every(x=>Number.isInteger(x) && Number(x)>=0)) {
     throw new WorkspaceUnavailable();
   }
