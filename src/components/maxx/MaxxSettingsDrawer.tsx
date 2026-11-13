@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  Bell, Brain, ChevronRight, CircleHelp, Database, History,
+  Brain, ChevronRight, CircleHelp, Database, History,
   LockKeyhole, Mic, Monitor, Settings, ShieldCheck, SlidersHorizontal,
   Users, Plug, MessageCircle, LogOut,
 } from "lucide-react";
