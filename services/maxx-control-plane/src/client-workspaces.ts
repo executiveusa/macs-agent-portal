@@ -1,10 +1,6 @@
 import type { MaxxConfig } from "./config.js";
 
-/**
- * Read-only project capability, sourced from the canonical MAXX Supabase schema.
- * No static seven-client list is treated as an authorization grant.
- * All DB traffic stays server-side. Return unavailable instead of a demo tenant.
- */
+/** One Supabase service-role-only RPC facade; maxx stays out of Data API. */
 export type ClientWorkspace = {
   id: string;
   organizationId: string;
@@ -14,7 +10,7 @@ export type ClientWorkspace = {
   status: "active" | "paused" | "archived";
   pendingApprovalCount: number | null;
   urgentApprovalCount: number | null;
-  suggestedTasks: string[]; // verified stored templates when available
+  suggestedTasks: string[];
   promptsSource: "verified" | "unavailable";
 };
 export class WorkspaceUnavailable extends Error {
@@ -23,165 +19,116 @@ export class WorkspaceUnavailable extends Error {
 }
 export class WorkspaceForbidden extends Error {
   readonly status = 403;
-  constructor() { super("This user is not authorized for that client workspace."); }
+  constructor() { super("This identity is not authorized for the requested workspace."); }
 }
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const isUUID = (value: unknown): value is string => typeof value === "string" && UUID.test(value);
-type RecordRow = Record<string, unknown>;
-
-export function createClientWorkspaceService(
-  config: Pick<MaxxConfig, "SUPABASE_URL" | "SUPABASE_SERVICE_ROLE_KEY">,
-  enabled: boolean,
-  request: typeof fetch = fetch,
-) {
-  async function readRows(table: string, parameters: Record<string,string>): Promise<RecordRow[]> {
+export class WorkspaceConflict extends Error {
+  readonly status = 409;
+  constructor() { super("The requested client operation is not valid in its current state."); }
+}
+export class WorkspaceInvalid extends Error {
+  readonly status = 400;
+  constructor() { super("Invalid workspace request."); }
+}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUUID = (x: unknown): x is string => typeof x === "string" && UUID.test(x);
+const memberRoles = ["owner","admin","operator","reviewer","viewer"];
+const statuses = ["active","paused","archived"];
+const validName = (x:string) => x.trim().length>=2 && x.trim().length<=100;
+const validSlug = (x:string) => /^[a-z][a-z0-9-]{2,60}$/.test(x);
+type Cfg = Pick<MaxxConfig, "SUPABASE_URL" | "SUPABASE_SERVICE_ROLE_KEY">;
+type ClientRecord = Record<string, unknown>;
+function parseWorkspace(row: unknown): ClientWorkspace {
+  if (!row || typeof row !== "object" || Array.isArray(row)) throw new WorkspaceUnavailable();
+  const r = row as ClientRecord;
+  if (!isUUID(r.id) || !isUUID(r.organizationId) || typeof r.slug !== "string" ||
+      typeof r.name !== "string" || !memberRoles.includes(String(r.role)) ||
+      !statuses.includes(String(r.status)) || !Array.isArray(r.suggestedTasks) ||
+      r.suggestedTasks.length > 20 || !r.suggestedTasks.every(x => typeof x === "string" && x.length <= 300) ||
+      r.promptsSource !== "verified" ||
+      ![r.pendingApprovalCount,r.urgentApprovalCount].every(x=>Number.isInteger(x) && Number(x)>=0)) {
+    throw new WorkspaceUnavailable();
+  }
+  return r as unknown as ClientWorkspace;
+}
+export function createClientWorkspaceService(config:Cfg,enabled:boolean,request:typeof fetch=fetch) {
+  async function rpc(name:string,payload:Record<string,unknown>):Promise<unknown> {
     if (!enabled || !config.SUPABASE_URL || !config.SUPABASE_SERVICE_ROLE_KEY)
       throw new WorkspaceUnavailable();
-    const endpoint = new URL("/rest/v1/" + table, config.SUPABASE_URL);
-    for (const [key,value] of Object.entries(parameters)) endpoint.searchParams.set(key,value);
-    let response: Response;
+    let endpoint:URL;
     try {
-      response = await request(endpoint, {
-        method: "GET",
-        headers: {
-          "apikey": config.SUPABASE_SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${config.SUPABASE_SERVICE_ROLE_KEY}`,
-          "Accept-Profile": "maxx",
-          "Accept": "application/json",
+      endpoint = new URL("/rest/v1/rpc/" + name,config.SUPABASE_URL);
+      if(endpoint.protocol!=="https:" && !["localhost","127.0.0.1"].includes(endpoint.hostname))
+        throw new WorkspaceUnavailable();
+    } catch { throw new WorkspaceUnavailable(); }
+    let response:Response;
+    try {
+      response = await request(endpoint,{
+        method:"POST",cache:"no-store",
+        signal:AbortSignal.timeout(10_000),
+        headers:{
+          "apikey":config.SUPABASE_SERVICE_ROLE_KEY,
+          "Authorization":"Bearer "+config.SUPABASE_SERVICE_ROLE_KEY,
+          "Content-Type":"application/json","Accept":"application/json",
         },
-        cache: "no-store",
-        signal: AbortSignal.timeout(10_000),
+        body:JSON.stringify(payload),
       });
     } catch { throw new WorkspaceUnavailable(); }
-    if (!response.ok) throw new WorkspaceUnavailable();
-    let data: unknown;
-    try { data = await response.json(); } catch { throw new WorkspaceUnavailable(); }
-    if (!Array.isArray(data)) throw new WorkspaceUnavailable();
-    return data as RecordRow[];
+    if(!response.ok){
+      if(response.status===400 || response.status===409) throw new WorkspaceConflict();
+      if(response.status===403) throw new WorkspaceForbidden();
+      throw new WorkspaceUnavailable();
+    }
+    try {return await response.json();} catch {throw new WorkspaceUnavailable();}
   }
-
-  async function listForUser(userId: string): Promise<ClientWorkspace[]> {
-    // Verified Google/Supabase subject. Dev bypass IDs and machine identities
-    // cannot use any project capabilities.
-    if (!isUUID(userId)) throw new WorkspaceForbidden();
-    const orgRoles = await readRows("memberships", {
-      select: "organization_id", user_id: "eq." + userId, status: "eq.active", limit: "100",
-    });
-    const activeOrgs = new Set(orgRoles.map(r => r.organization_id).filter(isUUID));
-    if (!activeOrgs.size) return [];
-    const grants = await readRows("project_memberships", {
-      select: "organization_id,project_id,role",
-      user_id: "eq." + userId, status: "eq.active", limit: "100",
-    });
-    const allow = new Map<string, {orgId:string; role:ClientWorkspace["role"]}>();
-    for (const grant of grants) {
-      if (!isUUID(grant.organization_id) || !isUUID(grant.project_id)) continue;
-      const role = grant.role;
-      if (!["owner","admin","operator","reviewer","viewer"].includes(String(role))) continue;
-      if (!activeOrgs.has(grant.organization_id)) continue;
-      allow.set(grant.project_id, {orgId:grant.organization_id,role:role as ClientWorkspace["role"]});
+  async function listForUser(userId:string):Promise<ClientWorkspace[]> {
+    if(!isUUID(userId)) throw new WorkspaceForbidden();
+    const raw=await rpc("maxx_service_client_workspaces",{p_user_id:userId});
+    if(!Array.isArray(raw) || raw.length>100) throw new WorkspaceUnavailable();
+    const seen=new Set<string>();
+    const rows=raw.map(parseWorkspace);
+    for(const row of rows){
+      if(seen.has(row.id)) throw new WorkspaceUnavailable();
+      seen.add(row.id);
     }
-    if (!allow.size) return [];
-    const ids = [...allow.keys()];
-    const projects = await readRows("projects", {
-      select: "id,organization_id,slug,name,status",
-      id: "in.(" + ids.join(",") + ")", limit: "100",
-    });
-    const workspaces: ClientWorkspace[] = [];
-    for (const row of projects) {
-      if (!isUUID(row.id) || !isUUID(row.organization_id)) continue;
-      const grant = allow.get(row.id);
-      if (!grant || grant.orgId !== row.organization_id) continue;
-      if (!["active","paused","archived"].includes(String(row.status))) continue;
-      if (typeof row.name !== "string" || typeof row.slug !== "string") continue;
-      workspaces.push({
-        id: row.id, organizationId: row.organization_id,
-        slug: row.slug, name: row.name,
-        role: grant.role, status: row.status as ClientWorkspace["status"],
-        pendingApprovalCount: null,
-        urgentApprovalCount: null,
-        suggestedTasks: [],
-        promptsSource: "unavailable",
-      });
-    }
-    // Client-specific prompt templates are tenant-filtered in the database.
-    // Missing/unavailable template storage does not become fabricated usage history.
-    try {
-      const rows = await readRows("project_prompt_templates", {
-        select: "project_id,organization_id,title,position",
-        project_id: "in.(" + ids.join(",") + ")",
-        active: "eq.true", order: "position.asc", limit: "501",
-      });
-      if (rows.length <= 500) {
-        const byId = new Map(workspaces.map(workspace=>[workspace.id,workspace]));
-        for (const row of rows) {
-          if (!isUUID(row.project_id) || !isUUID(row.organization_id)
-             || typeof row.title !== "string" || row.title.length > 300) continue;
-          const target = byId.get(row.project_id);
-          if (target && target.organizationId === row.organization_id
-              && target.suggestedTasks.length < 20) target.suggestedTasks.push(row.title);
-        }
-        for (const target of workspaces) target.promptsSource = "verified";
-      }
-    } catch {
-      // UI may show its documented, clearly labeled operator templates instead.
-    }
-    // Reconcile existing MAXX approvals via action_proposals.project_id.
-    // Do not mix org-wide or unscoped approvals into a client's badge.
-    // Failure or bounded truncation yields UNKNOWN (null), never fabricated zero.
-    try {
-      const orgIds = [...activeOrgs];
-      const pending = await readRows("approvals", {
-        select: "action_proposal_id,organization_id,expires_at",
-        organization_id: "in.(" + orgIds.join(",") + ")",
-        status: "eq.pending", limit: "501",
-      });
-      if (pending.length <= 500) {
-        const proposalIds = [...new Set(pending.map(p => p.action_proposal_id).filter(isUUID))];
-        const proposals = proposalIds.length ? await readRows("action_proposals", {
-          select: "id,project_id,organization_id",
-          id: "in.(" + proposalIds.join(",") + ")", limit: "501",
-        }) : [];
-        if (proposals.length <= 500) {
-          const mapping = new Map<string, {projectId:string;orgId:string}>();
-          for (const row of proposals) {
-            if(isUUID(row.id) && isUUID(row.project_id) && isUUID(row.organization_id)) {
-              mapping.set(row.id,{projectId:row.project_id,orgId:row.organization_id});
-            }
-          }
-          const counts = new Map<string,{pending:number;urgent:number}>();
-          for (const workspace of workspaces) counts.set(workspace.id,{pending:0,urgent:0});
-          for (const approval of pending) {
-            if(!isUUID(approval.action_proposal_id) || !isUUID(approval.organization_id)) continue;
-            const proposal = mapping.get(approval.action_proposal_id);
-            if(!proposal || proposal.orgId !== approval.organization_id) continue;
-            const target = counts.get(proposal.projectId);
-            if(!target) continue;
-            target.pending++;
-            const expiry = typeof approval.expires_at === "string" ? Date.parse(approval.expires_at) : NaN;
-            if(Number.isFinite(expiry) && expiry <= Date.now() + 24*3_600_000) target.urgent++;
-          }
-          for (const workspace of workspaces) {
-            const count = counts.get(workspace.id);
-            workspace.pendingApprovalCount = count?.pending ?? null;
-            workspace.urgentApprovalCount = count?.urgent ?? null;
-          }
-        }
-      }
-    } catch {
-      // Optional reporting source unavailable. Workspaces remain authorized,
-      // while approval indicators remain UNKNOWN and cannot turn falsely green.
-    }
-    return workspaces.sort((a,b) => a.name.localeCompare(b.name));
+    return rows;
   }
-  async function authorize(userId: string, projectId: string, write = false): Promise<ClientWorkspace> {
-    if (!isUUID(projectId)) throw new WorkspaceForbidden();
-    const workspace = (await listForUser(userId)).find(item => item.id === projectId);
-    if (!workspace || workspace.status !== "active" ||
-      (write && !["owner","admin","operator"].includes(workspace.role))) {
-      throw new WorkspaceForbidden();
-    }
-    return workspace;
+  async function authorize(userId:string,projectId:string,write=false):Promise<ClientWorkspace> {
+    if(!isUUID(projectId)) throw new WorkspaceForbidden();
+    const row=(await listForUser(userId)).find(v=>v.id===projectId);
+    if(!row || row.status!=="active" ||
+       (write && !["owner","admin","operator"].includes(row.role))) throw new WorkspaceForbidden();
+    return row;
   }
-  return { listForUser, authorize };
+  async function createClient(userId:string,organizationId:string,name:string,slug:string) {
+    if(!isUUID(userId)||!isUUID(organizationId)) throw new WorkspaceForbidden();
+    if(!validName(name)||!validSlug(slug)) throw new WorkspaceInvalid();
+    const result=await rpc("maxx_service_create_client_workspace",{
+      p_actor:userId,p_organization_id:organizationId,p_name:name.trim(),p_slug:slug,
+    });
+    const r=result as ClientRecord | null;
+    if(!r || !isUUID(r.id) || r.status!=="active" || r.slug!==slug) throw new WorkspaceUnavailable();
+    return {id:r.id,status:r.status,slug:r.slug};
+  }
+  async function archiveStep(
+    userId:string,projectId:string,step:"start"|"acknowledge"|"type_name"|"archive"|"restore",
+    requestId?:string,typedName?:string,
+  ) {
+    if(!isUUID(userId)||!isUUID(projectId)) throw new WorkspaceForbidden();
+    if(step!=="start" && (!requestId || !isUUID(requestId))) throw new WorkspaceInvalid();
+    if(step==="type_name" && (!typedName || typedName.length>100)) throw new WorkspaceInvalid();
+    const rows=await listForUser(userId);
+    const target=rows.find(row=>row.id===projectId);
+    if(!target || !["owner","admin"].includes(target.role)) throw new WorkspaceForbidden();
+    if(step==="restore" ? target.status!=="archived" : target.status!=="active")
+      throw new WorkspaceConflict();
+    const result=await rpc("maxx_service_archive_client_step",{
+      p_actor:userId,p_project_id:projectId,p_step:step,
+      p_request_id:requestId??null,p_typed_name:typedName??null,
+    });
+    if(!result || typeof result!=="object" || Array.isArray(result)) throw new WorkspaceUnavailable();
+    const r=result as ClientRecord;
+    if(r.projectId!==projectId || typeof r.state!=="string") throw new WorkspaceUnavailable();
+    return result;
+  }
+  return {listForUser,authorize,createClient,archiveStep};
 }
