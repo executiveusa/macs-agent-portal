@@ -442,7 +442,7 @@ export function buildApp(options: AppOptions = {}) {
     slug:z.string().regex(/^[a-z][a-z0-9-]{2,60}$/),
   });
   const archiveStepSchema = z.object({
-    step:z.enum(["start","acknowledge","type_name","archive"]),
+    step:z.enum(["start","acknowledge","type_name","archive","cancel"]),
     requestId:z.string().uuid().optional(),
     typedName:z.string().max(100).optional(),
   });
