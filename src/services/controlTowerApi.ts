@@ -78,6 +78,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const controlTowerApi = {
   bootstrap: () => request<ControlTowerBootstrap>("/v1/control-tower/bootstrap"),
   listClientWorkspaces: () => request<ClientWorkspacesResponse>("/v1/client-workspaces"),
+  addClientWorkspace: (organizationId:string,name:string,slug:string) =>
+    request<{id:string;slug:string;status:"active"}>("/v1/client-workspaces",{
+      method:"POST",body:JSON.stringify({organizationId,name,slug}),
+    }),
+  advanceClientArchive: (projectId:string,step:"start"|"acknowledge"|"type_name"|"archive",
+      requestId?:string,typedName?:string) =>
+    request<{requestId:string;projectId:string;state:string;recoveryUntil:string|null}>(
+      `/v1/client-workspaces/${encodeURIComponent(projectId)}/archive`,{
+        method:"POST",body:JSON.stringify({step,requestId,typedName}),
+      }),
+  restoreClientWorkspace: (projectId:string,requestId:string) =>
+    request<{status:"restored";projectId:string}>(
+      `/v1/client-workspaces/${encodeURIComponent(projectId)}/restore`,{
+        method:"POST",body:JSON.stringify({requestId}),
+      }),
   chat: (message: string, model?: string, runId?: string, mode: MaxxChatMode = "normal", workspaceId?: string) =>
     request<ChatResponse>("/v1/chat", {
       method: "POST",
