@@ -14,6 +14,8 @@ export type ClientWorkspace = {
   status: "active" | "paused" | "archived";
   pendingApprovalCount: number | null;
   urgentApprovalCount: number | null;
+  suggestedTasks: string[]; // verified stored templates when available
+  promptsSource: "verified" | "unavailable";
 };
 export class WorkspaceUnavailable extends Error {
   readonly status = 503;
@@ -98,7 +100,31 @@ export function createClientWorkspaceService(
         role: grant.role, status: row.status as ClientWorkspace["status"],
         pendingApprovalCount: null,
         urgentApprovalCount: null,
+        suggestedTasks: [],
+        promptsSource: "unavailable",
       });
+    }
+    // Client-specific prompt templates are tenant-filtered in the database.
+    // Missing/unavailable template storage does not become fabricated usage history.
+    try {
+      const rows = await readRows("project_prompt_templates", {
+        select: "project_id,organization_id,title,position",
+        project_id: "in.(" + ids.join(",") + ")",
+        active: "eq.true", order: "position.asc", limit: "501",
+      });
+      if (rows.length <= 500) {
+        const byId = new Map(workspaces.map(workspace=>[workspace.id,workspace]));
+        for (const row of rows) {
+          if (!isUUID(row.project_id) || !isUUID(row.organization_id)
+             || typeof row.title !== "string" || row.title.length > 300) continue;
+          const target = byId.get(row.project_id);
+          if (target && target.organizationId === row.organization_id
+              && target.suggestedTasks.length < 20) target.suggestedTasks.push(row.title);
+        }
+        for (const target of workspaces) target.promptsSource = "verified";
+      }
+    } catch {
+      // UI may show its documented, clearly labeled operator templates instead.
     }
     // Reconcile existing MAXX approvals via action_proposals.project_id.
     // Do not mix org-wide or unscoped approvals into a client's badge.
