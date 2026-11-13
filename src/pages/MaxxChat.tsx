@@ -24,7 +24,7 @@ import { Link } from "react-router-dom";
 import { controlTowerApi, type MaxxChatMode } from "@/services/controlTowerApi";
 import { useAuth } from "@/hooks/useAuth";
 import { ClientWorkspaceSwitcher } from "@/components/maxx/ClientWorkspaceSwitcher";
-import { canSendClientTask, catalogItem, type ClientSlug } from "@/lib/maxx-client-workspaces";
+import { canSendClientTask, catalogItem } from "@/lib/maxx-client-workspaces";
 import type { Approval, ChatResponse } from "@/types/controlTower";
 
 type Message = {
@@ -159,7 +159,7 @@ export default function MaxxChat() {
   const { signOut, session } = useAuth();
   const authSubject = session?.user.id ?? "no-auth-session";
   const [input, setInput] = useState("");
-  const [selectedClientSlug,setSelectedClientSlug] = useState<ClientSlug|null>(null);
+  const [selectedClientSlug,setSelectedClientSlug] = useState<string|null>(null);
   const [clientNotice,setClientNotice] = useState("");
   const workspaceKey = authSubject + ":" + (selectedClientSlug ?? "general");
   const workspaceKeyRef = useRef(workspaceKey);
@@ -176,7 +176,11 @@ export default function MaxxChat() {
   const clientPrompts = selectedClientSlug
     ? (verifiedWorkspace?.promptsSource === "verified" && verifiedWorkspace.suggestedTasks.length > 0
         ? verifiedWorkspace.suggestedTasks
-        : catalogItem(selectedClientSlug)?.suggestedTasks ?? [])
+        : catalogItem(selectedClientSlug)?.suggestedTasks ??
+          ["Review client decisions waiting for approval.",
+           "Draft a campaign using verified company information.",
+           "Summarize real progress and outstanding work.",
+           "Prepare the next action for owner approval."])
     : starterPrompts;
   const [mode, setMode] = useState<MaxxChatMode>("normal");
   const [isListening, setIsListening] = useState(false);
