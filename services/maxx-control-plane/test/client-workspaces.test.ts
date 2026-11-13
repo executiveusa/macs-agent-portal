@@ -90,3 +90,44 @@ test("anonymous users cannot access the client registry", async () => {
   assert.equal(res.statusCode,401);
   await app.close();
 });
+
+test("only a matching project proposal can increment attention counts", async () => {
+  const proposal = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+  const unrelated = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+  const request = (async (input: URL | RequestInfo) => {
+    const url = new URL(String(input));
+    if(url.pathname.endsWith("/memberships")) return Response.json([{organization_id:org}]);
+    if(url.pathname.endsWith("/project_memberships")) return Response.json([
+      {organization_id:org,project_id:project,role:"operator"},
+    ]);
+    if(url.pathname.endsWith("/projects")) return Response.json([
+      {id:project,organization_id:org,slug:"bunna-restaurant",name:"BUNNA RESTAURANT",status:"active"},
+    ]);
+    if(url.pathname.endsWith("/approvals")) return Response.json([
+      {action_proposal_id:proposal,organization_id:org,expires_at:new Date(Date.now()+3_600_000).toISOString()},
+      {action_proposal_id:unrelated,organization_id:foreignOrg,expires_at:new Date(Date.now()+3_600_000).toISOString()},
+    ]);
+    if(url.pathname.endsWith("/action_proposals")) return Response.json([
+      {id:proposal,organization_id:org,project_id:project},
+      {id:unrelated,organization_id:foreignOrg,project_id:forbiddenProject},
+    ]);
+    return Response.json([], {status:404});
+  }) as typeof fetch;
+  const svc = createClientWorkspaceService(config,true,request);
+  const onlyClient = await svc.listForUser(alice);
+  assert.equal(onlyClient.length,1);
+  assert.equal(onlyClient[0]?.pendingApprovalCount,1);
+  assert.equal(onlyClient[0]?.urgentApprovalCount,1);
+});
+test("verified zero pending is distinct from an unavailable approvals source", async () => {
+  const {request:base} = providerMock();
+  const request = (async(input: URL | RequestInfo,init?: RequestInit) => {
+    const url = new URL(String(input));
+    if(url.pathname.endsWith("/approvals")) return Response.json([]);
+    return base(input,init);
+  }) as typeof fetch;
+  const svc = createClientWorkspaceService(config,true,request);
+  const list = await svc.listForUser(alice);
+  assert.equal(list[0]?.pendingApprovalCount,0);
+  assert.equal(list[0]?.urgentApprovalCount,0);
+});
