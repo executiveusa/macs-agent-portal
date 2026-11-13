@@ -175,8 +175,15 @@ export function ClientWorkspaceSwitcher({selectedSlug,onSelect,verifiedWorkspace
                 onChange={e=>setTypedName(e.target.value)} placeholder={candidate?.name}
                 aria-label="Type exact client name" className="h-11 w-full rounded-lg border px-3 text-sm"/>}
               <div className="flex gap-2">
-                <button type="button" onClick={()=>{setArchiveStage("idle");setCandidate(null);}}
-                  className="min-h-10 flex-1 rounded-lg border px-3 text-xs">Close</button>
+                <button type="button" disabled={busy} onClick={()=>{
+                    if(candidate && requestId){
+                      void change(
+                        ()=>controlTowerApi.advanceClientArchive(candidate.id,"cancel",requestId),
+                        ()=>{setArchiveStage("idle");setCandidate(null);setRequestId(null);setNotice("Archive request cancelled.");}
+                      );
+                    }else {setArchiveStage("idle");setCandidate(null);}
+                  }}
+                  className="min-h-10 flex-1 rounded-lg border px-3 text-xs disabled:opacity-35">Cancel</button>
                 <button type="button" disabled={busy||(archiveStage==="typed"&&typedName!==candidate?.name)}
                   onClick={()=>void advanceArchive()}
                   className="min-h-10 flex-1 rounded-lg bg-[#24241f] px-3 text-xs font-semibold text-white disabled:opacity-35">
