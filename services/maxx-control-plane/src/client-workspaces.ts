@@ -12,6 +12,7 @@ export type ClientWorkspace = {
   recoveryUntil: string | null;
   pendingApprovalCount: number | null;
   urgentApprovalCount: number | null;
+  approvalCoverage: "maxx_only";
   suggestedTasks: string[];
   promptsSource: "verified" | "unavailable";
 };
@@ -46,7 +47,7 @@ function parseWorkspace(row: unknown): ClientWorkspace {
       typeof r.name !== "string" || !memberRoles.includes(String(r.role)) ||
       !statuses.includes(String(r.status)) || !Array.isArray(r.suggestedTasks) ||
       r.suggestedTasks.length > 20 || !r.suggestedTasks.every(x => typeof x === "string" && x.length <= 300) ||
-      r.promptsSource !== "verified" ||
+      r.promptsSource !== "verified" || r.approvalCoverage !== "maxx_only" ||
       (r.archiveRequestId!==null && !isUUID(r.archiveRequestId)) ||
       (r.recoveryUntil!==null && typeof r.recoveryUntil!=="string") ||
       ![r.pendingApprovalCount,r.urgentApprovalCount].every(x=>Number.isInteger(x) && Number(x)>=0)) {
