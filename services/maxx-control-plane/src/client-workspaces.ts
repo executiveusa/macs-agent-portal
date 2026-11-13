@@ -31,7 +31,7 @@ export class WorkspaceInvalid extends Error {
   readonly status = 400;
   constructor() { super("Invalid workspace request."); }
 }
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUUID = (x: unknown): x is string => typeof x === "string" && UUID.test(x);
 const memberRoles = ["owner","admin","operator","reviewer","viewer"];
 const statuses = ["active","paused","archived"];
