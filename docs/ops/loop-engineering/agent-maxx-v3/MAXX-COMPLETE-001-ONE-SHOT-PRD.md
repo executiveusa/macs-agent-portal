@@ -123,3 +123,45 @@ At the end deliver **one release report** containing: code and merge SHAs, all t
 **Commercial proof:** one owner-authorized Bunna workflow demonstrably saves time or produces a measurable approved business outcome, with baseline, result, receipt and no fabricated revenue claim.
 
 **Safety rollback:** keep `MAXX_CLIENT_WORKSPACES_ENABLED=false` until release; if deployment fails disable new flows, revoke new RPC exposure, revert app revision, preserve restrictive RLS and all customer data; database recovery only through separately verified non-destructive migration strategy. No automatic broad RLS rollback.
+
+
+## 8. Whole-product gap audit and integrated completion mandate — 2026-11-14
+
+This section supersedes any interpretation of the work as an indefinite sequence of documentation or static-test micro-slices. Execute S1–S6 as ONE integrated product completion effort, retaining independent reviews and owner release gates. Reuse this PRD and the existing PR branches; do not create another scheduler, controller, PRD, CRM, or agent runtime.
+
+### Exact repository baseline at audit
+
+- Portal PR #113: open draft, HEAD `0ffc200d16d98998190e03ad5f5e4d9f6b6fb129`, targets `main`; 24 changed files. Earlier four CI workflows passed; fresh exact-HEAD proof must be retrieved before declaring any current check green.
+- Backend PR #43: open draft, HEAD `d6f570a7aa80703b41d98c787a2ef5f2987b6b5a`, targets `develop`; 7 changed files. Candidate SQL is review-only. Static boundary tests are not runtime RLS evidence.
+- Backend dependent PR #44: open draft, HEAD `8ac34d70cbd7e0d484d24cd1c9245f30e4e6f48b`, targets PR #43 branch. Its Frappe upstream-branch checkout repair progressed CI into an ERPNext v16 migration failure (`Unknown column 'letter_head_for' in 'SET'`); do not bypass the migration tests.
+- Backend PR #29: open draft, broad 96-file Revenue Capture integration against `develop`; NOT a prerequisite to merge wholesale. PR #42: open draft, 19-file restaurant cash/POS integration against `develop`; reconcile only required interfaces and independent proof.
+- Existing `ops/reports/MAXX-FULL-STACK-WIRING.md` identifies an isolated MAXX Hermes runtime, Fastify control plane, Supabase browser authentication, private dashboard, CLI/MCP API, and contract-level approval/voice features. This architecture is reused, not rebuilt. Reported runtime proofs are incomplete.
+- Existing production Supabase project `cyxdevcjycmffhmwxojh` must remain untouched pending approved reviewed migrations. Existing STATE.md records org-wide SELECT policy and no project-membership table as an isolation blocker; independently reverify before release.
+
+### Critical path, explicit ownership, proof, and exit
+
+| Track | Reuse and deliver | Blocking proof | Done when |
+|---|---|---|---|
+| A — Security/database | PR #43 SQL and existing Supabase model; disposable isolated Postgres fixture and versioned migration | Two real JWT subjects, role/revocation tests, legacy approval and child-record bypass tests, backup/restore, independent SQL review | Every unauthorized cross-client read/write/RPC fails closed; authorized reads work; reversible migration approved |
+| B — Identity/chat | Portal #113 switcher, Fastify control plane, Supabase Auth, existing canonical conversation storage | Real Google OAuth and owner-approved subject mapping; persistence across refresh and device; client-switch cache tests | Stacy/team see only authorized clients, chat, prompts, approvals and history |
+| C — ICM execution | Existing Hermes/ICM engine, mission and approval APIs; Instinct/FastAPI adapter | Authenticated source-backed Bunna read-only mission, explicit human approval, replay/cross-tenant rejection, audit receipt, restart/retry | One complete, traceable approved request-to-result workflow |
+| D — Operator product | Existing responsive chat, browser voice, Settings, notification and connection surfaces | Mobile/desktop protected screenshots, accessibility, mic deny/revoke, source-backed connection health, archive restore at >=30 days | Real usable chat/voice-first seven-workspace product without fake data |
+| E — Delivery | Existing CI, Tauri, deployment and rollback scripts | Clean npm ci, full required CI, checked-in Cargo.lock, Windows smoke, live staging and rollback rehearsal, independent review | Exact release SHA deployable and independently preview verified |
+
+### Execution sequence and stop rules
+
+1. Freeze the current exact SHA/dependency graph and capture full mandatory CI job statuses and failure logs. Treat PR #44 patch failure and backend lint/semantic failures as tracked release blockers, not a reason to redesign MAXX.
+2. Build and run the disposable Postgres migration and two-identity isolation suite first. If there is no safe disposable environment, prepare executable Docker/Supabase-local fixtures and CI instructions; request only the exact infrastructure authorization needed. Never use shared botanic-creations as a test fixture.
+3. Integrate scoped identity, persistence, approvals and ICM execution across the existing frontend/backend in compatible branches. Apply least-privilege server checks at every API/tool boundary, not only UI filters. Keep feature flags off in production.
+4. Finish seven-workspace operator UX, voice and connection-state truthfulness; test archive/recovery and Windows build as part of the same release candidate. Source registry may state NOT CONNECTED where permission is absent.
+5. Require independent security and UX review, then request owner approval for any live database migration or release. After approval, run staged deployment, rollback rehearsal and authenticated production tests. No automatic merge or deployment.
+
+### Integrated acceptance run (one evidence bundle)
+
+A passing bundle must include: exact portal/backend SHAs; clean CI and complete log links; isolated SQL migration and rollback transcripts; two-identity deny/allow matrix including legacy APIs; real OAuth subject and membership evidence without secrets; 7/7 workspace switching and 28 labeled prompts; durable chat and approvals; 30-day archive recovery; authenticated Instinct ingress; a consented real Bunna ICM mission and verifiable receipt; voice/keyboard/mobile results; Windows artifact and launch evidence; reviewer signoffs; and explicit owner release approval. Missing any item means NOT READY or, after an independently verified protected staging journey, PREVIEW VERIFIED — never PRODUCTION VERIFIED.
+
+### Owner-dependent inputs (ask only when actually blocked)
+
+Authorized Stacy/team Google identities and approved roles; permission to create/use a disposable Supabase test project if no local equivalent; verified source custodians and authorized connections for each company; independent security reviewer; and separate written production migration/deployment authorization. Never request or paste raw secrets into GitHub issues or PRs.
+
+**Commercial acceptance:** first authorized Bunna task yields a measured operational result and source-backed receipt, without inventing revenue. **Rollback:** revert isolated app commits and disable flags; retain restrictive database policies and preserve records. **Decision:** finish existing MAXX, no duplicate systems.
