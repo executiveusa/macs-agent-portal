@@ -20,7 +20,7 @@ export type AuthorizedWorkspace = {
   urgentApprovalCount: number | null;
   approvalCoverage: "maxx_only";
   suggestedTasks: string[];
-  promptsSource: "verified" | "unavailable";
+  promptsSource: "operator_template" | "verified" | "unavailable";
 };
 export type ClientWorkspacesResponse = {
   status: "VERIFIED";
