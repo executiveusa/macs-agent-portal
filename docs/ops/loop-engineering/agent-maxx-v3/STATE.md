@@ -8,10 +8,11 @@ stage: 06_build
 next_stage: 07_verify
 canonical_portal: https://github.com/executiveusa/macs-agent-portal/pull/113
 canonical_backend: https://github.com/executiveusa/maxx-migrations-agentic-systems/pull/43
-current_slice: Fix frontend npm peer dependency lock for TypeScript 5.9.3.
-source_revision_portal: f178287ebc2d65728ffc3e40665ae3aee0a62b62
-baseline_root_ci: npm ci FAILED due TypeScript 7 incompatible with typescript-eslint <6.1
-latest_build_ci: PENDING — verify GitHub actions against CURRENT SHA before marking passed
+current_slice: Frontend toolchain repaired (TS 5.9.3, Tailwind 3.4.19), React hook lint repairs, shared Supabase config.
+source_revision_portal: b34345d279b58ede1af5c357a2d19f24a988d231 (last code revision independently checked)
+baseline_root_ci: npm ci FAILED due TypeScript 7 incompatible with typescript-eslint <6.1; initial build FAILED Tailwind 4/PostCSS 3 config.
+latest_build_ci: PASS — GitHub Actions run 43541621582 at exact code SHA b34345d; npm ci, lint, frontend tests+build, dependency audit, control-plane typecheck/test/build, client SDK checks. MAXX Pups CI passed run 43541621615. MAXX release gates passed run 43541621593. Gap Closure Rust-shell check still pending/independent.
+next_stage: 07_verify — protected preview, independent tenant/RLS review, operator Google login proof; do not call production verified.
 shared_supabase: botanic-creations / cyxdevcjycmffhmwxojh
 shared_database_changed: false
 production_modified: false
@@ -22,6 +23,6 @@ Read this STATE, GATES, BAR, GRAPH, ROLLBACK and current PRs. Compare actual CUR
 
 ## Next graph action
 
-Check npm CI on `f178287`; if peer install passes, inspect remaining lint/test/build failures and patch the smallest related root cause. If peer install still fails, read exact log and compare package-lock; never use npm --force or --legacy-peer-deps to hide mismatch. Maintain branch isolation; do not merge prematurely.
+Frontend build checks passed at exact code SHA `b34345d` (CI #43541621582). Next: independent review of candidate backend Supabase SQL PR #43 with disposable test DB and explicit two-user cross-tenant denial proof; then bind an authorized Google operator identity, connect a protected preview, and retest user journey. Do not apply draft SQL on shared botanic-creations, invent owner IDs or auto-merge. Never use force/peer-overrides to hide install failures.
 
 Release gate: independently reviewed two-user Supabase RLS and owner-authorized deployment, exact revision production verification. Never auto-apply draft SQL to botanic-creations.
