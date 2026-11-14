@@ -3,32 +3,32 @@
 ## Runnable integration oracles (execute only in inspected safe repo/CI)
 
 - [ ] G1: exact portal HEAD installs reproducibly without peer overrides
-  CHECK: npm ci
-  EXPECT: added
+  CHECK: npm ci && printf 'G1_PASS\\n'
+  EXPECT: G1_PASS
   CWD: .
   EVIDENCE: pending — CI run https://github.com/executiveusa/macs-agent-portal/actions; use actual exit 0 plus complete output, not string alone
 
 - [ ] G2: portal lint finds no new errors
-  CHECK: npm run lint
-  EXPECT: no errors
+  CHECK: npm run lint && printf 'G2_PASS\\n'
+  EXPECT: G2_PASS
   CWD: .
   EVIDENCE: pending
 
 - [ ] G3: portal frontend tests pass
-  CHECK: npm test -- --run
-  EXPECT: Test Files
+  CHECK: npm test && printf 'G3_PASS\\n'
+  EXPECT: G3_PASS
   CWD: .
   EVIDENCE: pending
 
 - [ ] G4: portal production asset build succeeds
-  CHECK: npm run build
-  EXPECT: built
+  CHECK: npm run build && printf 'G4_PASS\\n'
+  EXPECT: G4_PASS
   CWD: .
   EVIDENCE: pending
 
 - [ ] G5: control-plane tests, typecheck and build succeed
-  CHECK: npm run test:control-plane && npm run typecheck:control-plane
-  EXPECT: pass
+  CHECK: npm run test:control-plane && npm run typecheck:control-plane && printf 'G5_PASS\\n'
+  EXPECT: G5_PASS
   CWD: .
   EVIDENCE: pending — command should be replaced by a success-token verifier and inspected before execution
 
@@ -42,4 +42,4 @@
 - [ ] G11: real 320/390/1440px, keyboard, ARIA and voice tests on exact preview revision — pending
 - [ ] G12: independent review, reviewed migration backup/recovery, release approval and production verification with exact SHA — pending
 
-**Important:** CHECK/EXPECT are planning examples until verified; do not run Unlazy checker with these without adapting to skill's success-only oracle and inspecting the exact commands. G1 requires checking CI exit status, not just text containing `added`. Any gate altered by a dependency change becomes STALE.
+**Important:** CHECK/EXPECT are planning examples until verified; do not run Unlazy checker with these without adapting to skill's success-only oracle and inspecting the exact commands. G1 requires both exit zero and a success-only marker, plus independent parent re-verification. Any gate altered by a dependency change becomes STALE.
