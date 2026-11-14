@@ -143,3 +143,19 @@ test("unconfigured gateway rejects client reads and chat without sending the req
     payload:{workspaceId:project,message:"Run the campaign"}})).statusCode,503);
   await app.close();
 });
+
+test("authorized client chat rejects foreign legacy runId before model routing or event writes",async()=>{
+  const {request,calls}=adapter(()=>[row]);
+  const app=buildApp({
+    config:loadConfig({NODE_ENV:"test",MAXX_CLIENT_WORKSPACES_ENABLED:"true"}),
+    authenticate:async()=>({id:alice,email:"authorized@example.com",principal:"human"}),
+    clientWorkspaces:createClientWorkspaceService(config,true,request),
+  });
+  try {
+    const response=await app.inject({method:"POST",url:"/v1/chat",
+      payload:{workspaceId:project,runId:"foreign-unscoped-run",message:"Append my answer"}});
+    assert.equal(response.statusCode,403);
+    assert.match(response.json().error,/Legacy run identifiers/);
+    assert.equal(calls.length,1,"only membership lookup is permitted");
+  } finally {await app.close();}
+});
