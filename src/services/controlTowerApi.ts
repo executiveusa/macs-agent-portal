@@ -7,6 +7,26 @@ const baseUrl = configuredUrl.replace(/\/$/, "");
 const MAXX_MODE_MARKER = "[[MAXX_MODE:POWER]]";
 
 export type MaxxChatMode = "normal" | "max";
+export type AuthorizedWorkspace = {
+  id: string;
+  organizationId: string;
+  slug: string;
+  name: string;
+  role: "owner" | "admin" | "operator" | "reviewer" | "viewer";
+  status: "active" | "paused" | "archived";
+  archiveRequestId: string | null;
+  recoveryUntil: string | null;
+  pendingApprovalCount: number | null;
+  urgentApprovalCount: number | null;
+  approvalCoverage: "maxx_only";
+  suggestedTasks: string[];
+  promptsSource: "verified" | "unavailable";
+};
+export type ClientWorkspacesResponse = {
+  status: "VERIFIED";
+  workspaces: AuthorizedWorkspace[];
+  note: string;
+};
 
 export type VoiceSession = {
   clientSecret?: string;
@@ -60,13 +80,30 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const controlTowerApi = {
   bootstrap: () => request<ControlTowerBootstrap>("/v1/control-tower/bootstrap"),
-  chat: (message: string, model?: string, runId?: string, mode: MaxxChatMode = "normal") =>
+  listClientWorkspaces: () => request<ClientWorkspacesResponse>("/v1/client-workspaces"),
+  addClientWorkspace: (organizationId:string,name:string,slug:string) =>
+    request<{id:string;slug:string;status:"active"}>("/v1/client-workspaces",{
+      method:"POST",body:JSON.stringify({organizationId,name,slug}),
+    }),
+  advanceClientArchive: (projectId:string,step:"start"|"acknowledge"|"type_name"|"archive"|"cancel",
+      requestId?:string,typedName?:string) =>
+    request<{requestId:string;projectId:string;state:string;recoveryUntil:string|null}>(
+      `/v1/client-workspaces/${encodeURIComponent(projectId)}/archive`,{
+        method:"POST",body:JSON.stringify({step,requestId,typedName}),
+      }),
+  restoreClientWorkspace: (projectId:string,requestId:string) =>
+    request<{status:"restored";projectId:string}>(
+      `/v1/client-workspaces/${encodeURIComponent(projectId)}/restore`,{
+        method:"POST",body:JSON.stringify({requestId}),
+      }),
+  chat: (message: string, model?: string, runId?: string, mode: MaxxChatMode = "normal", workspaceId?: string) =>
     request<ChatResponse>("/v1/chat", {
       method: "POST",
       body: JSON.stringify({
         message: mode === "max" ? `${MAXX_MODE_MARKER}\n${message}` : message,
         model: model || undefined,
         runId,
+        workspaceId,
       }),
     }),
   createMission: (objective: string) =>

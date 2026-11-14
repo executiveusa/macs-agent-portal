@@ -23,6 +23,9 @@ import {
 import { Link } from "react-router-dom";
 import { controlTowerApi, type MaxxChatMode } from "@/services/controlTowerApi";
 import { useAuth } from "@/hooks/useAuth";
+import { ClientWorkspaceSwitcher } from "@/components/maxx/ClientWorkspaceSwitcher";
+import { MaxxSettingsDrawer } from "@/components/maxx/MaxxSettingsDrawer";
+import { canSendClientTask, catalogItem } from "@/lib/maxx-client-workspaces";
 import type { Approval, ChatResponse } from "@/types/controlTower";
 
 type Message = {
@@ -154,8 +157,35 @@ function ApprovalCard({ approval, onDecision, pending }: { approval: Approval; o
 
 export default function MaxxChat() {
   const queryClient = useQueryClient();
-  const { signOut } = useAuth();
+  const { signOut, session } = useAuth();
+  const authSubject = session?.user.id ?? "no-auth-session";
   const [input, setInput] = useState("");
+  const [selectedClientSlug,setSelectedClientSlug] = useState<string|null>(null);
+  const [settingsOpen,setSettingsOpen] = useState(false);
+  const [clientNotice,setClientNotice] = useState("");
+  const workspaceKey = authSubject + ":" + (selectedClientSlug ?? "general");
+  const workspaceKeyRef = useRef(workspaceKey);
+  useEffect(() => {
+    workspaceKeyRef.current = workspaceKey;
+  }, [workspaceKey]);
+  const workspaceQuery = useQuery({
+    queryKey: ["maxx-client-workspaces",authSubject],
+    queryFn: controlTowerApi.listClientWorkspaces,
+    enabled: Boolean(session?.user.id),
+    retry:false, refetchInterval:30_000,
+  });
+  const verifiedWorkspaces = workspaceQuery.data?.workspaces ?? [];
+  const verifiedWorkspace = selectedClientSlug
+    ? verifiedWorkspaces.find(x=>x.slug===selectedClientSlug) : undefined;
+  const clientPrompts = selectedClientSlug
+    ? (verifiedWorkspace?.promptsSource === "verified" && verifiedWorkspace.suggestedTasks.length > 0
+        ? verifiedWorkspace.suggestedTasks
+        : catalogItem(selectedClientSlug)?.suggestedTasks ??
+          ["Review client decisions waiting for approval.",
+           "Draft a campaign using verified company information.",
+           "Summarize real progress and outstanding work.",
+           "Prepare the next action for owner approval."])
+    : starterPrompts;
   const [mode, setMode] = useState<MaxxChatMode>("normal");
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -202,14 +232,30 @@ export default function MaxxChat() {
     refetchInterval: 15_000,
   });
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "welcome",
-      role: "maxx",
-      text: "I’m ready. Tell me the outcome you want, and I’ll figure out the work underneath.",
-    },
-  ]);
-  const [lastResponse, setLastResponse] = useState<ChatResponse>();
+  const [messagesByWorkspace,setMessagesByWorkspace] = useState<Record<string,Message[]>>({});
+  const [responsesByWorkspace,setResponsesByWorkspace] = useState<Record<string,ChatResponse>>({});
+  // Session transitions cannot reuse a previous operator's selected client.
+  const priorSubjectRef = useRef(authSubject);
+  useEffect(() => {
+    if (priorSubjectRef.current !== authSubject) {
+      priorSubjectRef.current = authSubject;
+      setSelectedClientSlug(null);
+      setMessagesByWorkspace({});
+      setResponsesByWorkspace({});
+      setClientNotice("");
+      queryClient.removeQueries({queryKey:["maxx-client-workspaces"]});
+    }
+  }, [authSubject,queryClient]);
+  const messages: Message[] = messagesByWorkspace[workspaceKey] ?? [{
+    id:"welcome-"+workspaceKey,role:"maxx",
+    text:selectedClientSlug ? "Select an outcome. Client records and actions require verified access." : "I’m ready. Tell me the outcome you want.",
+  }];
+  const lastResponse = responsesByWorkspace[workspaceKey];
+  function appendWorkspaceMessage(key:string,message:Message) {
+    setMessagesByWorkspace(current=>({
+      ...current,[key]:[...(current[key]??[]),message],
+    }));
+  }
 
   const status = bootstrap.isError
     ? "Offline"
@@ -219,7 +265,7 @@ export default function MaxxChat() {
         ? "Ready"
         : "Limited";
   const statusTone = status === "Ready" ? "bg-[#4f765c]" : status === "Offline" ? "bg-red-500" : "bg-amber-500";
-  const pendingApproval = bootstrap.data?.approvals.find((item) => item.status === "pending");
+  const pendingApproval = selectedClientSlug ? undefined : bootstrap.data?.approvals.find((item) => item.status === "pending");
 
   // Barge-in: Stop playing audio immediately without disrupting backend tasks
   const stopAudio = () => {
@@ -280,34 +326,28 @@ export default function MaxxChat() {
   };
 
   const chat = useMutation({
-    mutationFn: (text: string) => controlTowerApi.chat(text, undefined, undefined, mode),
-    onMutate: (text) => {
-      stopAudio(); // Barge-in on send
-      setMessages((current) => [...current, { id: crypto.randomUUID(), role: "stacy", text }]);
+    mutationFn: ({text,workspaceId}:{text:string;key:string;workspaceId?:string}) =>
+      controlTowerApi.chat(text,undefined,undefined,mode,workspaceId),
+    onMutate: ({text,key}) => {
+      stopAudio();
+      appendWorkspaceMessage(key,{id:crypto.randomUUID(),role:"stacy",text});
       setInput("");
-      setLastResponse(undefined);
+      setClientNotice("");
     },
-    onSuccess: async (response) => {
-      const id = response.id;
-      setMessages((current) => [
-        ...current,
-        {
-          id,
-          role: "maxx",
-          text: response.text,
-          details: {
-            routingReason: response.routingReason,
-            latencyMs: response.usage.latencyMs,
-            degraded: response.degraded,
-          },
-        },
-      ]);
-      setLastResponse(response);
-      queryClient.invalidateQueries({ queryKey: ["control-tower"] });
-      // Speak the response through ElevenLabs
-      if (response.text && !isListening) {
-        await playResponseAudio(response.text);
-      }
+    onError: (_error,{key}) => {
+      appendWorkspaceMessage(key,{id:crypto.randomUUID(),role:"maxx",
+        text:"That request was not completed. Please verify client access and the MAXX connection before retrying."});
+    },
+    onSuccess: async (response,{key}) => {
+      appendWorkspaceMessage(key,{id:response.id,role:"maxx",text:response.text,details:{
+        routingReason:response.routingReason,
+        latencyMs:response.usage.latencyMs,
+        degraded:response.degraded,
+      }});
+      setResponsesByWorkspace(current=>({...current,[key]:response}));
+      queryClient.invalidateQueries({queryKey:["control-tower"]});
+      queryClient.invalidateQueries({queryKey:["maxx-client-workspaces",authSubject]});
+      if(response.text && !isListening && workspaceKeyRef.current===key) await playResponseAudio(response.text);
     },
   });
 
@@ -318,9 +358,13 @@ export default function MaxxChat() {
 
   const send = (text = input) => {
     const clean = text.trim();
-    if (!clean || chat.isPending) return;
+    if(!clean || chat.isPending) return;
+    if(selectedClientSlug && !canSendClientTask(verifiedWorkspace)){
+      setClientNotice("Client tasks are locked until your project membership and data connection are verified.");
+      return;
+    }
     stopAudio();
-    chat.mutate(clean);
+    chat.mutate({text:clean,key:workspaceKey,workspaceId:verifiedWorkspace?.id});
   };
 
   // Voice handler: Tap mic -> Listening -> Stacy speaks -> Utterance commits automatically -> Working
@@ -383,10 +427,7 @@ export default function MaxxChat() {
                   send(res.text);
                 }
               } catch {
-                setMessages((current) => [
-                  ...current,
-                  { id: crypto.randomUUID(), role: "maxx", text: "I couldn’t catch that. You can type to me here." },
-                ]);
+                appendWorkspaceMessage(workspaceKey,{ id: crypto.randomUUID(), role: "maxx", text: "I couldn’t catch that. You can type to me here." });
               }
             }
           };
@@ -395,16 +436,10 @@ export default function MaxxChat() {
         recorder.start();
         setIsListening(true);
       } catch {
-        setMessages((current) => [
-          ...current,
-          { id: crypto.randomUUID(), role: "maxx", text: "Microphone access was not granted. You can type to me here." },
-        ]);
+        appendWorkspaceMessage(workspaceKey,{ id: crypto.randomUUID(), role: "maxx", text: "Microphone access was not granted. You can type to me here." });
       }
     } else {
-      setMessages((current) => [
-        ...current,
-        { id: crypto.randomUUID(), role: "maxx", text: "Voice input is not available in this browser. You can type to me here." },
-      ]);
+      appendWorkspaceMessage(workspaceKey,{ id: crypto.randomUUID(), role: "maxx", text: "Voice input is not available in this browser. You can type to me here." });
     }
   };
 
@@ -427,7 +462,7 @@ export default function MaxxChat() {
     };
   }, []);
 
-  const recentMissions = useMemo(() => bootstrap.data?.missions.slice(0, 6) ?? [], [bootstrap.data?.missions]);
+  const recentMissions = useMemo(() => selectedClientSlug ? [] : (bootstrap.data?.missions.slice(0, 6) ?? []), [bootstrap.data?.missions,selectedClientSlug]);
 
   return (
     <main className={`min-h-[100dvh] transition-colors duration-300 ${mode === "max" ? "bg-[#efebe5]" : "bg-[#f4f2ed]"} text-[#20201d]`}>
@@ -436,13 +471,19 @@ export default function MaxxChat() {
           <div className="flex items-center gap-2.5">
             <span className="text-lg font-bold tracking-[-0.04em]">MAXX</span>
             <span className={`h-2.5 w-2.5 rounded-full ${statusTone}`} aria-hidden="true" />
-            <span className="text-sm text-black/50">{status}</span>
+            <span className="hidden text-sm text-black/50 sm:inline">{status}</span>
+            <ClientWorkspaceSwitcher
+              selectedSlug={selectedClientSlug}
+              onSelect={(slug) => {setSelectedClientSlug(slug);setClientNotice("");stopAudio();}}
+              verifiedWorkspaces={verifiedWorkspaces}
+              connectionState={workspaceQuery.isLoading?"loading":workspaceQuery.isSuccess?"verified":"unavailable"}
+            />
           </div>
           <div className="flex items-center gap-1.5">
             {!isPwaInstalled && (
               <button
                 onClick={handleInstallClick}
-                className="flex h-9 items-center gap-1.5 rounded-full bg-[#24241f] px-3 text-xs font-semibold text-[#f4f2ed] shadow-sm hover:bg-black/80 transition"
+                className="hidden sm:flex h-9 items-center gap-1.5 rounded-full bg-[#24241f] px-3 text-xs font-semibold text-[#f4f2ed] shadow-sm hover:bg-black/80 transition"
                 title="Install MAXX on your phone"
               >
                 <Smartphone size={13} />
@@ -453,14 +494,21 @@ export default function MaxxChat() {
               <History size={16} />
               <span className="hidden sm:inline">History</span>
             </button>
-            <Link to="/control/settings" className="flex h-10 w-10 items-center justify-center rounded-full text-black/50 hover:bg-black/[0.04]" aria-label="Advanced settings">
+            <button type="button" onClick={()=>setSettingsOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-black/50 hover:bg-black/[0.04]"
+              aria-label="Open MAXX settings and navigation" aria-haspopup="dialog" aria-expanded={settingsOpen}>
               <Settings size={17} />
-            </Link>
+            </button>
             <button onClick={() => signOut()} className="flex h-10 w-10 items-center justify-center rounded-full text-black/50 hover:bg-black/[0.04]" aria-label="Sign out">
               <LogOut size={17} />
             </button>
           </div>
         </header>
+
+        <MaxxSettingsDrawer
+          open={settingsOpen} onOpenChange={setSettingsOpen}
+          onOpenHistory={()=>setShowHistory(true)}
+        />
 
         {showHistory && (
           <section className="border-b border-black/[0.07] bg-[#faf8f3] px-4 py-4 sm:px-6">
@@ -483,7 +531,15 @@ export default function MaxxChat() {
           <div className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
             <MaxxAvatar maxMode={mode === "max"} isSpeaking={isSpeaking} />
             <h1 className="mt-4 text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">What do you need done?</h1>
-            <p className="mt-2 text-sm leading-6 text-black/48">Talk or type normally. MAXX handles the work underneath.</p>
+            <p className="mt-2 text-sm leading-6 text-black/48">
+              {selectedClientSlug ? `Working context: ${catalogItem(selectedClientSlug)?.name}.` :
+                "Talk or type normally. MAXX handles the work underneath."}
+            </p>
+            {selectedClientSlug && !canSendClientTask(verifiedWorkspace) && (
+              <p role="status" className="mt-3 rounded-xl bg-amber-50 px-4 py-2 text-xs text-amber-900">
+                Client-specific execution is locked pending verified project membership.
+              </p>
+            )}
 
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               <button
@@ -503,8 +559,8 @@ export default function MaxxChat() {
           </div>
 
           <div className="mx-auto mt-6 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
-            {starterPrompts.map((prompt) => (
-              <button key={prompt} onClick={() => send(prompt)} disabled={chat.isPending} className="rounded-2xl border border-black/[0.07] bg-[#faf8f3] p-3.5 text-left text-sm leading-5 text-black/66 transition hover:border-black/15 hover:bg-[#f6f3ed] disabled:opacity-50">
+            {clientPrompts.map((prompt) => (
+              <button key={prompt} onClick={() => send(prompt)} disabled={chat.isPending || (Boolean(selectedClientSlug) && !canSendClientTask(verifiedWorkspace))} className="rounded-2xl border border-black/[0.07] bg-[#faf8f3] p-3.5 text-left text-sm leading-5 text-black/66 transition hover:border-black/15 hover:bg-[#f6f3ed] disabled:opacity-50">
                 {prompt}
               </button>
             ))}
@@ -546,6 +602,7 @@ export default function MaxxChat() {
               </div>
             ))}
 
+            {clientNotice && <p role="alert" className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{clientNotice}</p>}
             <WorkState pending={chat.isPending} response={lastResponse} isSpeaking={isSpeaking} onStopAudio={stopAudio} />
             {chat.isError && (
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800">
@@ -574,6 +631,7 @@ export default function MaxxChat() {
                 }}
                 rows={1}
                 placeholder="Tell MAXX what you need…"
+                disabled={Boolean(selectedClientSlug) && !canSendClientTask(verifiedWorkspace)}
                 className="min-h-11 max-h-32 flex-1 resize-none bg-transparent px-3 py-3 text-[16px] leading-5 outline-none placeholder:text-black/30"
               />
               <button
@@ -584,6 +642,7 @@ export default function MaxxChat() {
                     startVoice();
                   }
                 }}
+                disabled={Boolean(selectedClientSlug) && !canSendClientTask(verifiedWorkspace)}
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all ${
                   isListening ? "bg-red-500 text-white animate-pulse" : "bg-[#efede7] text-black/60 hover:bg-[#e4e1d8]"
                 }`}
@@ -592,7 +651,7 @@ export default function MaxxChat() {
               >
                 {isListening ? <MicOff size={18} /> : <Mic size={18} />}
               </button>
-              <button onClick={() => send()} disabled={!input.trim() || chat.isPending} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#24241f] text-white disabled:opacity-25" aria-label="Send to MAXX">
+              <button onClick={() => send()} disabled={!input.trim() || chat.isPending || (Boolean(selectedClientSlug) && !canSendClientTask(verifiedWorkspace))} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#24241f] text-white disabled:opacity-25" aria-label="Send to MAXX">
                 <ArrowUp size={18} />
               </button>
             </div>
@@ -603,7 +662,7 @@ export default function MaxxChat() {
                   ? "Speaking… tap mic or type to interrupt."
                   : mode === "max"
                     ? "MAXX Mode active"
-                    : "Voice and text go through your private MAXX account."}
+                    : selectedClientSlug ? "Client data and tools remain gated until project membership is verified." : "Voice and text go through your private MAXX account."}
             </p>
           </div>
         </section>

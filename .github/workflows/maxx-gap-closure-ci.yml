@@ -53,6 +53,15 @@ jobs:
         run: npm install --ignore-scripts
       - name: Check Rust shell
         run: cargo check --manifest-path desktop/maxx-tauri/src-tauri/Cargo.toml
+      - name: Verify resolved Rust dependencies without updates
+        run: cargo check --locked --manifest-path desktop/maxx-tauri/src-tauri/Cargo.toml
+      - name: Preserve generated Rust dependency lock for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: maxx-windows-cargo-lock
+          path: desktop/maxx-tauri/src-tauri/Cargo.lock
+          if-no-files-found: error
+          retention-days: 7
       - name: Reject insecure desktop endpoint
         shell: pwsh
         run: |
