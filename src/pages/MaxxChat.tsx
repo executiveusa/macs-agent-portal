@@ -226,8 +226,9 @@ export default function MaxxChat() {
   const audioChunksRef = useRef<Blob[]>([]);
 
   const bootstrap = useQuery({
-    queryKey: ["control-tower"],
+    queryKey: ["control-tower", authSubject],
     queryFn: controlTowerApi.bootstrap,
+    enabled: Boolean(session?.user.id),
     retry: false,
     refetchInterval: 15_000,
   });
@@ -244,6 +245,7 @@ export default function MaxxChat() {
       setResponsesByWorkspace({});
       setClientNotice("");
       queryClient.removeQueries({queryKey:["maxx-client-workspaces"]});
+      queryClient.removeQueries({queryKey:["control-tower"]});
     }
   }, [authSubject,queryClient]);
   const messages: Message[] = messagesByWorkspace[workspaceKey] ?? [{
