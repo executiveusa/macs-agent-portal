@@ -14,7 +14,7 @@ export type ClientWorkspace = {
   urgentApprovalCount: number | null;
   approvalCoverage: "maxx_only";
   suggestedTasks: string[];
-  promptsSource: "verified" | "unavailable";
+  promptsSource: "operator_template" | "verified" | "unavailable";
 };
 export class WorkspaceUnavailable extends Error {
   readonly status = 503;
@@ -47,7 +47,7 @@ function parseWorkspace(row: unknown): ClientWorkspace {
       typeof r.name !== "string" || !memberRoles.includes(String(r.role)) ||
       !statuses.includes(String(r.status)) || !Array.isArray(r.suggestedTasks) ||
       r.suggestedTasks.length > 20 || !r.suggestedTasks.every(x => typeof x === "string" && x.length <= 300) ||
-      r.promptsSource !== "verified" || r.approvalCoverage !== "maxx_only" ||
+      !["operator_template","verified"].includes(String(r.promptsSource)) || r.approvalCoverage !== "maxx_only" ||
       (r.archiveRequestId!==null && !isUUID(r.archiveRequestId)) ||
       (r.recoveryUntil!==null && typeof r.recoveryUntil!=="string") ||
       ![r.pendingApprovalCount,r.urgentApprovalCount].every(x=>Number.isInteger(x) && Number(x)>=0)) {
