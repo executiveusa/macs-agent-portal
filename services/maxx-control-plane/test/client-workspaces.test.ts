@@ -49,6 +49,7 @@ test("one private JSON RPC returns a valid, real member-scoped client with appro
   const svc=createClientWorkspaceService(config,true,request);
   const result=await svc.listForUser(alice);
   assert.equal(result[0]?.slug,"bunna-restaurant");
+  assert.equal(result[0]?.promptsSource,"verified");
   assert.equal(result[0]?.suggestedTasks[0],"Check Bunna lunch paid receipts");
   assert.equal(result[0]?.pendingApprovalCount,2);
   assert.equal(result[0]?.urgentApprovalCount,1);
@@ -56,6 +57,13 @@ test("one private JSON RPC returns a valid, real member-scoped client with appro
   assert.equal((await svc.listForUser(bob)).length,0);
   await assert.rejects(svc.authorize(bob,project,true),WorkspaceForbidden);
   await assert.rejects(svc.authorize(alice,foreign),WorkspaceForbidden);
+});
+test("accept reviewed operator templates without pretending they are verified historical tasks",async()=>{
+  const record={...row,promptsSource:"operator_template" as const};
+  const svc=createClientWorkspaceService(config,true,adapter(()=>[record]).request);
+  const rows=await svc.listForUser(alice);
+  assert.equal(rows[0]?.promptsSource,"operator_template");
+  assert.deepEqual(rows[0]?.suggestedTasks,record.suggestedTasks);
 });
 test("reject malformed RPC data and duplicate project records",async()=>{
   const mk=(rows:unknown[])=>createClientWorkspaceService(config,true,adapter(()=>rows).request);
