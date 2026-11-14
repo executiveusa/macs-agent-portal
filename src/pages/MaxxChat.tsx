@@ -178,7 +178,7 @@ export default function MaxxChat() {
   const verifiedWorkspace = selectedClientSlug
     ? verifiedWorkspaces.find(x=>x.slug===selectedClientSlug) : undefined;
   const clientPrompts = selectedClientSlug
-    ? (verifiedWorkspace?.promptsSource === "verified" && verifiedWorkspace.suggestedTasks.length > 0
+    ? ((verifiedWorkspace?.promptsSource === "verified" || verifiedWorkspace?.promptsSource === "operator_template") && verifiedWorkspace.suggestedTasks.length > 0
         ? verifiedWorkspace.suggestedTasks
         : catalogItem(selectedClientSlug)?.suggestedTasks ??
           ["Review client decisions waiting for approval.",
