@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Brain, CheckCircle2, FileArchive, Loader2, UploadCloud } from "lucide-react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 const BUCKET = "maxx-second-brain";
 const CHUNK_BYTES = 5 * 1024 * 1024;
-const API_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const API_URL = SUPABASE_URL;
+const PUBLISHABLE_KEY = SUPABASE_PUBLISHABLE_KEY;
 
 type ImportRow = {
   id: string;
