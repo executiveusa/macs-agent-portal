@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Brain, ChevronRight, CircleHelp, Database, History,
   LockKeyhole, Mic, Monitor, Settings, ShieldCheck, SlidersHorizontal,
@@ -22,6 +22,23 @@ type Preferences = { largeText: boolean; reduceMotion: boolean; spokenReplies: b
 const defaults: Preferences = { largeText: false, reduceMotion: false, spokenReplies: false };
 const prefsStoragePrefix = "maxx-ui-preferences-v1:";
 
+function loadPreferences(userId?: string): Preferences {
+  if (!userId || typeof window === "undefined") return defaults;
+  try {
+    const raw = window.localStorage.getItem(prefsStoragePrefix + userId);
+    const value: unknown = raw ? JSON.parse(raw) : null;
+    if (!value || typeof value !== "object") return defaults;
+    const prefs = value as Partial<Preferences>;
+    return {
+      largeText: prefs.largeText === true,
+      reduceMotion: prefs.reduceMotion === true,
+      spokenReplies: prefs.spokenReplies === true,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
 export function MaxxSettingsDrawer({
   open, onOpenChange, onOpenHistory,
 }: {
@@ -30,40 +47,17 @@ export function MaxxSettingsDrawer({
   const { session, signOut } = useAuth();
   const userId = session?.user.id;
   const [active, setActive] = useState<Category | null>(null);
-  const [prefs, setPrefs] = useState<Preferences>(defaults);
-  const [loadedFor, setLoadedFor] = useState<string | null>(null);
-
-  // Cosmetic preferences only. No authority, credentials, tenant selection, or
-  // approval configuration is ever sourced from browser storage.
-  useEffect(() => {
-    if (!userId) {
-      setPrefs(defaults);
-      setLoadedFor(null);
-      return;
-    }
-    try {
-      const raw = window.localStorage.getItem(prefsStoragePrefix + userId);
-      const value: unknown = raw ? JSON.parse(raw) : null;
-      if (value && typeof value === "object") {
-        const p = value as Partial<Preferences>;
-        setPrefs({
-          largeText: p.largeText === true,
-          reduceMotion: p.reduceMotion === true,
-          spokenReplies: p.spokenReplies === true,
-        });
-      } else setPrefs(defaults);
-    } catch {
-      setPrefs(defaults);
-    }
-    setLoadedFor(userId);
-  }, [userId]);
-
+  // Cosmetic preferences are keyed by verified session subject. No effect-time
+  // state reset or stale-operator inheritance; browser storage never controls access.
+  const storedPrefs = useMemo(() => loadPreferences(userId), [userId]);
+  const [sessionPrefs, setSessionPrefs] = useState<Record<string, Preferences>>({});
+  const prefs = userId ? (sessionPrefs[userId] ?? storedPrefs) : defaults;
   const changePreference = (key: keyof Preferences, value: boolean) => {
-    if (!userId || loadedFor !== userId) return;
+    if (!userId) return;
     const next = { ...prefs, [key]: value };
-    setPrefs(next);
+    setSessionPrefs(current => ({ ...current, [userId]: next }));
     try { window.localStorage.setItem(prefsStoragePrefix + userId, JSON.stringify(next)); } catch {
-      // Storage may be unavailable; the in-session preference still works.
+      // Cosmetic preference still works for this session if storage is blocked.
     }
   };
 
@@ -76,7 +70,7 @@ export function MaxxSettingsDrawer({
       <Switch
         aria-label={title}
         className="data-[state=checked]:bg-[#536458] data-[state=unchecked]:bg-black/20"
-        checked={prefs[key]} disabled={!userId || loadedFor !== userId}
+        checked={prefs[key]} disabled={!userId}
         onCheckedChange={(checked) => changePreference(key,checked)}
       />
     </div>
