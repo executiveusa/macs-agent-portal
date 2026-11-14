@@ -165,7 +165,9 @@ export default function MaxxChat() {
   const [clientNotice,setClientNotice] = useState("");
   const workspaceKey = authSubject + ":" + (selectedClientSlug ?? "general");
   const workspaceKeyRef = useRef(workspaceKey);
-  workspaceKeyRef.current = workspaceKey;
+  useEffect(() => {
+    workspaceKeyRef.current = workspaceKey;
+  }, [workspaceKey]);
   const workspaceQuery = useQuery({
     queryKey: ["maxx-client-workspaces",authSubject],
     queryFn: controlTowerApi.listClientWorkspaces,
@@ -231,6 +233,7 @@ export default function MaxxChat() {
   });
 
   const [messagesByWorkspace,setMessagesByWorkspace] = useState<Record<string,Message[]>>({});
+  const [responsesByWorkspace,setResponsesByWorkspace] = useState<Record<string,ChatResponse>>({});
   // Session transitions cannot reuse a previous operator's selected client.
   const priorSubjectRef = useRef(authSubject);
   useEffect(() => {
@@ -247,7 +250,6 @@ export default function MaxxChat() {
     id:"welcome-"+workspaceKey,role:"maxx",
     text:selectedClientSlug ? "Select an outcome. Client records and actions require verified access." : "I’m ready. Tell me the outcome you want.",
   }];
-  const [responsesByWorkspace,setResponsesByWorkspace] = useState<Record<string,ChatResponse>>({});
   const lastResponse = responsesByWorkspace[workspaceKey];
   function appendWorkspaceMessage(key:string,message:Message) {
     setMessagesByWorkspace(current=>({
