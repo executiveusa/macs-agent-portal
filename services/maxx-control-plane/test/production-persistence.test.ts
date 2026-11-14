@@ -55,3 +55,12 @@ test("non-production fallback remains explicit and is not production proof", asy
     globalThis.fetch = originalFetch;
   }
 });
+
+test("production without Supabase credentials never returns a transient mission or approval", async () => {
+  const store = createStore(loadConfig({ NODE_ENV: "production" }));
+  await assert.rejects(store.listMissions(), /production persistence is unavailable/);
+  await assert.rejects(store.createApproval({
+    runId: "run-3", action: "approve", summary: "must not be volatile",
+  }), /production persistence is unavailable/);
+  await assert.rejects(store.addEvent("run-3", "started", "must not be volatile"), /production persistence is unavailable/);
+});
