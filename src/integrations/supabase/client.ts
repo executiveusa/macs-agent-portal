@@ -10,8 +10,8 @@ const overrideKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
 if (Boolean(overrideUrl) !== Boolean(overrideKey)) {
   throw new Error("Supply VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY together");
 }
-const SUPABASE_URL = overrideUrl || defaultProjectUrl;
-const SUPABASE_PUBLISHABLE_KEY = overrideKey || defaultPublicKey;
+export const SUPABASE_URL = overrideUrl || defaultProjectUrl;
+export const SUPABASE_PUBLISHABLE_KEY = overrideKey || defaultPublicKey;
 if (new URL(SUPABASE_URL).protocol !== "https:") {
   throw new Error("MAXX requires HTTPS Supabase configuration");
 }
