@@ -549,7 +549,12 @@ export function buildApp(options: AppOptions = {}) {
         return reply.code(status).send({status:"UNAVAILABLE",error:"Client workspace access cannot be verified"});
       }
     }
-    // A legacy runId is not project-bound. Never let client-scoped chat append\n    // events to a caller-selected legacy run until durable per-project ICM exists.\n    if (workspace && input.runId) {\n      return reply.code(403).send({ error: "Legacy run identifiers are not accepted in a client workspace" });\n    }\n    // Context is never a substitute for server-enforced tenant checks.
+    // A legacy runId is not project-bound. Never let client-scoped chat append
+    // events to a caller-selected legacy run until durable per-project ICM exists.
+    if (workspace && input.runId) {
+      return reply.code(403).send({ error: "Legacy run identifiers are not accepted in a client workspace" });
+    }
+    // Context is never a substitute for server-enforced tenant checks.
     // Until tool scope is proven, workspace conversations are advisory ONLY,
     // bypass Hermes/tool execution and cannot claim to inspect private records.
     const contextualMessage = workspace
