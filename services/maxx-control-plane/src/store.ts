@@ -336,10 +336,28 @@ export class SupabaseStore implements ControlTowerStore {
   }
 }
 
+/** Configured production cannot silently become a volatile in-memory system. */
+class UnavailableProductionStore implements ControlTowerStore {
+  private fail(): never {
+    throw new Error("MAXX production persistence is unavailable: Supabase server configuration is required");
+  }
+  async listMissions(): Promise<Mission[]> { return this.fail(); }
+  async createMission(_input: Omit<Mission, "createdAt" | "updatedAt"> & { workspacePath: string }): Promise<Mission> { return this.fail(); }
+  async updateMission(_id: string, _status: Mission["status"]): Promise<Mission | undefined> { return this.fail(); }
+  async addEvent(_runId: string, _type: string, _message: string, _data?: Record<string,unknown>): Promise<RunEvent> { return this.fail(); }
+  async listEvents(_runId: string): Promise<RunEvent[]> { return this.fail(); }
+  async listApprovals(): Promise<Approval[]> { return this.fail(); }
+  async createApproval(_input: CreateApprovalInput): Promise<Approval> { return this.fail(); }
+  async decideApproval(_id: string, _decision: "approved" | "rejected", _operatorId: string): Promise<Approval | undefined> { return this.fail(); }
+  async addUsage(_input: UsageRecord): Promise<void> { return this.fail(); }
+  async listUsage(): Promise<UsageRecord[]> { return this.fail(); }
+}
+
 export function createStore(config: MaxxConfig): ControlTowerStore {
   if (config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY) {
     return new SupabaseStore(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, config.MAXX_APPROVAL_TTL_HOURS, config.NODE_ENV === "production");
   }
+  if (config.NODE_ENV === "production") return new UnavailableProductionStore();
   return new MemoryStore(config.MAXX_APPROVAL_TTL_HOURS);
 }
 
