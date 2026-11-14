@@ -39,3 +39,11 @@ Read this STATE, GATES, BAR, GRAPH, ROLLBACK and current PRs. Compare actual CUR
 ## Next safe action
 
 Generate deterministic Cargo.lock from Windows, enable `--locked` and rerun. In parallel run approved SQL candidates in a truly disposable isolated DB and prove two-identity project isolation including legacy surfaces with independent reviewer. Then verify operator Google sign-in and the complete seven-client journey on the exact preview. No production rollout until owner approval, security signoff, and direct production verification.
+
+## Run evidence — 2026-11-13 21:31 America/Mexico_City
+
+- Exact PR #113 HEAD at start: `18f8e08b4fb635b28939fb049059fb14200162b6`. All four GitHub workflows completed SUCCESS (CI #43551614152, release gates #43551614015, Pups CI #43551614077, Gap Closure CI #43551614206). This is CI proof only, not production proof.
+- **One reversible CI slice:** `.github/workflows/maxx-gap-closure-ci.yml` now uploads the actual Windows-generated `desktop/maxx-tauri/src-tauri/Cargo.lock` as a seven-day artifact, with missing-file failure, for independent review before checking the lockfile into source. Commit `9fe06fa1b6bf8078bb09e9bd826469b940e035bf`. No production or database change.
+- **Gate remains open:** upload is not a checked-in lockfile, and `cargo check --locked` is not yet enforced. Wait for the new exact-HEAD Windows CI to complete, inspect the artifact, commit reviewed lockfile, change CI to `--locked`, and rerun. Do not claim this gate passed from YAML presence alone.
+- Backend RLS, operator login, preview UX, real agent delivery, and client source registry remain blocked/unverified as recorded above. No new scheduler or control plane created.
+- Rollback: revert `9fe06fa1` to remove the upload-artifact step; it changes CI evidence collection only.
