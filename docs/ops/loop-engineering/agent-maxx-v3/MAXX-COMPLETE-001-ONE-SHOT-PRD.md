@@ -165,3 +165,88 @@ A passing bundle must include: exact portal/backend SHAs; clean CI and complete 
 Authorized Stacy/team Google identities and approved roles; permission to create/use a disposable Supabase test project if no local equivalent; verified source custodians and authorized connections for each company; independent security reviewer; and separate written production migration/deployment authorization. Never request or paste raw secrets into GitHub issues or PRs.
 
 **Commercial acceptance:** first authorized Bunna task yields a measured operational result and source-backed receipt, without inventing revenue. **Rollback:** revert isolated app commits and disable flags; retain restrictive database policies and preserve records. **Decision:** finish existing MAXX, no duplicate systems.
+
+
+## 9. One-shot CODE-SIDE completion contract and deferred SERVER-AGENT handoff — 2026-11-14
+
+**Purpose:** Turn sections 1–8 into a single executable completion assignment for the code-capable agent. This is an amendment to MAXX-COMPLETE-001, **not** another product, PRD, scheduler, database, or orchestration service. The code-side agent must deliver all safely achievable implementation and CI work as one integrated, independently reviewable release candidate, without stopping after a micro-fix or claiming production completion. The server-side agent receives only the remaining access-dependent verification and deployment work after a code-side completion report.
+
+### 9.1 Scope, ownership and delivery boundaries
+
+- **Mode:** brownfield finish; inspect existing code and behavior, reuse the Fastify MAXX control plane, existing ICM/Migrations agent APIs and Hermes isolation; implement only necessary missing contracts, migrations, adapters, UX and tests.
+- **Business outcome:** seven securely separated operator workspaces supporting chat/voice, saved context, explicit approval-based tool execution, genuine connection status, Instinct delivery, receipts and recoverable archival. First acceptance is an owner-authorized, evidence-backed Bunna mission; no invented revenue, customer activity or connected sources.
+- **Canonical code:** portal PR #113; backend PR #43; review dependent #44 and unrelated #29/#42 for needed interfaces only. Do not bulk merge. Existing shared Supabase project \`cyxdevcjycmffhmwxojh\` is strictly read-only until independently reviewed migration plus owner authorization.
+- **One-shot means:** work through *all* independently executable code-side tasks in one uninterrupted mission, parallelizing independent code/tests/reviews when safe. Do not treat a single clean CI job or passing static test as final. If credentials block one task, record the exact blocked gate and continue every other safely executable task. Never bypass CI, invent real providers, generate unapproved memberships or silently degrade critical product features.
+- **Release authority:** no production data writes, memberships, secrets, OAuth settings, real external side effects, merges, deployments or client contact without separately authorized action. Keep draft PRs and feature flags until independently gated.
+
+### 9.2 Required integrated implementation deliverables — complete all reachable items
+
+| Work package | Source implementation owed by code-side agent | Repeatable proof (not just a document) |
+|---|---|---|
+| C0 — baseline | Read current SHA/PR diffs, every required workflow job and failure log, existing UI/API/database contracts, STATE/GATES/GRAPH/BAR/ROLLBACK. Map cross-repo ownership and impact; identify outdated or duplicate paths. | Exact initial SHAs, CI run URLs, command logs and mismatch ledger. |
+| C1 — clean engineering | Repair backend Ruff/Prettier/type/lint and Patch failures by fixing source or verified test infrastructure, not suppressing gates. Resolve semantic-commit failure through an approved non-destructive strategy; if rewriting history is required, escalate rather than force-push. Verify \`npm ci\` and portal build/test/control-plane. Review Windows Cargo.lock reproducibility and check in the verified lock when an authenticated binary-capable checkout is available; keep \`--locked\` gate. | Required CI success at exact final SHA, local/CI command exit codes, no test disablement. Historical commit policy exception requires explicit authorized decision if non-rewritable. |
+| C2 — DB and project authorization | Convert reviewed #43 candidate SQL into ordered, rollback-aware migrations, least-privilege grants and executable DB integration fixtures. Enforce seven project memberships per user and explicit server-side organization/project identity. Close unscoped legacy approvals/audit/run-step/read paths. Do not deploy to shared Supabase. | Disposable PostgreSQL/Supabase-local schema execution, two test identities with allowed and denied SELECT/INSERT/UPDATE/DELETE/RPC/tool/approval access, revoked-role checks, versioned migration/restore transcript; security reviewer acknowledgment. If runnable disposable database absent, provide one-command fixture and exact environment blocker; never claim G7 passed. |
+| C3 — identity and state | Implement server-verifiable Google/Supabase JWT checks and owner/team role mapping; prevent request body or prompt from setting privileged tenant claims. Persist existing chat/memory/history, prompts, settings and notification counts in canonical scoped store. Clear browser caches on signout/project switch and test simultaneous sessions. | Auth and cross-workspace API integration tests, reload/persistence tests, invalid JWT/role revocation/ID substitution negative controls. Real OAuth requires runtime proof from server agent. |
+| C4 — operators and lifecycle | Finish all seven named client workspace surfaces and 28 starter prompts; strictly truthfully mark not-connected clients. Implement owner-scoped create, exact-name confirm archive, >=30-day reversible recovery, blocking pending execution, auditable transitions and no hard-delete; use existing UX, preserve hero/brand. | API + browser tests for create/switch/history/rename/archive/restore; concurrency, stale-cache and cross-client assertions. |
+| C5 — ICM + approvals + receipts | Connect existing ICM/Hermes mission requests using explicit project scope and approved tool capabilities; implement durable mission/approval state machine, actor evidence, job dedupe/replay rejection, retries and cancellation; signed/authenticated Instinct adapter and result reconciliation, without duplicate worker queue. Side effects require human approval checked by server and tool execution boundary. | Unit/integration tests for request→plan→approval→executor→verified receipt and denial/revocation/replay/cross-project cases. Mock executions clearly labeled simulated; live authorized mission reserved for server gate. |
+| C6 — voice and operator UX | Complete voice input/permission-denial/retry/hands-free controls using existing browser support and honest compatibility labels; responsive 320/390/1440 interfaces, accessible keyboard, visible true connection health, settings and operator notifications; no fake green status or unsupported feature claims. | Browser screenshots and actual interactive accessibility/voice/device checks with failures attached. Device-/browser-specific live proof may remain with server agent. |
+| C7 — staging-ready delivery | Produce deterministic build artifacts, env-variable schema (names only, never values), least-privilege deployment composition, reversible feature-flag posture, migration dry-run/recovery scripts, smoke/health/evidence commands, timeout/observability hooks and deployment instructions. Obtain independent review of security-sensitive code and product UX. | Exact SHA release manifest, reproducible CI, test artifact links, independent reviewer findings and disposition, scripted rollback checks. No production release. |
+
+Do not swap C2–C7 for another gap report. Every unblocked work package requires source or test changes with executable evidence. Fix failures and re-run the entire affected suite until the code-side release candidate passes, or document a precise external dependency that cannot be resolved from this access level.
+
+### 9.3 One-command acceptance suite to supply and execute where safe
+
+Create or consolidate **one repository-owned command** (reuse existing package scripts and CI; do not add a scheduler) that aggregates, as applicable:
+
+1. Clean lockfile installation; lint, typecheck, unit tests and production builds for portal, control plane, SDK and desktop.
+2. Backend formatter/linter, Patch and app-level test suite with existing versions; do not hide unrelated failures as “green.”
+3. Candidate DB versioned migrations plus rollback/recovery against a marked local disposable database only. Abort with an actionable error if environment safety cannot be established.
+4. Two isolated principals and seven workspace fixtures: allow proper accesses; deny every cross-tenant data and tool operation, no default membership; verify revocation and 30-day archive lifecycle.
+5. Integration-contract tests spanning authenticated API → chat → mission → human approval → authorized execution adapter → evidence receipt → reload, including source-injection and replay negative controls.
+6. UX tests for responsive viewports, auth state transitions, clear health labels, microphone deny/revoke and error recovery.
+7. Emit an artifact manifest with exact SHA, environment type, run URLs/logs, expected/observed outcomes, reviewer signoffs, remaining gates, and rollback recipe.
+
+No green stamp if a required executable gate was skipped. Distinguish \`CODE VERIFIED\`, \`BLOCKED: RUNTIME ACCESS\`, and \`BLOCKED: REVIEW/AUTHORIZATION\` per row; these are evidence categories, **not** product status labels. Official product status remains NOT READY / READY FOR PREVIEW / PREVIEW VERIFIED / PRODUCTION VERIFIED.
+
+### 9.4 One-shot code-side execution instructions (copy to engineering agent)
+
+> You are the single completion engineer for Agent MAXX. Start at the actual current PR HEADs, inspect code before editing, and follow INTENT→BAR→LOCK→EVIDENCE→GRAPH→SPEC→SLICE→BUILD→VERIFY→GAUNTLET→RELEASE→LEARN, Unlazy pass/fail oracles, Ponytail smallest-diff reuse and the preexisting MAXX-COMPLETE-001 acceptance gates. Finish all C0–C7 in this mission. Do not return after the first fix. Work across the existing #113 and #43 branches, reviewing #44/#29/#42 for dependencies without broad merges. Preserve customer data/security and exact design direction. For each package commit isolated changes, run real commands/tests, inspect failures, obtain separate review where possible and update the **existing** docs/ops/loop-engineering/agent-maxx-v3 run packet and draft PRs. If an access-dependent step is blocked, continue the next code-side package; do not fabricate test results. Never write shared Supabase, deploy, merge or approve live side effects without owner authorization. Your terminal deliverable is the completed code/test release candidate or a package-by-package proof of genuine external blocks, plus a server-only handoff generated from **actual remaining work**, not guesses. Recheck exact final SHAs/CI. Stop neither after a docs-only commit nor after one security assertion; stop after every unblocked code-side implementation is verified and independently reviewed.
+
+### 9.5 Handoff package for the SERVER-SIDE AGENT — only after C0–C7
+
+Provide the following **filled-in** manifest (no placeholders presented as actual evidence):
+
+- Portal and backend PR URL, final HEAD SHA, commit range, specific build artifact/version, signed review findings.
+- Verified local/CI checks and logs, failures/waivers, schema migration ordered files and their expected hashes.
+- Environment variable **names** and required secret owners; no values or bearer credentials in reports.
+- Disposable migration + recovery commands and expected results; whether C2 real SQL and two-principal RLS already ran.
+- Named operator onboarding required: owner-confirmed actual Supabase Auth UUIDs and approved organization/project assignments, with least privilege. No default auto-enrollment.
+- Confirmed client registry of seven workspaces; mark unapproved repo/database/service connections NOT CONNECTED.
+- Exact approved minimal read-only Bunna mission and approval boundary; do not contact clients, publish or perform consequential writes.
+- Production feature flags, safe deployment order, monitoring and rollback actions; independent signoff and owner approval checkpoints.
+
+**Server-side agent mission, after handoff:**
+
+S1. Inventory actual authorized server, deployment, Supabase target, existing services, container/image digests, env names and current running revision read-only. Do not echo secrets or conflate staging with production. Detect configuration drift from the code-side release manifest.
+
+S2. Provision/use isolated disposable Supabase/Postgres with safe marker; execute code-supplied migration/integration/rollback and two-identity RLS tests. Record SQL transcripts, expected denial outcomes and independent DBA/security review. Never use shared \`botanic-creations\` as a disposable test database.
+
+S3. Configure protected staging and real operator Google OAuth under approved provider/domain. Verify valid/expired/revoked sessions, explicit user and project membership assignments only after owner approval; confirm cross-workspace access denial with real authenticated JWTs.
+
+S4. Connect existing isolated MAXX Hermes/ICM runtime and authenticated Instinct ingress using secrets from approved secret manager; verify health, trusted origin, request signatures, replay/idempotency handling, queue/job recovery, tool allowlists and truthful connection status. Do not create a replacement orchestration system.
+
+S5. Run full staging operator journey (seven client views; 28 prompts; persisted/reloaded chat/settings; approvals; voice mic permissions; 30-day archive restore; source evidence; audit receipts). Demonstrate exactly one approved **real, read-only Bunna** ICM mission, record source reference and output hash/receipt, deny cross-client replay. Do not invent authorized sources.
+
+S6. Verify encrypted backup, disposable restoration, rollback drill, alerts, access logs with secrets redacted, resource capacity, smoke tests and failure recovery. Arrange independent security and UX reviews; report gaps as release blockers.
+
+S7. **STOP FOR HUMAN APPROVAL** before applying any reviewed migration to \`cyxdevcjycmffhmwxojh\`, granting live user membership, changing public DNS, merging release PRs, deploying production or executing consequential external actions. Present change set, rollback and precise approval request. No interpretation of this PRD as production authorization.
+
+S8. After explicit approval and passing independent gates, release reviewed exact SHAs, run authenticated production smoke and cross-tenant isolation with approved test identities, prove end-to-end Bunna evidence and live rollback readiness, and publish exact URLs/revisions/logs. Only then mark **PRODUCTION VERIFIED**; otherwise remain **NOT READY**, **READY FOR PREVIEW**, or **PREVIEW VERIFIED** as supported.
+
+**Human-needed checklist:** authorization for a disposable database or safe local fixture if the code-side environment lacks one; owner-confirmed operator Auth UUIDs and permitted client memberships; access to hosting/runtime and OAuth/Instinct configuration through a privileged server-side agent; explicit production deployment/database authorization after independent review. No other ordinary engineering decision should be returned to the owner.
+
+### 9.6 Completion report format
+
+**Decision:** code-side release candidate accepted/rejected; **status:** valid official product label. **Changes:** each C0–C7 path, commit and PR. **Proof:** exact SHA + executable command + exit status + CI links + cross-client denial/migration transcripts + reviewer name/role and report. **Server-only outstanding:** S1–S8 with the real permissions or unavailable runtime dependency. **Commercial evidence:** only measured outcomes from approved real missions. **Risks:** known bypasses, unavailable sources, test gaps. **Rollback:** app image/commit, feature flags, non-destructive DB recovery. **Next action:** one precise server setup or owner approval request.
+
+**End state of this one-shot request is a complete code-side implementation and verified candidate, not production deployment.** Production completion requires S1–S8 and owner authorization.
