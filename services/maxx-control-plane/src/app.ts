@@ -73,6 +73,7 @@ const chatSchema = z.object({
   model: z.string().trim().min(1).optional(),
   runId: z.string().optional(),
   workspaceId: z.string().uuid().optional(),
+  exchangeId: z.string().uuid().optional(),
 });
 
 const missionSchema = z.object({ objective: z.string().trim().min(3).max(2_000) });
@@ -458,6 +459,17 @@ export function buildApp(options: AppOptions = {}) {
         status===409?"Client state has changed or needs confirmation":"Invalid client request",
     });
   }
+  app.get("/v1/client-workspaces/:projectId/chat-history",async(request,reply)=>{
+    if(request.operator?.principal!=="human") return reply.code(403).send({error:"Human session required"});
+    const parsed=archiveProjectSchema.safeParse(request.params);
+    if(!parsed.success) return reply.code(400).send({error:"Invalid workspace ID"});
+    try {
+      const messages=await clientWorkspaces.listChatHistory(request.operator!.id,parsed.data.projectId,100);
+      return reply.header("cache-control","private, no-store").send({
+        status:"VERIFIED",projectId:parsed.data.projectId,messages,
+      });
+    } catch(error) {return clientRequestError(error,reply);}
+  });
   app.post("/v1/client-workspaces",async(request,reply)=>{
     if(request.operator?.principal==="machine") return reply.code(403).send({error:"Human session required"});
     const parsed = clientCreateSchema.safeParse(request.body);
@@ -632,7 +644,17 @@ export function buildApp(options: AppOptions = {}) {
       ...result.usage,
       createdAt: new Date().toISOString(),
     };
-    await store.addUsage(usage);
+    // Legacy usage and event stores are NOT project-scoped. Never write an
+    // authorized client exchange into an unscoped legacy history/usage table.
+    // Persist both messages atomically through the scoped service-role RPC,
+    // then return success. No private client data is passed to Hermes/tools.
+    const exchangeId = workspace ? (input.exchangeId ?? randomUUID()) : undefined;
+    if (workspace) {
+      await clientWorkspaces.recordChatExchange(
+        request.operator!.id,workspace.id,exchangeId!,input.message,result.text);
+    } else {
+      await store.addUsage(usage);
+    }
     if (input.runId) {
       await store.addEvent(input.runId, "assistant.message", result.text, {
         model: effectiveModel,
@@ -640,7 +662,7 @@ export function buildApp(options: AppOptions = {}) {
       });
     }
     return reply.send({
-      id: randomUUID(),
+      id: exchangeId ?? randomUUID(),
       text: result.text,
       model: effectiveModel,
       provider: effectiveProvider,
