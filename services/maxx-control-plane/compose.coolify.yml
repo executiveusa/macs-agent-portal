@@ -140,8 +140,13 @@ services:
       MAXX_HERMES_STANDARD_MODEL: "${MAXX_HERMES_STANDARD_MODEL:-}"
       MAXX_HERMES_POWER_PROVIDER: "${MAXX_HERMES_POWER_PROVIDER:-}"
       MAXX_HERMES_POWER_MODEL: "${MAXX_HERMES_POWER_MODEL:-}"
-      MAXX_PRODUCTION_MUTATIONS_ENABLED: "true"
-      MAXX_EMERGENCY_DISABLE: "false"
+      # Locked by default. Only a separately authorized release may enable
+      # production mutations after independent security and rollback review.
+      MAXX_PRODUCTION_MUTATIONS_ENABLED: "${MAXX_PRODUCTION_MUTATIONS_ENABLED:-false}"
+      MAXX_EMERGENCY_DISABLE: "${MAXX_EMERGENCY_DISABLE:-false}"
+      # Client workspaces stay disabled until their reviewed SQL is actually
+      # deployed and two-user isolation is confirmed on the intended database.
+      MAXX_CLIENT_WORKSPACES_ENABLED: "${MAXX_CLIENT_WORKSPACES_ENABLED:-false}"
       MAXX_VOICE_ENABLED: "${MAXX_VOICE_ENABLED:-false}"
       MAXX_SPEECH_INPUT_PROVIDER: "${MAXX_SPEECH_INPUT_PROVIDER:-openai}"
       MAXX_SPEECH_OUTPUT_PROVIDER: "${MAXX_SPEECH_OUTPUT_PROVIDER:-elevenlabs}"
