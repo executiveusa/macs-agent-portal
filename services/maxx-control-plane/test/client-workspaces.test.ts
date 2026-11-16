@@ -302,3 +302,29 @@ test("verified owner can still access legacy dashboard during reviewed migration
     assert.equal((await app.inject({method:"GET",url:"/v1/control-tower/bootstrap"})).statusCode,200);
   } finally {await app.close();}
 });
+
+test("production mutation lock allows only verified advisory draft chat, not arbitrary actions",async()=>{
+  const {request}=adapter(()=>[row]);
+  const svc=createClientWorkspaceService(config,true,request);
+  const app=buildApp({
+    config:loadConfig({NODE_ENV:"production",MAXX_CLIENT_WORKSPACES_ENABLED:"true",
+      MAXX_PRODUCTION_MUTATIONS_ENABLED:"false"}),
+    authenticate:async()=>({id:alice,email:"member@example.com",principal:"human"}),
+    clientWorkspaces:svc,
+  });
+  try{
+    // The server checks scoped membership and rejects an unscoped legacy run
+    // before any model, tool, or event write. A 403 proves the route reached
+    // scope checks; a 503 would indicate the global mutation lock blocked it.
+    const scoped=await app.inject({method:"POST",url:"/v1/chat",payload:{
+      message:"Draft only",workspaceId:project,runId:"foreign-legacy-run"}});
+    assert.equal(scoped.statusCode,403);
+    assert.match(scoped.json().error,/Legacy run identifiers/);
+    const unscoped=await app.inject({method:"POST",url:"/v1/chat",
+      payload:{message:"Unscoped attempt"}});
+    assert.equal(unscoped.statusCode,403);
+    const mission=await app.inject({method:"POST",url:"/v1/missions",
+      payload:{objective:"Attempt arbitrary execution"}});
+    assert.equal(mission.statusCode,403);
+  } finally {await app.close();}
+});
