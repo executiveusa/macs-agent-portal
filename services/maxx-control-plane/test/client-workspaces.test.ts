@@ -175,3 +175,69 @@ test("authorized client chat rejects foreign legacy runId before model routing o
     assert.equal(calls.length,1,"only membership lookup is permitted");
   } finally {await app.close();}
 });
+
+test("verified client history is loaded exclusively through scoped service RPC and can be reloaded",async()=>{
+  const createdAt="2026-11-16T12:00:00.000Z";
+  const {request,calls}=adapter((name,payload)=>{
+    if(name==="maxx_service_client_workspaces") return payload.p_user_id===alice?[row]:[];
+    if(name==="maxx_service_client_chat_history"){
+      assert.equal(payload.p_actor,alice);
+      assert.equal(payload.p_project_id,project);
+      return [{id:requestId,role:"stacy",text:"Draft Bunna follow-up",createdAt}];
+    }
+    throw new Error("Unexpected RPC "+name);
+  });
+  const svc=createClientWorkspaceService(config,true,request);
+  const history=await svc.listChatHistory(alice,project);
+  assert.deepEqual(history,[{id:requestId,role:"stacy",text:"Draft Bunna follow-up",createdAt}]);
+  assert.deepEqual(calls.map(x=>x.name),["maxx_service_client_workspaces","maxx_service_client_chat_history"]);
+  await assert.rejects(svc.listChatHistory(bob,project),WorkspaceForbidden);
+  assert.equal(calls.filter(x=>x.name==="maxx_service_client_chat_history").length,1);
+});
+test("record chat requires role, valid exchange, and two valid durable receipts",async()=>{
+  const exchange="99999999-9999-4999-8999-999999999999";
+  const {request,calls}=adapter((name,payload)=>{
+    if(name==="maxx_service_client_workspaces") return [row];
+    if(name==="maxx_service_record_client_chat_exchange"){
+      assert.equal(payload.p_actor,alice);
+      assert.equal(payload.p_project_id,project);
+      assert.equal(payload.p_exchange_id,exchange);
+      assert.equal(payload.p_request,"Draft a safe Bunna campaign");
+      assert.equal(payload.p_response,"Draft only; no action performed");
+      return [{id:requestId,role:"stacy",text:payload.p_request},
+        {id:foreign,role:"maxx",text:payload.p_response}];
+    }
+    throw new Error("Unexpected RPC "+name);
+  });
+  const svc=createClientWorkspaceService(config,true,request);
+  await svc.recordChatExchange(alice,project,exchange,"Draft a safe Bunna campaign","Draft only; no action performed");
+  assert.equal(calls.filter(x=>x.name==="maxx_service_record_client_chat_exchange").length,1);
+  await assert.rejects(svc.recordChatExchange(alice,project,"not-a-uuid","x","y"),WorkspaceInvalid);
+});
+test("malformed history never becomes successful verified content",async()=>{
+  const svc=createClientWorkspaceService(config,true,adapter(name=>
+    name==="maxx_service_client_workspaces"?[row]:
+      [{id:requestId,role:"maxx",text:"claimed",createdAt:"not-a-date"}]
+  ).request);
+  await assert.rejects(svc.listChatHistory(alice,project),WorkspaceUnavailable);
+});
+test("client history route refuses machine and unavailable identity, without an unscoped fallback",async()=>{
+  const {request}=adapter(name=>name==="maxx_service_client_workspaces"?[row]:[]);
+  const svc=createClientWorkspaceService(config,true,request);
+  const app=buildApp({config:loadConfig({NODE_ENV:"test",MAXX_CLIENT_WORKSPACES_ENABLED:"true"}),
+    authenticate:async()=>({id:alice,email:"operator@example.com",principal:"human"}),
+    clientWorkspaces:svc});
+  try {
+    const res=await app.inject({method:"GET",url:`/v1/client-workspaces/${project}/chat-history`});
+    assert.equal(res.statusCode,200);
+    assert.equal(res.json().projectId,project);
+    assert.deepEqual(res.json().messages,[]);
+  } finally {await app.close();}
+  const machine=buildApp({config:loadConfig({NODE_ENV:"test",MAXX_CLIENT_WORKSPACES_ENABLED:"true"}),
+    authenticate:async()=>({id:alice,email:"machine@example.com",principal:"machine"}),
+    clientWorkspaces:svc});
+  try {
+    const res=await machine.inject({method:"GET",url:`/v1/client-workspaces/${project}/chat-history`});
+    assert.equal(res.statusCode,403);
+  } finally {await machine.close();}
+});
