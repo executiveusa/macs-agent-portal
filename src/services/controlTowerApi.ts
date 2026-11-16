@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { requireSecureControlTowerEndpoint } from "@/lib/control-tower-endpoint";
 import type { ChatResponse, ControlTowerBootstrap, Mission, OwnerStrategy } from "@/types/controlTower";
 
 const defaultUrl = "https://api.thepaulieffect.com/maxx";
@@ -52,6 +53,9 @@ export type VoiceHealth = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // The connected Vercel environment must never send a Supabase JWT to an
+  // unsecured server IP. Validate before even retrieving the user session.
+  requireSecureControlTowerEndpoint(baseUrl, import.meta.env.DEV);
   const devBypass = import.meta.env.DEV && import.meta.env.VITE_MAXX_DEV_AUTH_BYPASS === "true";
   const token = devBypass ? undefined : (await supabase.auth.getSession()).data.session?.access_token;
   const url = `${baseUrl}${path}`;
