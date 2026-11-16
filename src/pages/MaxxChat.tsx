@@ -281,7 +281,10 @@ export default function MaxxChat() {
     }));
   }
 
-  const status = bootstrap.isError
+  const status = selectedClientSlug
+    ? workspaceQuery.isError ? "Unavailable" :
+      verifiedWorkspace ? "Draft only" : "Setup needed"
+    : bootstrap.isError
     ? "Offline"
     : bootstrap.isLoading
       ? "Connecting"
@@ -588,6 +591,11 @@ export default function MaxxChat() {
             {selectedClientSlug && !canSendClientTask(verifiedWorkspace) && (
               <p role="status" className="mt-3 rounded-xl bg-amber-50 px-4 py-2 text-xs text-amber-900">
                 Client-specific execution is locked pending verified project membership.
+              </p>
+            )}
+            {selectedClientSlug && verifiedWorkspace && (
+              <p role="status" className="mt-2 text-xs text-amber-800">
+                Verified client workspace · advisory drafts only. No external client actions are executed.
               </p>
             )}
 
