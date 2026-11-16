@@ -272,3 +272,33 @@ test("machine principals cannot inspect private project approval route",async()=
     assert.equal(resp.statusCode,403);
   } finally {await app.close();}
 });
+
+test("non-admin client member cannot use legacy organization-wide MAXX APIs",async()=>{
+  const {request}=adapter(name=>name==="maxx_service_client_workspaces"?[row]:[]);
+  const svc=createClientWorkspaceService(config,true,request);
+  const app=buildApp({config:loadConfig({NODE_ENV:"test",MAXX_CLIENT_WORKSPACES_ENABLED:"true"}),
+    authenticate:async()=>({id:alice,email:"member@example.com",principal:"human"}),
+    clientWorkspaces:svc});
+  try {
+    const denied=[
+      {method:"GET" as const,url:"/v1/control-tower/bootstrap"},
+      {method:"POST" as const,url:"/v1/missions",payload:{objective:"Legacy unscoped action"}},
+      {method:"POST" as const,url:"/v1/chat",payload:{message:"Unscoped data request"}},
+    ];
+    for(const input of denied) {
+      const r=await app.inject(input);
+      assert.equal(r.statusCode,403,input.url);
+    }
+    const ok=await app.inject({method:"GET",url:"/v1/client-workspaces"});
+    assert.equal(ok.statusCode,200);
+  } finally {await app.close();}
+});
+test("verified owner can still access legacy dashboard during reviewed migration",async()=>{
+  const {request}=adapter(()=>[{...row,role:"owner"}]);
+  const app=buildApp({config:loadConfig({NODE_ENV:"test",MAXX_CLIENT_WORKSPACES_ENABLED:"true"}),
+    authenticate:async()=>({id:alice,email:"owner@example.com",principal:"human"}),
+    clientWorkspaces:createClientWorkspaceService(config,true,request)});
+  try {
+    assert.equal((await app.inject({method:"GET",url:"/v1/control-tower/bootstrap"})).statusCode,200);
+  } finally {await app.close();}
+});
