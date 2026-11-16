@@ -16,6 +16,7 @@ export type ClientWorkspace = {
   suggestedTasks: string[];
   promptsSource: "operator_template" | "verified" | "unavailable";
 };
+export type ClientChatMessage = {id:string;role:"stacy"|"maxx";text:string;createdAt:string};
 export class WorkspaceUnavailable extends Error {
   readonly status = 503;
   constructor() { super("Project-scoped access is not configured or cannot be verified."); }
@@ -141,5 +142,41 @@ export function createClientWorkspaceService(config:Cfg,enabled:boolean,request:
     }
     return result;
   }
-  return {listForUser,authorize,createClient,archiveStep};
+  function parseChatMessage(item:unknown):ClientChatMessage {
+    if(!item || typeof item!=="object" || Array.isArray(item)) throw new WorkspaceUnavailable();
+    const r=item as ClientRecord;
+    if(!isUUID(r.id) || !["stacy","maxx"].includes(String(r.role)) ||
+       typeof r.text!=="string" || r.text.length<1 || r.text.length>20_000 ||
+       typeof r.createdAt!=="string" || !Number.isFinite(Date.parse(r.createdAt)))
+      throw new WorkspaceUnavailable();
+    return r as unknown as ClientChatMessage;
+  }
+  async function listChatHistory(userId:string,projectId:string,limit=100):Promise<ClientChatMessage[]> {
+    await authorize(userId,projectId);
+    if(!Number.isInteger(limit)||limit<1||limit>200) throw new WorkspaceInvalid();
+    const raw=await rpc("maxx_service_client_chat_history",{
+      p_actor:userId,p_project_id:projectId,p_limit:limit,
+    });
+    if(!Array.isArray(raw)||raw.length>limit) throw new WorkspaceUnavailable();
+    return raw.map(parseChatMessage);
+  }
+  async function recordChatExchange(userId:string,projectId:string,exchangeId:string,
+    question:string,answer:string):Promise<void> {
+    await authorize(userId,projectId,true);
+    if(!isUUID(exchangeId)||typeof question!=="string"||!question.trim()||question.length>20_000||
+       typeof answer!=="string"||!answer.trim()||answer.length>20_000)
+      throw new WorkspaceInvalid();
+    const raw=await rpc("maxx_service_record_client_chat_exchange",{
+      p_actor:userId,p_project_id:projectId,p_exchange_id:exchangeId,
+      p_request:question,p_response:answer,
+    });
+    if(!Array.isArray(raw)||raw.length!==2) throw new WorkspaceUnavailable();
+    // SQL returns the two immutable rows. Never claim persistence from a 2xx
+    // with a malformed/empty payload.
+    const roles=raw.map((x:unknown)=>x&&typeof x==="object"?(x as ClientRecord).role:null);
+    if(roles[0]!=="stacy"||roles[1]!=="maxx"||
+       !raw.every((x:unknown)=>x&&typeof x==="object"&&isUUID((x as ClientRecord).id)))
+      throw new WorkspaceUnavailable();
+  }
+  return {listForUser,authorize,createClient,archiveStep,listChatHistory,recordChatExchange};
 }
