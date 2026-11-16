@@ -29,6 +29,18 @@ export type ClientWorkspacesResponse = {
   note: string;
 };
 
+export type ClientChatMessage = {
+  id: string;
+  role: "stacy" | "maxx";
+  text: string;
+  createdAt: string;
+};
+export type ClientChatHistoryResponse = {
+  status: "VERIFIED";
+  projectId: string;
+  messages: ClientChatMessage[];
+};
+
 export type VoiceSession = {
   clientSecret?: string;
   expiresAt?: number;
@@ -85,6 +97,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const controlTowerApi = {
   bootstrap: () => request<ControlTowerBootstrap>("/v1/control-tower/bootstrap"),
   listClientWorkspaces: () => request<ClientWorkspacesResponse>("/v1/client-workspaces"),
+  getClientChatHistory: (projectId:string) =>
+    request<ClientChatHistoryResponse>(`/v1/client-workspaces/${encodeURIComponent(projectId)}/chat-history`),
   addClientWorkspace: (organizationId:string,name:string,slug:string) =>
     request<{id:string;slug:string;status:"active"}>("/v1/client-workspaces",{
       method:"POST",body:JSON.stringify({organizationId,name,slug}),
@@ -100,7 +114,7 @@ export const controlTowerApi = {
       `/v1/client-workspaces/${encodeURIComponent(projectId)}/restore`,{
         method:"POST",body:JSON.stringify({requestId}),
       }),
-  chat: (message: string, model?: string, runId?: string, mode: MaxxChatMode = "normal", workspaceId?: string) =>
+  chat: (message: string, model?: string, runId?: string, mode: MaxxChatMode = "normal", workspaceId?: string, exchangeId?: string) =>
     request<ChatResponse>("/v1/chat", {
       method: "POST",
       body: JSON.stringify({
@@ -108,6 +122,7 @@ export const controlTowerApi = {
         model: model || undefined,
         runId,
         workspaceId,
+        exchangeId,
       }),
     }),
   createMission: (objective: string) =>
