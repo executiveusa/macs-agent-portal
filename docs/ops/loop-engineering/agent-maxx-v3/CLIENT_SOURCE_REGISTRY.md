@@ -4,13 +4,13 @@ This is the **operator-confirmed list of client names**, not a claim that any ot
 
 | Client | Canonical repository | Database / schema | Authorized business records | Read-only proof source | Live tool access |
 |---|---|---|---|---|---|
-| CROWN AND CORE | **UNVERIFIED — owner to identify** | **UNVERIFIED** | **NOT CONNECTED** | **UNKNOWN** | **DISABLED** |
-| THP FLOORING | **UNVERIFIED — owner to identify** | **UNVERIFIED** | **NOT CONNECTED** | **UNKNOWN** | **DISABLED** |
-| BUNNA RESTAURANT | **UNVERIFIED — owner to identify** | **UNVERIFIED** | **NOT CONNECTED** | **UNKNOWN** | **DISABLED** |
-| MACS DIGITAL MEDIA | **UNVERIFIED — owner to identify** | **UNVERIFIED** | **NOT CONNECTED** | **UNKNOWN** | **DISABLED** |
-| ASC3ND | **UNVERIFIED — owner to identify** | **UNVERIFIED** | **NOT CONNECTED** | **UNKNOWN** | **DISABLED** |
-| 3X PLUMBERS | **UNVERIFIED — owner to identify** | **UNVERIFIED** | **NOT CONNECTED** | **UNKNOWN** | **DISABLED** |
-| TANGLES AND LOCS | **UNVERIFIED — owner to identify** | **UNVERIFIED** | **NOT CONNECTED** | **UNKNOWN** | **DISABLED** |
+| CROWN AND CORE | **CANDIDATES:** [crownandcorestarnet](https://github.com/executiveusa/crownandcorestarnet), [crown-and-core](https://github.com/executiveusa/crown-and-core). Primary source **NOT CONFIRMED** | **UNVERIFIED** | **NOT CONNECTED** | GitHub repository metadata only | **DISABLED** |
+| THP FLOORING | **NO VERIFIED MATCH** in accessible GitHub search; owner must provide exact repository or NONE | **UNVERIFIED** | **NOT CONNECTED** | No matching installed repository identified | **DISABLED** |
+| BUNNA RESTAURANT | **CANDIDATES:** [bunna-smart-site](https://github.com/executiveusa/bunna-smart-site), [bunna-marketing-workspace](https://github.com/executiveusa/bunna-marketing-workspace). Roles and authorization **NOT CONFIRMED** | **UNVERIFIED** | **NOT CONNECTED** | GitHub repository metadata only | **DISABLED** |
+| MACS DIGITAL MEDIA | **CANDIDATE:** [macsdigitalmedia](https://github.com/executiveusa/macsdigitalmedia) (public website, not MAXX control plane). Scope **NOT CONFIRMED** | **UNVERIFIED** | **NOT CONNECTED** | GitHub repository metadata only | **DISABLED** |
+| ASC3ND | **CANDIDATES:** [asc3nd-brand-site](https://github.com/executiveusa/asc3nd-brand-site), [asc3nd-frontend-website-](https://github.com/executiveusa/asc3nd-frontend-website-). Primary source **NOT CONFIRMED** | **UNVERIFIED** | **NOT CONNECTED** | GitHub repository metadata only | **DISABLED** |
+| 3X PLUMBERS | **NO VERIFIED MATCH** in accessible GitHub search; owner must provide exact repository or NONE | **UNVERIFIED** | **NOT CONNECTED** | No matching installed repository identified | **DISABLED** |
+| TANGLES AND LOCS | **NO VERIFIED MATCH** in accessible GitHub search; owner must provide exact repository or NONE | **UNVERIFIED** | **NOT CONNECTED** | No matching installed repository identified | **DISABLED** |
 
 ## Identity and connection protocol
 
@@ -24,3 +24,7 @@ This is the **operator-confirmed list of client names**, not a claim that any ot
 ## Defaults
 
 No data is imported, no account can auto-enroll itself from an email string and no external Instinct worker can acquire unrestricted MAXX credentials. The seven display labels and task prompts already exist in draft code. Actual record access remains off until the project-level migration and membership checks are approved.
+
+## Repository discovery checkpoint — 2026-11-16
+
+The linked GitHub installation was queried for each named client and matching repositories had owner, default-branch and visibility metadata checked. **Discovery is not a binding or authorization.** No secrets, client records or databases were accessed by these searches. This is a reviewable candidate register: operators must confirm which repository, if any, is authoritative; which production domain/database it belongs to; and whether MAXX may access it. Matching a familiar brand or repository name cannot grant access. Canonical client-to-repo mappings remain blocked pending review. Database and external tool access remains disabled.
