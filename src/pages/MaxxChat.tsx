@@ -186,6 +186,12 @@ export default function MaxxChat() {
            "Summarize real progress and outstanding work.",
            "Prepare the next action for owner approval."])
     : starterPrompts;
+  const chatHistoryQuery = useQuery({
+    queryKey:["maxx-client-chat-history",authSubject,verifiedWorkspace?.id],
+    queryFn:()=>controlTowerApi.getClientChatHistory(verifiedWorkspace!.id),
+    enabled:Boolean(session?.user.id && verifiedWorkspace?.id && verifiedWorkspace.status==="active"),
+    retry:false,
+  });
   const [mode, setMode] = useState<MaxxChatMode>("normal");
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -246,16 +252,25 @@ export default function MaxxChat() {
       setClientNotice("");
       queryClient.removeQueries({queryKey:["maxx-client-workspaces"]});
       queryClient.removeQueries({queryKey:["control-tower"]});
+      queryClient.removeQueries({queryKey:["maxx-client-chat-history"]});
     }
   }, [authSubject,queryClient]);
-  const messages: Message[] = messagesByWorkspace[workspaceKey] ?? [{
-    id:"welcome-"+workspaceKey,role:"maxx",
-    text:selectedClientSlug ? "Select an outcome. Client records and actions require verified access." : "I’m ready. Tell me the outcome you want.",
-  }];
+  const persistedMessages: Message[] | undefined =
+    selectedClientSlug && verifiedWorkspace && chatHistoryQuery.data?.projectId===verifiedWorkspace.id
+      ? chatHistoryQuery.data.messages.map(({id,role,text})=>({id,role,text}))
+      : undefined;
+  const messages: Message[] = messagesByWorkspace[workspaceKey] ??
+    (persistedMessages?.length ? persistedMessages : [{
+      id:"welcome-"+workspaceKey,role:"maxx",
+      text:selectedClientSlug ? "Select an outcome. Client records and actions require verified access." : "I’m ready. Tell me the outcome you want.",
+    }]);
   const lastResponse = responsesByWorkspace[workspaceKey];
   function appendWorkspaceMessage(key:string,message:Message) {
+    // Preserve the server history while optimistic work is displayed. Never
+    // let a new local message replace a previously loaded client transcript.
+    const baseline = key===workspaceKey ? (persistedMessages??[]) : [];
     setMessagesByWorkspace(current=>({
-      ...current,[key]:[...(current[key]??[]),message],
+      ...current,[key]:[...(current[key]??baseline),message],
     }));
   }
 
@@ -328,8 +343,8 @@ export default function MaxxChat() {
   };
 
   const chat = useMutation({
-    mutationFn: ({text,workspaceId}:{text:string;key:string;workspaceId?:string}) =>
-      controlTowerApi.chat(text,undefined,undefined,mode,workspaceId),
+    mutationFn: ({text,workspaceId,exchangeId}:{text:string;key:string;workspaceId?:string;exchangeId:string}) =>
+      controlTowerApi.chat(text,undefined,undefined,mode,workspaceId,exchangeId),
     onMutate: ({text,key}) => {
       stopAudio();
       appendWorkspaceMessage(key,{id:crypto.randomUUID(),role:"stacy",text});
@@ -340,7 +355,7 @@ export default function MaxxChat() {
       appendWorkspaceMessage(key,{id:crypto.randomUUID(),role:"maxx",
         text:"That request was not completed. Please verify client access and the MAXX connection before retrying."});
     },
-    onSuccess: async (response,{key}) => {
+    onSuccess: async (response,{key,workspaceId}) => {
       appendWorkspaceMessage(key,{id:response.id,role:"maxx",text:response.text,details:{
         routingReason:response.routingReason,
         latencyMs:response.usage.latencyMs,
@@ -349,6 +364,19 @@ export default function MaxxChat() {
       setResponsesByWorkspace(current=>({...current,[key]:response}));
       queryClient.invalidateQueries({queryKey:["control-tower"]});
       queryClient.invalidateQueries({queryKey:["maxx-client-workspaces",authSubject]});
+      if(workspaceId) {
+        const keyForHistory=["maxx-client-chat-history",authSubject,workspaceId];
+        await queryClient.invalidateQueries({queryKey:keyForHistory});
+        const fetched=queryClient.getQueryData<{messages:Array<{text:string}>}>(keyForHistory);
+        if(fetched?.messages.some(item=>item.text===response.text)){
+          setMessagesByWorkspace(current=>{
+            if(!current[key]) return current;
+            const next={...current};
+            delete next[key];
+            return next;
+          });
+        }
+      }
       if(response.text && !isListening && workspaceKeyRef.current===key) await playResponseAudio(response.text);
     },
   });
@@ -366,7 +394,7 @@ export default function MaxxChat() {
       return;
     }
     stopAudio();
-    chat.mutate({text:clean,key:workspaceKey,workspaceId:verifiedWorkspace?.id});
+    chat.mutate({text:clean,key:workspaceKey,workspaceId:verifiedWorkspace?.id,exchangeId:crypto.randomUUID()});
   };
 
   // Voice handler: Tap mic -> Listening -> Stacy speaks -> Utterance commits automatically -> Working
@@ -519,7 +547,20 @@ export default function MaxxChat() {
               <button onClick={() => setShowHistory(false)} aria-label="Close history" className="rounded-full p-2 text-black/40 hover:bg-black/[0.05]"><X size={15} /></button>
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {recentMissions.length ? recentMissions.map((mission) => (
+              {selectedClientSlug ? (
+                chatHistoryQuery.isError
+                  ? <p role="alert" className="text-sm text-red-700">Saved client history is unavailable. This is not an empty history.</p>
+                  : chatHistoryQuery.isLoading
+                    ? <p className="text-sm text-black/40">Loading verified client history…</p>
+                    : chatHistoryQuery.data?.messages.length
+                      ? chatHistoryQuery.data.messages.slice(-8).map(item=>(
+                          <div key={item.id} className="rounded-xl border border-black/[0.07] bg-white px-3 py-2.5">
+                            <p className="text-xs font-semibold">{item.role==="stacy"?"You":"MAXX"}</p>
+                            <p className="mt-1 line-clamp-2 text-sm">{item.text}</p>
+                          </div>
+                        ))
+                      : <p className="text-sm text-black/40">No persisted client messages yet.</p>
+              ) : recentMissions.length ? recentMissions.map((mission) => (
                 <div key={mission.id} className="rounded-xl border border-black/[0.07] bg-white px-3 py-2.5">
                   <p className="line-clamp-2 text-sm font-medium">{mission.objective}</p>
                   <p className="mt-1 text-xs text-black/40">{mission.status === "needs_operator" ? "Needs you" : mission.status === "working" ? "Working" : mission.status === "completed" ? "Done" : mission.status}</p>
@@ -604,7 +645,12 @@ export default function MaxxChat() {
               </div>
             ))}
 
-            {clientNotice && <p role="alert" className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{clientNotice}</p>}
+            {selectedClientSlug && chatHistoryQuery.isError && verifiedWorkspace && (
+              <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                Saved history could not be verified. Refresh or contact the operator; never assume there are zero records.
+              </p>
+            )}
+            {clientNotice && <p role="alert" className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{clientNotice}</p>
             <WorkState pending={chat.isPending} response={lastResponse} isSpeaking={isSpeaking} onStopAudio={stopAudio} />
             {chat.isError && (
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800">
