@@ -100,7 +100,9 @@ test("archive and restore demand owner permissions and enforce sequential RPC st
       return [{...owner,status:phase===4?"archived":"active"}];
     }
     if(name==="maxx_service_archive_client_step"){
-      const state=["requested","confirmed_one","confirmed_two","archived","restored"][phase]??"requested";
+      // Match the management SQL: successful restore returns status, not state.
+      if(phase===4) { phase++; return {status:"restored",projectId:project}; }
+      const state=["requested","confirmed_one","confirmed_two","archived"][phase]??"requested";
       phase++;
       return {requestId,projectId:project,state,recoveryUntil:phase>=4?"2026-12-14T00:00:00Z":null};
     }
@@ -112,9 +114,23 @@ test("archive and restore demand owner permissions and enforce sequential RPC st
   await svc.archiveStep(alice,project,"acknowledge",requestId);
   await svc.archiveStep(alice,project,"type_name",requestId,"BUNNA RESTAURANT");
   await svc.archiveStep(alice,project,"archive",requestId);
-  await svc.archiveStep(alice,project,"restore",requestId);
+  const restored=await svc.archiveStep(alice,project,"restore",requestId);
+  assert.deepEqual(restored,{status:"restored",projectId:project});
   assert.equal(calls.filter(x=>x.name==="maxx_service_archive_client_step").length,5);
   await assert.rejects(svc.archiveStep(alice,project,"archive","not-a-uuid"),WorkspaceInvalid);
+});
+test("restore rejects mismatched or unsuccessful RPC responses",async()=>{
+  const archived={...row,role:"owner",status:"archived",archiveRequestId:requestId};
+  for(const reply of [
+    {status:"restored",projectId:foreign},
+    {status:"failed",projectId:project},
+    {state:"restored",projectId:project},
+  ]){
+    const svc=createClientWorkspaceService(config,true,adapter((name)=>
+      name==="maxx_service_client_workspaces"?[archived]:reply
+    ).request);
+    await assert.rejects(svc.archiveStep(alice,project,"restore",requestId),WorkspaceUnavailable);
+  }
 });
 test("viewer cannot advance an archive, even when the read RPC returns a client",async()=>{
   const svc=createClientWorkspaceService(config,true,adapter(()=>[{...row,role:"viewer"}]).request);
