@@ -35,6 +35,14 @@ export type ClientChatMessage = {
   text: string;
   createdAt: string;
 };
+export type ClientPendingApproval = {
+  id:string;actionKey:string;actionClass:string;riskClass:string;
+  requestedAt:string;expiresAt:string;status:"pending";
+};
+export type ClientPendingApprovalsResponse = {
+  status:"VERIFIED";projectId:string;approvalMode:"read_only";
+  approvals:ClientPendingApproval[];note:string;
+};
 export type ClientChatHistoryResponse = {
   status: "VERIFIED";
   projectId: string;
@@ -97,6 +105,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const controlTowerApi = {
   bootstrap: () => request<ControlTowerBootstrap>("/v1/control-tower/bootstrap"),
   listClientWorkspaces: () => request<ClientWorkspacesResponse>("/v1/client-workspaces"),
+  getClientPendingApprovals:(projectId:string) =>
+    request<ClientPendingApprovalsResponse>(`/v1/client-workspaces/${encodeURIComponent(projectId)}/pending-approvals`),
   getClientChatHistory: (projectId:string) =>
     request<ClientChatHistoryResponse>(`/v1/client-workspaces/${encodeURIComponent(projectId)}/chat-history`),
   addClientWorkspace: (organizationId:string,name:string,slug:string) =>
