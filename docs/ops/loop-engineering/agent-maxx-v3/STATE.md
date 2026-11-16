@@ -7,9 +7,9 @@ status: NOT READY
 stage: 07_verify
 next_stage: 07_verify
 canonical_portal: https://github.com/executiveusa/macs-agent-portal/pull/113
-canonical_backend: https://github.com/executiveusa/maxx-migrations-agentic-systems/pull/43
-current_slice: Frontend toolchain, React lint, shared Supabase settings and Windows Tauri dependency mismatch repaired; exact CODE HEAD all four CI workflows passed.
-source_revision_portal: 11855fbc627cb81b345ee7f2e5630e8df6d855e6 (verified code revision before this documentation update)
+canonical_backend: https://github.com/executiveusa/maxx-migrations-agentic-systems/pull/45 (preferred reviewed candidate; #43 retained until independent decision)
+current_slice: COMPLETE-001 non-server slice: persistent scoped chat, read-only client approvals, legacy global endpoint deny, verified repo candidates, and disposable RLS integration tests committed; production still blocked.
+source_revision_portal: 644783ff0e2062e89235b30f5e07e494efc48c84 (four CI workflows pass on that code SHA; later UI status/doc commits require their own exact SHA)
 latest_build_ci: PASS on code SHA 11855fbc — CI #43549628131, MAXX Pups CI #43549628182, MAXX release gates #43549628111, MAXX Gap Closure CI #43549628191 all COMPLETED SUCCESS. Windows thin-client cargo check and Hermes bridge both passed. This proves CI only, not production functionality. Subsequent doc commits require distinguishing source SHA from documentation SHA.
 next_stage: 07_verify — reproducible checked-in Cargo.lock and locked Windows rerun, disposable DB RLS two-principal denial test with independent reviewer, operator Google login proof, protected preview mobile/desktop gauntlet, authorized real agent execution, production approval.
 shared_supabase: botanic-creations / cyxdevcjycmffhmwxojh
@@ -62,3 +62,17 @@ Generate deterministic Cargo.lock from Windows, enable `--locked` and rerun. In 
 - **One reversible test slice:** commit `9ac23a7d78267eb88f9e0cb65a5e2d4f16f2baf1` adds a second Windows `cargo check --locked` immediately after the existing lock-generating check and before upload. This tests locked re-resolution on the same runner; it does **not** establish checked-in lockfile reproducibility. New exact-HEAD CI was not yet available at inspection; gate remains OPEN until it passes.
 - Blocker: repository contents connector supports UTF-8 text writes, but the downloaded ZIP artifact is only available as a local file reference, not transferable directly into GitHub's write connector in this run. Do not paste, regenerate, or claim the 108 KB lockfile is committed. Next executor with a Git-authenticated checkout should copy the extracted file after verifying SHA-256, commit `desktop/maxx-tauri/src-tauri/Cargo.lock`, replace the initial un-locked check with `cargo check --locked`, and rerun exact HEAD CI. Alternatively use an approved authenticated file upload path.
 - No production deployment, Supabase mutation, membership grant, client data access, or revenue proof. Rollback: revert `9ac23a7` (CI-only step); this state append can be reverted independently.
+
+## 2026-11-16 non-server full-slice implementation (newer than historical notes above)
+
+**Release status: NOT READY.** Exact portal source `644783ff0e2062e89235b30f5e07e494efc48c84` passed all four workflows: CI `43957842396`, Pups `43957842452`, release `43957842433`, Windows/Gap Closure `43957842349`. Later `fb54779c` UX provenance and this run packet need their exact SHA recheck. No production DB, secrets, source integration, DNS cutover, server deploy or real user grants modified.
+
+**Implemented in existing PR #113:** project-scoped chat history GET, atomic advisory exchange writes via verified actor and service-only RPC, role-/project-scoped read-only approval list, session-partitioned cache, no legacy cross-project runId reuse, verified owner/admin gating of legacy global control APIs when V3 enabled, production mutations kill switch preserved for dangerous actions while verified client draft chat can persist, additional negative tests. Draft-only client UI labels state honestly. Auth and voice remain generally integrated; client agent tools remain off pending scoped ICM proof.
+
+**Implemented in preferred backend PR #45:** additive chat persistence and read-only client approval SQL proposal, disposable SQL execution and synthetic two-principal security tests (including write denial, revocation, retry idempotency, rollback, archive/restore). PR #45 `6b1c6ae92f7190a1ad73a2cbbec9b0f326e6e3c1` passed `MAXX client boundary gates` CI `43956422255`, lint, semantic, Patch. This is NOT actual-schema or independent security proof and is not deployed. #43 remains open until a documented supersession review; dependent #44 needs reconciliation.
+
+**Read-only GitHub source discovery:** candidate repo links for Crown & Core, Bunna, MACS Digital Media and ASC3ND recorded in `CLIENT_SOURCE_REGISTRY.md`; THP Flooring, 3X Plumbers and Tangles & Locs have no verified accessible match. All integrations intentionally OFF pending owner scope confirmation.
+
+**Windows lock:** verified Actions ZIP artifact 14270953199 produced 109,726-byte Cargo.lock, SHA-256 `8d74bfbaba308c6194c09e2d45489aa8d9feeefae8b13f6f70ad30b6f591277a`. It is NOT yet in Git. Reusable agent with authenticated checkout must commit exact bytes and enforce primary `cargo check --locked`. Composio's separate GitHub connection returned 401 and was not used.
+
+**SERVER ONLY final execution:** read `SERVER-AGENT-EXECUTION-HANDOFF-2026-11-16.md`. Fix HTTPS gateway 502, verify legacy-vs-V3 Supabase data owner and operator Google subject, independently review real-schema RLS and backup/restore, apply migrations only with approval, configure runtime/Instinct/Hermes source-scoped execution, prove Bunna real workflow, live browser/voice/Windows E2E, then release with exact-sha verification and rollback. No duplicate manager, app, or loop. Keep feature flag OFF now.
