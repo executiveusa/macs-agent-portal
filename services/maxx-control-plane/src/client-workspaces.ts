@@ -132,7 +132,13 @@ export function createClientWorkspaceService(config:Cfg,enabled:boolean,request:
     });
     if(!result || typeof result!=="object" || Array.isArray(result)) throw new WorkspaceUnavailable();
     const r=result as ClientRecord;
-    if(r.projectId!==projectId || typeof r.state!=="string") throw new WorkspaceUnavailable();
+    // Restore RPC returns {status:"restored",projectId}; archive steps return
+    // {state,projectId,...}. Reject unexpected responses without reporting a
+    // successfully restored project as a service failure.
+    if(r.projectId!==projectId ||
+       (step==="restore" ? r.status!=="restored" : typeof r.state!=="string")) {
+      throw new WorkspaceUnavailable();
+    }
     return result;
   }
   return {listForUser,authorize,createClient,archiveStep};
