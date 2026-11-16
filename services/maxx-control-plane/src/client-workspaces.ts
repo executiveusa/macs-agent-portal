@@ -16,6 +16,15 @@ export type ClientWorkspace = {
   suggestedTasks: string[];
   promptsSource: "operator_template" | "verified" | "unavailable";
 };
+export type ClientApprovalSummary = {
+  id:string;
+  actionKey:string;
+  actionClass:string;
+  riskClass:string;
+  status:"pending";
+  requestedAt:string;
+  expiresAt:string;
+};
 export type ClientChatMessage = {id:string;role:"stacy"|"maxx";text:string;createdAt:string};
 export class WorkspaceUnavailable extends Error {
   readonly status = 503;
@@ -178,5 +187,23 @@ export function createClientWorkspaceService(config:Cfg,enabled:boolean,request:
        !raw.every((x:unknown)=>x&&typeof x==="object"&&isUUID((x as ClientRecord).id)))
       throw new WorkspaceUnavailable();
   }
-  return {listForUser,authorize,createClient,archiveStep,listChatHistory,recordChatExchange};
+  async function listPendingApprovals(userId:string,projectId:string):Promise<ClientApprovalSummary[]> {
+    await authorize(userId,projectId);
+    const raw=await rpc("maxx_service_client_pending_approvals",{
+      p_actor:userId,p_project_id:projectId,p_limit:20,
+    });
+    if(!Array.isArray(raw)||raw.length>20) throw new WorkspaceUnavailable();
+    return raw.map((item:unknown)=>{
+      if(!item||typeof item!=="object"||Array.isArray(item)) throw new WorkspaceUnavailable();
+      const v=item as ClientRecord;
+      if(!isUUID(v.id)||v.status!=="pending"||
+         !["actionKey","actionClass","riskClass"].every(k=>
+           typeof v[k]==="string" && (v[k] as string).length<=300)||
+         typeof v.requestedAt!=="string"||!Number.isFinite(Date.parse(v.requestedAt))||
+         typeof v.expiresAt!=="string"||!Number.isFinite(Date.parse(v.expiresAt)))
+        throw new WorkspaceUnavailable();
+      return v as unknown as ClientApprovalSummary;
+    });
+  }
+  return {listForUser,authorize,createClient,archiveStep,listChatHistory,recordChatExchange,listPendingApprovals};
 }
