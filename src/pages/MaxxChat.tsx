@@ -192,6 +192,12 @@ export default function MaxxChat() {
     enabled:Boolean(session?.user.id && verifiedWorkspace?.id && verifiedWorkspace.status==="active"),
     retry:false,
   });
+  const clientApprovalsQuery = useQuery({
+    queryKey:["maxx-client-approvals",authSubject,verifiedWorkspace?.id],
+    queryFn:()=>controlTowerApi.getClientPendingApprovals(verifiedWorkspace!.id),
+    enabled:Boolean(session?.user.id && verifiedWorkspace?.id && verifiedWorkspace.status==="active"),
+    retry:false,refetchInterval:30_000,
+  });
   const [mode, setMode] = useState<MaxxChatMode>("normal");
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -253,6 +259,7 @@ export default function MaxxChat() {
       queryClient.removeQueries({queryKey:["maxx-client-workspaces"]});
       queryClient.removeQueries({queryKey:["control-tower"]});
       queryClient.removeQueries({queryKey:["maxx-client-chat-history"]});
+      queryClient.removeQueries({queryKey:["maxx-client-approvals"]});
     }
   }, [authSubject,queryClient]);
   const persistedMessages: Message[] | undefined =
@@ -649,6 +656,28 @@ export default function MaxxChat() {
               <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
                 Saved history could not be verified. Refresh or contact the operator; never assume there are zero records.
               </p>
+            )}
+            {verifiedWorkspace && selectedClientSlug && (
+              <section className="rounded-2xl border border-black/[0.07] bg-[#faf8f3] p-3" aria-label="Client approvals">
+                <p className="text-xs font-semibold text-black/70">Client approvals · review only</p>
+                {clientApprovalsQuery.isError
+                  ? <p role="alert" className="mt-1 text-xs text-amber-900">Approval status is unavailable, not zero.</p>
+                  : clientApprovalsQuery.isLoading
+                    ? <p className="mt-1 text-xs text-black/45">Checking authorized approvals…</p>
+                    : clientApprovalsQuery.data?.approvals.length
+                      ? <div className="mt-2 space-y-2">
+                          {clientApprovalsQuery.data.approvals.slice(0,3).map(item=>(
+                            <div key={item.id} className="rounded-lg border border-black/[0.06] bg-white p-2 text-xs">
+                              <p className="font-semibold">{item.actionKey}</p>
+                              <p className="mt-1 text-black/55">Risk: {item.riskClass}. Approval or execution requires separate authorized review.</p>
+                            </div>
+                          ))}
+                          {clientApprovalsQuery.data.approvals.length>3 && (
+                            <p className="text-xs text-black/55">Additional verified approvals: {clientApprovalsQuery.data.approvals.length-3}</p>
+                          )}
+                        </div>
+                      : <p className="mt-1 text-xs text-black/50">No pending approvals in the scoped MAXX ledger. Other systems are not included.</p>}
+              </section>
             )}
             {clientNotice && <p role="alert" className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{clientNotice}</p>}
             <WorkState pending={chat.isPending} response={lastResponse} isSpeaking={isSpeaking} onStopAudio={stopAudio} />
