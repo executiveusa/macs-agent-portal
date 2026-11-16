@@ -433,7 +433,12 @@ export function buildApp(options: AppOptions = {}) {
     if (
       config.NODE_ENV === "production" &&
       !config.featureFlags.MAXX_PRODUCTION_MUTATIONS_ENABLED &&
-      PRODUCTION_LOCKED_METHODS.has(request.method)
+      PRODUCTION_LOCKED_METHODS.has(request.method) &&
+      // Explicit human-initiated advisory chat may record a scoped transcript.
+      // The handler still verifies membership and never invokes Hermes/tools.
+      !(config.clientWorkspacesEnabled && operator.principal==="human" &&
+        request.method==="POST" && request.url.split("?",1)[0]==="/v1/chat" &&
+        typeof (request.body as {workspaceId?:unknown}|undefined)?.workspaceId==="string")
     ) {
       return reply.code(503).send({
         status: "locked",
