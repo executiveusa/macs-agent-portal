@@ -470,6 +470,19 @@ export function buildApp(options: AppOptions = {}) {
       });
     } catch(error) {return clientRequestError(error,reply);}
   });
+  app.get("/v1/client-workspaces/:projectId/pending-approvals",async(request,reply)=>{
+    if(request.operator?.principal!=="human") return reply.code(403).send({error:"Human session required"});
+    const parsed=archiveProjectSchema.safeParse(request.params);
+    if(!parsed.success) return reply.code(400).send({error:"Invalid workspace ID"});
+    try {
+      const approvals=await clientWorkspaces.listPendingApprovals(request.operator!.id,parsed.data.projectId);
+      return reply.header("cache-control","private, no-store").send({
+        status:"VERIFIED",projectId:parsed.data.projectId,approvalMode:"read_only",
+        approvals,
+        note:"Approval decisions and execution remain disabled until scoped ICM review.",
+      });
+    } catch(error) {return clientRequestError(error,reply);}
+  });
   app.post("/v1/client-workspaces",async(request,reply)=>{
     if(request.operator?.principal==="machine") return reply.code(403).send({error:"Human session required"});
     const parsed = clientCreateSchema.safeParse(request.body);
