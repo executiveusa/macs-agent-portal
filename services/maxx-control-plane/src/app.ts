@@ -398,6 +398,31 @@ export function buildApp(options: AppOptions = {}) {
     if (!operator) return reply.code(401).send({ error: "Stacy operator authentication required" });
     request.operator = operator;
 
+    // Once multi-client mode is enabled, legacy unscoped control-tower APIs
+    // remain available only to a verified organization owner/admin.
+    // Project members get client-specific endpoints and advisory chat only.
+    // Email allowlists and machine credentials are never project grants.
+    if (config.clientWorkspacesEnabled && operator.principal === "human" &&
+        request.url.startsWith("/v1/")) {
+      const path=request.url.split("?",1)[0];
+      const body=request.body as Record<string,unknown>|undefined;
+      const isScopedClientEndpoint=path==="/v1/client-workspaces" ||
+        path.startsWith("/v1/client-workspaces/");
+      const isScopedAdvisoryChat=path==="/v1/chat" && request.method==="POST" &&
+        body && typeof body==="object" && typeof body.workspaceId==="string" &&
+        body.workspaceId.length>0;
+      if(!isScopedClientEndpoint && !isScopedAdvisoryChat) {
+        try {
+          const memberships=await clientWorkspaces.listForUser(operator.id);
+          if(!memberships.some(item=>item.role==="owner"||item.role==="admin")) {
+            return reply.code(403).send({error:"Organization administrator access required for legacy MAXX APIs"});
+          }
+        } catch {
+          return reply.code(503).send({error:"Organization administrator access could not be verified"});
+        }
+      }
+    }
+
     if (config.emergencyDisabled && PRODUCTION_LOCKED_METHODS.has(request.method)) {
       return reply.code(503).send({
         status: "locked",
