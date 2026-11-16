@@ -241,3 +241,34 @@ test("client history route refuses machine and unavailable identity, without an 
     assert.equal(res.statusCode,403);
   } finally {await machine.close();}
 });
+
+test("pending approvals are read only and scoped to the verified project",async()=>{
+  const at="2026-11-16T12:00:00.000Z";
+  const {request,calls}=adapter((name,payload)=>{
+    if(name==="maxx_service_client_workspaces") return payload.p_user_id===alice?[row]:[];
+    if(name==="maxx_service_client_pending_approvals"){
+      assert.equal(payload.p_actor,alice);
+      assert.equal(payload.p_project_id,project);
+      return [{id:requestId,actionKey:"review-draft",actionClass:"draft",riskClass:"low",
+        requestedAt:at,expiresAt:"2026-11-17T12:00:00.000Z",status:"pending"}];
+    }
+    throw new Error("Unexpected RPC");
+  });
+  const svc=createClientWorkspaceService(config,true,request);
+  const rows=await svc.listPendingApprovals(alice,project);
+  assert.equal(rows.length,1);
+  assert.equal(rows[0].actionKey,"review-draft");
+  await assert.rejects(svc.listPendingApprovals(bob,project),WorkspaceForbidden);
+  assert.equal(calls.filter(x=>x.name==="maxx_service_client_pending_approvals").length,1);
+});
+test("machine principals cannot inspect private project approval route",async()=>{
+  const {request}=adapter(()=>[row]);
+  const svc=createClientWorkspaceService(config,true,request);
+  const app=buildApp({config:loadConfig({NODE_ENV:"test",MAXX_CLIENT_WORKSPACES_ENABLED:"true"}),
+    authenticate:async()=>({id:alice,email:"machine@example.com",principal:"machine"}),
+    clientWorkspaces:svc});
+  try {
+    const resp=await app.inject({method:"GET",url:`/v1/client-workspaces/${project}/pending-approvals`});
+    assert.equal(resp.statusCode,403);
+  } finally {await app.close();}
+});
