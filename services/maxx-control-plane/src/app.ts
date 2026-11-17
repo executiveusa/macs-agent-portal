@@ -439,11 +439,26 @@ export function buildApp(options: AppOptions = {}) {
       config.NODE_ENV === "production" &&
       !config.featureFlags.MAXX_PRODUCTION_MUTATIONS_ENABLED &&
       PRODUCTION_LOCKED_METHODS.has(request.method) &&
-      // Explicit human-initiated advisory chat may record a scoped transcript.
-      // The handler still verifies membership and never invokes Hermes/tools.
-      !(config.clientWorkspacesEnabled && operator.principal==="human" &&
-        request.method==="POST" && request.url.split("?",1)[0]==="/v1/chat" &&
-        typeof (request.body as {workspaceId?:unknown}|undefined)?.workspaceId==="string")
+      // Narrow, independently authorized client-only actions may proceed
+      // while ALL legacy/general production mutation APIs remain locked.
+      // Every action below still rechecks the live DB and/or signed webhook.
+      !(
+        config.clientWorkspacesEnabled && (
+          (operator.principal==="human" && request.method==="POST" &&
+            request.url.split("?",1)[0]==="/v1/chat" &&
+            typeof (request.body as {workspaceId?:unknown}|undefined)?.workspaceId==="string") ||
+          (operator.principal==="human" &&
+            config.MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED==="true" &&
+            request.method==="POST" &&
+            /^\\/v1\\/client-workspaces\\/[0-9a-f-]{36}\\/missions(?:\\/[0-9a-f-]{36}\\/(?:decision|start|poll))?$/i
+              .test(request.url.split("?",1)[0])) ||
+          (operator.principal==="machine" &&
+            config.MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED==="true" &&
+            config.MAXX_CLIENT_DRAFT_EXECUTOR==="instinct" &&
+            request.method==="POST" &&
+            request.url.split("?",1)[0]==="/v1/client-execution/instinct/events")
+        )
+      )
     ) {
       return reply.code(503).send({
         status: "locked",
