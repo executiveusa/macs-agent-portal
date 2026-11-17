@@ -5,9 +5,10 @@ import { controlTowerApi, type AuthorizedWorkspace } from "@/services/controlTow
 /** Client-specific draft requests: server, NOT this UI, enforces membership,
  * independent reviewer, one-time approval, no-tools profile and evidence.
  */
-export function ClientMissionPanel({workspace,userId}:{
+export function ClientMissionPanel({workspace,userId,suggestedObjective}:{
   workspace:AuthorizedWorkspace;
   userId:string;
+  suggestedObjective?:string;
 }) {
   const qc=useQueryClient();
   const [objective,setObjective]=useState("");
@@ -70,6 +71,13 @@ export function ClientMissionPanel({workspace,userId}:{
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
           <label className="min-w-0 flex-1 text-xs font-medium text-black/60">
             New internal draft objective
+            {suggestedObjective && (
+              <button type="button"
+                onClick={()=>setObjective(suggestedObjective.slice(0,2000))}
+                className="ml-2 rounded-lg border border-black/10 px-2 py-1 text-[11px] font-normal text-black/60">
+                Use latest chat or voice request
+              </button>
+            )}
             <textarea rows={2} value={objective} maxLength={2000}
               onChange={e=>setObjective(e.target.value)}
               placeholder="Prepare an internal draft for independent review…"
