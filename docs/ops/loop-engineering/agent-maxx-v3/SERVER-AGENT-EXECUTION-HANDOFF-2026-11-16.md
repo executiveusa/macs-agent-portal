@@ -1,7 +1,13 @@
 # Agent MAXX — FINAL CODE-TO-SERVER HANDOFF (2026-11-17)
 
 **Status: SOURCE CODE DELIVERED, STAGING NOT VERIFIED, PRODUCTION NOT READY.**
-**This dated addendum supersedes older “S5 needs code” statements below.** Existing design, source registry, rollout gates and constraints below remain authoritative where compatible.
+**This dated addendum supersedes older “S5 needs code” statements below.**
+
+**Final source safety correction:** At portal source commit `9facf2cd26a472689c159ac7190bbca8c9991b5f`, gated client-only draft proposals, independent review, dispatch and signed receipts are permitted with `MAXX_PRODUCTION_MUTATIONS_ENABLED=false` **only** when `MAXX_CLIENT_WORKSPACES_ENABLED=true` and `MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED=true`. The Fastify production pre-handler uses an exact UUID-scoped route pattern; unscoped `/v1/missions`, generic Hermes, uploads, spending and other global mutations remain locked. Regression tests in `services/maxx-control-plane/test/client-mission-routes.test.ts` cover both permitted and refused paths. The full runtime still requires an independently reviewed NO-TOOLS worker profile and actual TLS staging validation. Do not enable global production mutations to make scoped draft missions work.
+
+**Windows artifact reconciliation:** The current PR branch *already* contains `desktop/maxx-tauri/src-tauri/Cargo.lock` (109,726 bytes) and runs `cargo check --locked` in Windows CI; do NOT replace the committed Cargo.lock with the **older** archived Actions artifact. The archived ZIP from run `43956683023` is not authoritative over the newer branch content. Always test the locked file at current HEAD.
+
+ Existing design, source registry, rollout gates and constraints below remain authoritative where compatible.
 
 **One workstream, no new services:** canonical frontend/Fastify `executiveusa/macs-agent-portal` draft [PR #113](https://github.com/executiveusa/macs-agent-portal/pull/113); canonical MAXX ICM/SQL `executiveusa/maxx-migrations-agentic-systems` draft [PR #45](https://github.com/executiveusa/maxx-migrations-agentic-systems/pull/45), clean-history replacement candidate for existing #43. Old #43, dependent #44 and unrelated #29/#42 remain untouched. Fetch **live HEAD and CI**, never infer from these checkpoint SHAs:
 - Portal implemented code SHA `09e87db16ca96478a0d9ec79d823c0bf7ee343fc` (before this handoff doc update). Previous exact-commit CI: main CI, Pups, release gates SUCCESS; locked Windows CI still in progress at checkpoint.
@@ -11,7 +17,7 @@
 
 **Portal PR #113**
 - `services/maxx-control-plane/src/client-workspaces.ts`: active org+project membership and verified JWT-subject service RPC boundary, project-scoped chat, scoped mission inbox, propose, independent decision, one-time claim, dispatch ACK, dispatch quarantine, partial receipt and status.
-- `services/maxx-control-plane/src/client-missions.ts`: existing Hermes adapter + existing ICM directory, not a new worker/orchestrator. Requires explicitly enabled workspace, mutation and client-executor flags. Worker identity and requested action originate from trusted SQL claim, never from untrusted browser content.
+- `services/maxx-control-plane/src/client-missions.ts`: existing Hermes adapter + existing ICM directory, not a new worker/orchestrator. Requires explicitly enabled workspace and client-executor flags; the global mutation flag stays false. Only the exact scoped mission POST routes and signed callback are exempted from the global production mutation lock; legacy/unscoped POST remains blocked. Worker identity and requested action originate from trusted SQL claim, never from untrusted browser content.
 - `services/maxx-control-plane/src/client-mission-routes.ts`: human-only proposal/decision/start/poll, machine-only signed Instinct callback.
 - `services/maxx-control-plane/src/instinct-a2a.ts`: HTTPS/no redirect, canonical HMAC-SHA256 (timestamp/delivery ID/body), 5-minute receive window, exact run ACK, no-model-authorization scope.
 - `src/components/maxx/ClientMissionPanel.tsx` and `src/pages/MaxxChat.tsx`: existing chat-first UI with per-workspace approval request, separate reviewer decision, gated dispatch, poll and honest receipt state; optional manual reuse of latest typed or dictated chat objective.
