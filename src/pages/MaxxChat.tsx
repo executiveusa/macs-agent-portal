@@ -668,7 +668,8 @@ export default function MaxxChat() {
             )}
             {verifiedWorkspace && selectedClientSlug && verifiedWorkspace.status==="active" && (
               <ClientMissionPanel key={verifiedWorkspace.id+":"+authSubject}
-                workspace={verifiedWorkspace} userId={authSubject}/>
+                workspace={verifiedWorkspace} userId={authSubject}
+                suggestedObjective={messages.filter(m=>m.role==="stacy").slice(-1)[0]?.text}/>
             )}
             {verifiedWorkspace && selectedClientSlug && (
               <section className="rounded-2xl border border-black/[0.07] bg-[#faf8f3] p-3" aria-label="Client approvals">
