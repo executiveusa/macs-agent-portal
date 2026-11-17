@@ -39,6 +39,11 @@ export function createClientMissionController(
     return workspaces.decideClientMission(actor,projectId,missionId,decision);
   }
 
+  async function list(actor:string,projectId:string) {
+    if(!config.clientWorkspacesEnabled) throw new ClientExecutorUnavailable();
+    return workspaces.listClientMissions(actor,projectId);
+  }
+
   async function get(actor:string,projectId:string,missionId:string) {
     if(!config.clientWorkspacesEnabled) throw new ClientExecutorUnavailable();
     return workspaces.getClientMission(actor,projectId,missionId);
@@ -136,5 +141,5 @@ export function createClientMissionController(
     );
   }
 
-  return {propose,decide,get,start,poll,finishFromInstinct,executorReady};
+  return {propose,decide,get,list,start,poll,finishFromInstinct,executorReady};
 }
