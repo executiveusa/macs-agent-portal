@@ -205,5 +205,117 @@ export function createClientWorkspaceService(config:Cfg,enabled:boolean,request:
       return v as unknown as ClientApprovalSummary;
     });
   }
-  return {listForUser,authorize,createClient,archiveStep,listChatHistory,recordChatExchange,listPendingApprovals};
+  // Scoped ICM deliberately reuses the existing maxx.workflow_runs,
+  // maxx.action_proposals, maxx.approvals and maxx.evidence_receipts ledger.
+  // None of these RPCs can be called by browser roles or machine API keys.
+  const validMission = (x:unknown):x is string => isUUID(x);
+  const validHash = (x:unknown):x is string => typeof x==="string" && /^[a-f0-9]{64}$/.test(x);
+  function missionObject(raw:unknown):ClientRecord {
+    if(!raw || typeof raw!=="object" || Array.isArray(raw)) throw new WorkspaceUnavailable();
+    return raw as ClientRecord;
+  }
+  async function proposeClientMission(userId:string,projectId:string,missionId:string,objective:string) {
+    await authorize(userId,projectId,true);
+    if(!validMission(missionId)||objective.trim().length<3||objective.length>2000)
+      throw new WorkspaceInvalid();
+    const r=missionObject(await rpc("maxx_service_client_mission_propose",{
+      p_actor:userId,p_project_id:projectId,p_mission_id:missionId,p_objective:objective,
+    }));
+    if(r.missionId!==missionId||r.projectId!==projectId||!isUUID(r.approvalId)||
+       !validHash(r.actionHash)||r.action!=="client_draft_only"||
+       !["pending","approved","rejected"].includes(String(r.status)) ||
+       typeof r.expiresAt!=="string")
+      throw new WorkspaceUnavailable();
+    return r;
+  }
+  async function decideClientMission(userId:string,projectId:string,missionId:string,
+      decision:"approved"|"rejected") {
+    await authorize(userId,projectId);
+    if(!validMission(missionId)) throw new WorkspaceInvalid();
+    const r=missionObject(await rpc("maxx_service_client_mission_decide",{
+      p_actor:userId,p_project_id:projectId,p_mission_id:missionId,p_decision:decision,
+    }));
+    if(r.missionId!==missionId||r.projectId!==projectId||r.status!==decision||
+       !isUUID(r.approvalId)||typeof r.duplicate!=="boolean") throw new WorkspaceUnavailable();
+    return r;
+  }
+  async function claimClientMission(userId:string,projectId:string,missionId:string) {
+    await authorize(userId,projectId,true);
+    if(!validMission(missionId)) throw new WorkspaceInvalid();
+    const r=missionObject(await rpc("maxx_service_client_mission_claim",{
+      p_actor:userId,p_project_id:projectId,p_mission_id:missionId,
+    }));
+    if(r.missionId!==missionId||r.projectId!==projectId||!isUUID(r.organizationId)||
+       !isUUID(r.approvedBy)||r.approvedBy===userId||!validHash(r.actionHash)||
+       r.action!=="client_draft_only"||!Array.isArray(r.allowedTools)||
+       r.allowedTools.length!==0||r.externalSideEffects!==false||r.budgetUsd!==0||
+       typeof r.objective!=="string"||r.objective.length<3||r.objective.length>2000)
+      throw new WorkspaceUnavailable();
+    return r as {
+      missionId:string;projectId:string;organizationId:string;approvedBy:string;
+      actionHash:string;action:"client_draft_only";allowedTools:[];externalSideEffects:false;
+      budgetUsd:0;objective:string;
+    };
+  }
+  async function recordClientDispatch(userId:string,projectId:string,missionId:string,
+      source:"hermes"|"instinct",externalRunId:string) {
+    await authorize(userId,projectId,true);
+    if(!validMission(missionId)||!externalRunId||externalRunId.length>150)
+      throw new WorkspaceInvalid();
+    const r=missionObject(await rpc("maxx_service_client_mission_record_dispatch",{
+      p_actor:userId,p_project_id:projectId,p_mission_id:missionId,
+      p_source:source,p_external_run_id:externalRunId,
+    }));
+    if(r.projectId!==projectId||r.missionId!==missionId||r.source!==source||
+       r.externalRunId!==externalRunId||r.status!=="dispatched")
+      throw new WorkspaceUnavailable();
+    return r;
+  }
+  async function finishClientMission(userId:string,projectId:string,missionId:string,
+    receiptId:string,outcome:"completed"|"failed",receipt:{
+      source:"hermes"|"instinct";externalRunId:string;summary:string;
+      projectId:string;missionId:string;
+    }) {
+    await authorize(userId,projectId,true);
+    if(!validMission(missionId)||!isUUID(receiptId)||receipt.projectId!==projectId||
+      receipt.missionId!==missionId||!receipt.externalRunId||
+      receipt.externalRunId.length>150||!receipt.summary||receipt.summary.length>1000)
+      throw new WorkspaceInvalid();
+    const r=missionObject(await rpc("maxx_service_client_mission_finish",{
+      p_actor:userId,p_project_id:projectId,p_mission_id:missionId,
+      p_receipt_id:receiptId,p_outcome:outcome,p_receipt:receipt,
+    }));
+    if(r.missionId!==missionId||r.receiptId!==receiptId||r.status!==outcome||
+       r.verification!=="human_review_required"||typeof r.duplicate!=="boolean")
+      throw new WorkspaceUnavailable();
+    return r;
+  }
+  async function getClientMission(userId:string,projectId:string,missionId:string) {
+    await authorize(userId,projectId);
+    if(!validMission(missionId)) throw new WorkspaceInvalid();
+    const r=missionObject(await rpc("maxx_service_client_mission_status",{
+      p_actor:userId,p_project_id:projectId,p_mission_id:missionId,
+    }));
+    if(r.missionId!==missionId||r.projectId!==projectId||!isUUID(r.approvalId)||
+       !["queued","running","blocked","waiting_approval","completed","failed","cancelled"].includes(String(r.status))||
+       !["pending","approved","rejected","expired","cancelled"].includes(String(r.approvalStatus))||
+       (r.receiptId!==null&&!isUUID(r.receiptId))||
+       !["not_yet_executed","human_review_required"].includes(String(r.verification)))
+      throw new WorkspaceUnavailable();
+    if(r.dispatch!==null && r.dispatch!==undefined &&
+       (typeof r.dispatch!=="object"||Array.isArray(r.dispatch)||
+        !["hermes","instinct"].includes(String((r.dispatch as ClientRecord).source))||
+        typeof (r.dispatch as ClientRecord).externalRunId!=="string"||
+        ((r.dispatch as ClientRecord).externalRunId as string).length>150))
+      throw new WorkspaceUnavailable();
+    return r as {
+      missionId:string;projectId:string;status:string;approvalStatus:string;
+      approvalId:string;receiptId:string|null;verification:string;
+      dispatch?:{source:"hermes"|"instinct";externalRunId:string}|null;
+    };
+  }
+  return {listForUser,authorize,createClient,archiveStep,listChatHistory,
+    recordChatExchange,listPendingApprovals,proposeClientMission,
+    decideClientMission,claimClientMission,recordClientDispatch,
+    finishClientMission,getClientMission};
 }
