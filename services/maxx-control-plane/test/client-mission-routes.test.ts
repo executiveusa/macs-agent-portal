@@ -21,7 +21,9 @@ function makeApp(overrides:NodeJS.ProcessEnv={}){
    ...overrides,
  });
  const clientWorkspaces={
-   listForUser:async()=>[{id:projectId,role:"operator",status:"active"}],
+   // Production global-route refusal must be asserted with a verified org admin,
+   // otherwise the earlier org-role guard independently returns 403.
+   listForUser:async()=>[{id:projectId,role:overrides.NODE_ENV==="production"?"admin":"operator",status:"active"}],
  } as unknown as ReturnType<typeof createClientWorkspaceService>;
  const clientMissions={
    propose:async()=>{counts.proposals++;return {missionId,projectId,status:"pending"};},
