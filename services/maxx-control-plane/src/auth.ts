@@ -38,7 +38,8 @@ function machineRouteAllowed(request: FastifyRequest) {
 }
 
 function eventRouteAllowed(request: FastifyRequest) {
-  return request.method === "POST" && pathOf(request) === "/v1/events";
+  return request.method === "POST" && (pathOf(request) === "/v1/events" ||
+    pathOf(request) === "/v1/client-execution/instinct/events");
 }
 
 function hermesToolRouteAllowed(request: FastifyRequest) {
