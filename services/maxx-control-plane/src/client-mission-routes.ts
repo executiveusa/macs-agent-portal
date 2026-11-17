@@ -44,6 +44,18 @@ function failed(reply:FastifyReply,error:unknown) {
 }
 
 export function registerClientMissionRoutes(app:FastifyInstance,config:MaxxConfig,control:Missions) {
+  app.get("/v1/client-workspaces/:projectId/missions",async(request,reply)=>{
+    const actor=human(request,reply);if(!actor)return;
+    const p=project.safeParse(request.params);
+    if(!p.success)return reply.code(400).send({error:"Invalid workspace ID"});
+    try{
+      const missions=await control.list(actor,p.data.projectId);
+      return reply.header("cache-control","private, no-store").send({
+        status:"VERIFIED",projectId:p.data.projectId,missions,
+        note:"Draft missions require distinct reviewer approval and an enabled no-tools executor.",
+      });
+    }catch(error){return failed(reply,error);}
+  });
   app.post("/v1/client-workspaces/:projectId/missions",async(request,reply)=>{
     const actor=human(request,reply);if(!actor)return;
     const p=project.safeParse(request.params),body=propose.safeParse(request.body);
