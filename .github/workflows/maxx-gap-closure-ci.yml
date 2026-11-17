@@ -51,8 +51,8 @@ jobs:
       - name: Install pinned Tauri CLI
         working-directory: desktop/maxx-tauri
         run: npm install --ignore-scripts
-      - name: Check Rust shell
-        run: cargo check --manifest-path desktop/maxx-tauri/src-tauri/Cargo.toml
+      - name: Check Rust shell from committed Cargo.lock
+        run: cargo check --locked --manifest-path desktop/maxx-tauri/src-tauri/Cargo.toml
       - name: Verify resolved Rust dependencies without updates
         run: cargo check --locked --manifest-path desktop/maxx-tauri/src-tauri/Cargo.toml
       - name: Preserve generated Rust dependency lock for review
@@ -62,18 +62,6 @@ jobs:
           path: desktop/maxx-tauri/src-tauri/Cargo.lock
           if-no-files-found: error
           retention-days: 7
-      - name: One-time deterministic Cargo lock export for PR source import
-        if: github.event_name == 'pull_request' && github.head_ref == 'feat/agent-maxx-multiclient-v3-20261113'
-        shell: pwsh
-        run: |
-          $lock = [System.IO.File]::ReadAllBytes("desktop/maxx-tauri/src-tauri/Cargo.lock")
-          $sha = [Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($lock)).ToLowerInvariant()
-          $b64 = [Convert]::ToBase64String($lock)
-          Write-Host "MAXX_LOCK_B64_BEGIN size=$($lock.Length) sha256=$sha"
-          for ($i=0; $i -lt $b64.Length; $i+=720) {
-            Write-Host ("MAXX_LOCK_CHUNK:" + $b64.Substring($i, [Math]::Min(720, $b64.Length - $i)))
-          }
-          Write-Host "MAXX_LOCK_B64_END"
       - name: Reject insecure desktop endpoint
         shell: pwsh
         run: |
