@@ -11,13 +11,14 @@ const missionId="99999999-9999-4999-8999-999999999999";
 const projectId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const eventKey="test-event-ingest-key-0123456789";
 const ingressKey="test-instinct-ingress-signature-key-that-is-more-than-32";
-function makeApp(){
+function makeApp(overrides:NodeJS.ProcessEnv={}){
  const counts={proposals:0,approvals:0,callbacks:0,starts:0};
  const config=loadConfig({
    NODE_ENV:"test",MAXX_CLIENT_WORKSPACES_ENABLED:"true",
    MAXX_PRODUCTION_MUTATIONS_ENABLED:"true",
    MAXX_EVENT_INGEST_KEY:eventKey,MAXX_EVENT_OPERATOR_ID:actor,
    MAXX_INSTINCT_INGRESS_KEY:ingressKey,
+   ...overrides,
  });
  const clientWorkspaces={
    listForUser:async()=>[{id:projectId,role:"operator",status:"active"}],
@@ -98,5 +99,44 @@ test("dual-authenticated, in-window Instinct event records one scoped receipt",a
     headers,payload:{...event,projectId:actor}});
   assert.equal(forged.statusCode,401);
   assert.equal(counts.callbacks,1);
+ }finally{await app.close();}
+});
+
+test("production permits only independently gated client drafts, not global mutations",async()=>{
+ const {app,counts}=makeApp({
+   NODE_ENV:"production",
+   MAXX_PRODUCTION_MUTATIONS_ENABLED:"false",
+   MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED:"true",
+ });
+ try{
+  const base=`/v1/client-workspaces/${projectId}/missions`;
+  const headers={authorization:"Bearer signed-user-session"};
+  const allowed=await app.inject({method:"POST",url:base,headers,
+    payload:{missionId,objective:"Draft an internal Bunna note"}});
+  assert.equal(allowed.statusCode,202);
+  assert.equal(counts.proposals,1);
+  const denied=await app.inject({method:"POST",url:"/v1/missions",headers,
+    payload:{objective:"Run global arbitrary mission"}});
+  assert.equal(denied.statusCode,503);
+  const deniedUnscoped=await app.inject({method:"POST",url:"/v1/hermes/runs",headers,
+    payload:{runId:"x",missionId:"x",objective:"run all",workspacePath:"/tmp",stage:"hermes"}});
+  assert.equal(deniedUnscoped.statusCode,503);
+  assert.equal(counts.starts,0);
+ } finally { await app.close(); }
+});
+
+test("production refuses scoped mission mutations until explicit executor gate is enabled",async()=>{
+ const {app,counts}=makeApp({
+   NODE_ENV:"production",
+   MAXX_PRODUCTION_MUTATIONS_ENABLED:"false",
+   MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED:"false",
+ });
+ try{
+   const response=await app.inject({method:"POST",
+     url:`/v1/client-workspaces/${projectId}/missions`,
+     headers:{authorization:"Bearer signed-user-session"},
+     payload:{missionId,objective:"Should not create mission"}});
+   assert.equal(response.statusCode,503);
+   assert.equal(counts.proposals,0);
  }finally{await app.close();}
 });
