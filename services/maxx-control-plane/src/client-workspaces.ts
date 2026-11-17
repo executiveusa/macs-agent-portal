@@ -271,6 +271,17 @@ export function createClientWorkspaceService(config:Cfg,enabled:boolean,request:
       throw new WorkspaceUnavailable();
     return r;
   }
+  async function blockUnconfirmedClientDispatch(userId:string,projectId:string,missionId:string) {
+    await authorize(userId,projectId,true);
+    if(!validMission(missionId)) throw new WorkspaceInvalid();
+    const r=missionObject(await rpc("maxx_service_client_mission_dispatch_block",{
+      p_actor:userId,p_project_id:projectId,p_mission_id:missionId,
+    }));
+    if(r.missionId!==missionId||r.status!=="blocked"||
+       r.requiresReconciliation!==true||typeof r.duplicate!=="boolean")
+      throw new WorkspaceUnavailable();
+    return r;
+  }
   async function finishClientMission(userId:string,projectId:string,missionId:string,
     receiptId:string,outcome:"completed"|"failed",receipt:{
       source:"hermes"|"instinct";externalRunId:string;summary:string;
@@ -340,5 +351,5 @@ export function createClientWorkspaceService(config:Cfg,enabled:boolean,request:
   return {listForUser,authorize,createClient,archiveStep,listChatHistory,
     recordChatExchange,listPendingApprovals,proposeClientMission,
     decideClientMission,claimClientMission,recordClientDispatch,
-    finishClientMission,getClientMission,listClientMissions};
+    blockUnconfirmedClientDispatch,finishClientMission,getClientMission,listClientMissions};
 }
