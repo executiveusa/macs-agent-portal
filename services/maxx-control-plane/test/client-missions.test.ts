@@ -108,6 +108,25 @@ test("independent approval is followed by a bounded Hermes run and PARTIAL evide
    assert.deepEqual(x.counts(),{claimCount:1,dispatchCount:1,finishCount:1,started:1,polls:1});
  } finally {await rm(root,{recursive:true,force:true});}
 });
+test("ambiguous remote ACK is blocked for human reconciliation, never reported as success",async()=>{
+ const root=await mkdtemp(path.join(tmpdir(),"maxx-client-reconcile-"));
+ try {
+  let blocked=0;
+  const x=fixture({
+    recordClientDispatch:async()=>{throw new Error("storage connection lost after Hermes accepted");},
+    blockUnconfirmedClientDispatch:async()=>{
+      blocked++;
+      return {missionId,status:"blocked",requiresReconciliation:true,duplicate:false};
+    },
+  });
+  const ctl=createClientMissionController(config(root),x.ws,x.hermes);
+  await assert.rejects(ctl.start(actor,projectId,missionId),/requires operator reconciliation/);
+  assert.equal(blocked,1);
+  assert.equal(x.counts().started,1);
+  assert.equal(x.counts().claimCount,1);
+  assert.equal(x.counts().finishCount,0);
+ }finally{await rm(root,{recursive:true,force:true});}
+});
 test("signed Instinct receipt must match a running ACK and never accepts wrong project",async()=>{
  const x=fixture({
    getClientMission:async()=>({
