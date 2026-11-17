@@ -34,6 +34,8 @@ import { createVisionGateway, type VisionInputAdapter } from "./vision-gateway.j
 import { createBrowserWorker, type BrowserWorker } from "./browser-worker.js";
 import { DefaultPhoneChatGateway, type PhoneChatGateway } from "./phone-chat.js";
 import { createClientWorkspaceService, WorkspaceForbidden, WorkspaceUnavailable, WorkspaceConflict, WorkspaceInvalid } from "./client-workspaces.js";
+import { createClientMissionController } from "./client-missions.js";
+import { registerClientMissionRoutes } from "./client-mission-routes.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -56,6 +58,7 @@ type AppOptions = {
   browser?: BrowserWorker;
   phone?: PhoneChatGateway;
   clientWorkspaces?: ReturnType<typeof createClientWorkspaceService>;
+  clientMissions?: ReturnType<typeof createClientMissionController>;
 };
 
 const riskToleranceEnum = z.enum(["conservative", "standard", "permissive"]);
@@ -290,6 +293,8 @@ export function buildApp(options: AppOptions = {}) {
   const ownerStrategies = options.ownerStrategies ?? new OwnerStrategyStore();
   const clientWorkspaces = options.clientWorkspaces ??
     createClientWorkspaceService(config, config.clientWorkspacesEnabled);
+  const clientMissions = options.clientMissions ??
+    createClientMissionController(config,clientWorkspaces,hermes);
   const scheduler = options.scheduler ?? new Scheduler();
   const rawVoice =
     options.voice ??
@@ -446,6 +451,10 @@ export function buildApp(options: AppOptions = {}) {
       });
     }
   });
+
+  // Reuse the same verified workspace service + existing Hermes/ICM runtime.
+  // These endpoints never accept browser-supplied tool scope or actor IDs.
+  registerClientMissionRoutes(app,config,clientMissions);
 
   // Project workspaces are retrieved only after verifying the JWT subject,
   // an active organization membership AND an explicit project membership.
