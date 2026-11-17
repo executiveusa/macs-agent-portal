@@ -450,7 +450,7 @@ export function buildApp(options: AppOptions = {}) {
           (operator.principal==="human" &&
             config.MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED==="true" &&
             request.method==="POST" &&
-            /^\\/v1\\/client-workspaces\\/[0-9a-f-]{36}\\/missions(?:\\/[0-9a-f-]{36}\\/(?:decision|start|poll))?$/i
+            /^\/v1\/client-workspaces\/[0-9a-f-]{36}\/missions(?:\/[0-9a-f-]{36}\/(?:decision|start|poll))?$/i
               .test(request.url.split("?",1)[0])) ||
           (operator.principal==="machine" &&
             config.MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED==="true" &&
