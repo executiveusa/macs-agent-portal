@@ -116,12 +116,11 @@ Review-only proposals in this exact order:
 - CI Linters, Semantic Commits and Patch passed at that SHA; general Frappe Server (Postgres) was skipped, MariaDB was queued, do not claim whole backend integration passed.
 - No shared Supabase SQL executed in this non-server slice.
 
-### Windows Rust artifact
+### Windows Rust artifact (source completed)
 
-- Windows `cargo check` and follow-up `cargo check --locked` pass on current CI; the repo does NOT yet check in `desktop/maxx-tauri/src-tauri/Cargo.lock`.
-- The verified GitHub Actions artifact `maxx-windows-cargo-lock`, ID `14270953199`, run `43956683023`, expires 2026-11-23, includes ONLY `Cargo.lock` (109,726 bytes; SHA-256 `8d74bfbaba308c6194c09e2d45489aa8d9feeefae8b13f6f70ad30b6f591277a`).
-- On a GitHub-authenticated checkout: download that exact artifact (or newer and independently verify); extract the single file; compare SHA-256; commit as `desktop/maxx-tauri/src-tauri/Cargo.lock` to PR #113 branch; change first Windows CI check from `cargo check` to `cargo check --locked`; rerun clean-checkout Windows CI and installer smoke test. Never blindly regenerate versions or update Tauri packages. **Do not try to copy a ZIP into the source tree.**
-- Current GitHub Contents connector writes UTF-8 files but could not securely transfer this archived binary to a branch; a second authorized Composio GitHub connection returned HTTP 401 and was NOT used to write. This remains a trusted Git checkout action, not a conceptual blocker.
+- The exact branch includes **committed** `desktop/maxx-tauri/src-tauri/Cargo.lock` (109,726 bytes; Git blob `b687d359a3c8d3a258bb8f261038ee7c0ad0c13a`). The clean Windows CI workflow runs `cargo check --locked`, not unconstrained Cargo regeneration. Do NOT overwrite this with the earlier archival ZIP, whose hash differs.
+- Remains server/device-side: verify current exact-HEAD Windows CI, produce a signed/approved installer candidate if required, and execute Windows 11 launch, microphone and keyboard/screen-reader acceptance on an authorized device. Remote Desktop Commander last reported the Surface offline.
+- Neither a successful Rust check nor a build artifact proves a working microphone, real Google login or safe operator desktop runtime.
 
 ## 2. Server and real-account ONLY actions, strict execution order
 
