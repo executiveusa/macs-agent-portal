@@ -1,3 +1,76 @@
+# Agent MAXX — FINAL CODE-TO-SERVER HANDOFF (2026-11-17)
+
+**Status: SOURCE CODE DELIVERED, STAGING NOT VERIFIED, PRODUCTION NOT READY.**
+**This dated addendum supersedes older “S5 needs code” statements below.** Existing design, source registry, rollout gates and constraints below remain authoritative where compatible.
+
+**One workstream, no new services:** canonical frontend/Fastify `executiveusa/macs-agent-portal` draft [PR #113](https://github.com/executiveusa/macs-agent-portal/pull/113); canonical MAXX ICM/SQL `executiveusa/maxx-migrations-agentic-systems` draft [PR #45](https://github.com/executiveusa/maxx-migrations-agentic-systems/pull/45), clean-history replacement candidate for existing #43. Old #43, dependent #44 and unrelated #29/#42 remain untouched. Fetch **live HEAD and CI**, never infer from these checkpoint SHAs:
+- Portal implemented code SHA `09e87db16ca96478a0d9ec79d823c0bf7ee343fc` (before this handoff doc update). Previous exact-commit CI: main CI, Pups, release gates SUCCESS; locked Windows CI still in progress at checkpoint.
+- Backend SQL implementation SHA `978e53d438280de8fe579416bd357e10ccd2575f`, then run packet docs updated at `26b78d933fd47e6279296bea1bd454456ea216c9`. Disposably executed SQL + test run [44156735096](https://github.com/executiveusa/maxx-migrations-agentic-systems/actions/runs/44156735096), job `134299352857`: PASS, with actual PostgreSQL 17 isolation, client mission/approval/receipt/replay/revoke, archive recovery and rollback logs. **Synthetic baseline, not a production schema clone.**
+
+## Completed non-server implementation (inspect before changing)
+
+**Portal PR #113**
+- `services/maxx-control-plane/src/client-workspaces.ts`: active org+project membership and verified JWT-subject service RPC boundary, project-scoped chat, scoped mission inbox, propose, independent decision, one-time claim, dispatch ACK, dispatch quarantine, partial receipt and status.
+- `services/maxx-control-plane/src/client-missions.ts`: existing Hermes adapter + existing ICM directory, not a new worker/orchestrator. Requires explicitly enabled workspace, mutation and client-executor flags. Worker identity and requested action originate from trusted SQL claim, never from untrusted browser content.
+- `services/maxx-control-plane/src/client-mission-routes.ts`: human-only proposal/decision/start/poll, machine-only signed Instinct callback.
+- `services/maxx-control-plane/src/instinct-a2a.ts`: HTTPS/no redirect, canonical HMAC-SHA256 (timestamp/delivery ID/body), 5-minute receive window, exact run ACK, no-model-authorization scope.
+- `src/components/maxx/ClientMissionPanel.tsx` and `src/pages/MaxxChat.tsx`: existing chat-first UI with per-workspace approval request, separate reviewer decision, gated dispatch, poll and honest receipt state; optional manual reuse of latest typed or dictated chat objective.
+- `desktop/maxx-tauri/src-tauri/Cargo.lock`: committed and independently checked Git blob `b687d359a3c8d3a258bb8f261038ee7c0ad0c13a` (109,726 bytes); checksum for this newer, exact compiled lock `355455d77eb40ac6afad0c5641019e17ea1b4082c826b2dcf4330d130e663446`. Windows workflow now runs `cargo check --locked` from clean checkout (verify exact HEAD CI).
+- Added/updated isolated tests: `test/client-missions.test.ts`, `test/client-mission-routes.test.ts`, `test/instinct-a2a.test.ts`, browser endpoint and production-compose guards. No credentials committed.
+
+**Backend PR #45**
+- Existing five SQL review candidates: `PROPOSED-SCHEMA-AND-SEED.sql`, `CANONICAL-CLIENT-RPC-AND-RLS-CANDIDATE.sql`, `MANAGEMENT-RPC-CANDIDATE.sql`, `CLIENT-CHAT-PERSISTENCE-CANDIDATE.sql`, `CLIENT-APPROVAL-READ-CANDIDATE.sql`.
+- **Sixth SQL candidate (NEW, review-only)** `docs/client-workspaces/CLIENT-ICM-EXECUTION-CANDIDATE.sql`: operates the existing `maxx.workflow_runs`, `action_proposals`, `approvals`, `evidence_receipts`, `audit_log`. Service-only RPCs `maxx_service_client_missions`, `_mission_propose`, `_mission_decide`, `_mission_claim`, `_mission_record_dispatch`, `_mission_dispatch_block`, `_mission_finish`, `_mission_status` (prefix `maxx_service_client`). Never create a second approvals database.
+- `disposable-client-icm.assert.sql` extends the **real disposable PostgreSQL CI**: same-org cross-project refusal, unassigned identity, independent approval, no self-approval, expiry and one-time claim, blocked unconfirmed dispatch, external run ACK binding, durable partial receipts, replay/idempotency, project membership revoke and browser RPC ACL denial.
+- **Only permitted v1 worker task: `client_draft_only`, `allowedTools:[]`, `budgetUsd:0`, `externalSideEffects:false`.** No live customer/source data, remote tools, external messages, spending, publishing, code execution or actual revenue claim. An internal draft can be accepted with an authentic remote run ID but is *not* independently verified commercial evidence.
+
+### Exact API contract (use real authenticated test sessions)
+
+All browser routes use JWT auth with verified Supabase UUID subject and service-role-only SQL behind the Fastify server:
+- `GET /v1/client-workspaces/:projectId/missions` — read authorized scope and durable inbox.
+- `POST /v1/client-workspaces/:projectId/missions` — body `{"missionId":"<UUID>","objective":"Draft internal Bunna note"}`; returns pending distinct-human approval.
+- `POST /v1/client-workspaces/:projectId/missions/:missionId/decision` — `{"decision":"approved"}` or `rejected`; proposer cannot self-approve, must have same project reviewer role.
+- `POST /v1/client-workspaces/:projectId/missions/:missionId/start` — claim+dispatch once using *server-stored* approved objective/policy. Reject if no audited no-tools executor. Return only real worker ACK, **not** completed work.
+- `POST /v1/client-workspaces/:projectId/missions/:missionId/poll` — Hermes state and durable partial/failed evidence, no fabricated success. Instinct is callback-only.
+- `GET /v1/client-workspaces/:projectId/missions/:missionId` — current ledger state, receipt reference, real dispatch ACK if present.
+- `POST /v1/client-execution/instinct/events` — **machine only**, requires existing `x-maxx-event-key` plus separate `x-maxx-instinct-timestamp`, `x-maxx-instinct-delivery-id` and `x-maxx-instinct-signature:sha256=<HMAC>`. Payload has `actorId,projectId,missionId,deliveryId,externalRunId,outcome,summary`. HMAC covers canonical JSON and timestamp+delivery ID. Different keys for ingress and outbound. No permission to initiate or approve tasks from this webhook.
+
+### REQUIRED SERVER-ONLY NEXT STEPS (S1–S6; do not ask owner to repeat repo context)
+
+**S1 · Gateway and hosting**
+- Verify Contabo/Coolify canonical MAXX container, pinned Hermes upstream and API. Earlier `https://api.thepaulieffect.com/maxx/health/live` returned 502; test actual TLS, path stripping, /health/live (200), /health/ready (dependency status), CORS, and reverse proxy logs. Never publish private Hermes port 8642.
+- Verify Vercel preview-only `VITE_CONTROL_TOWER_API_URL` resolves to working **HTTPS** control plane; old Vercel env pointed to public HTTP IP and the frontend now **refuses** to send bearer JWT over HTTP. Fix preview first; never overwrite production env until owner approves release.
+- Surface Windows Surface tablet is currently offline to Remote Desktop Commander; a real Windows installer/smoke/voice test needs the authorized device online, not assumed from CI.
+
+**S2 · Choose the authorized identity and rehearse SQL**
+- **Stop before any shared SQL:** previous prod notes mention Supabase `sxkemnqvxlgewrjplcag`, connected MAXX candidate uses `botanic-creations` `cyxdevcjycmffhmwxojh`. These are not interchangeable. Establish owner-approved canonical auth+DB, real Google subject UUID, allowed callback origins, and approved org/project memberships. No auto-enrollment.
+- Independently inspect current grants/RLS/constraint compatibility, back up and RESTORE a **disposable clone of the real schema**. Run all SIX candidate SQL files in the exact order above. Two separately signed accounts must prove client read/write/approval/mission/revocation/archival boundaries on real schema. Independent DBA/security signoff and separate owner approval before live DDL.
+- Apply approved versioned migration only once; verify seven clients and 28 prompt templates without invented source integrations or duplicated orgs.
+
+**S3 · Runtime-specific no-tools enforcement and Instinct bridge**
+- A prompt saying “no tools” is **NOT a security control**. Independently prove an isolated `client-draft-sandbox` Hermes profile exists with tools/MCP/terminal/browser/network egress disabled at the worker runtime **or** deploy the existing Instinct worker with equivalent enforced deny-all capabilities. No implicit privileges from a profile name. Verify pinned Hermes multiplex/profile conventions on the actual runtime.
+- Configure vault-only secrets on the same canonical control plane (no printing/copying secret values): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STACY_ALLOWED_EMAILS`, `MAXX_HERMES_ENDPOINT`, `MAXX_HERMES_API_KEY`, `MAXX_INSTINCT_A2A_URL`, `MAXX_INSTINCT_A2A_KEY`, `MAXX_INSTINCT_INGRESS_KEY`, `MAXX_EVENT_INGEST_KEY`, `MAXX_EVENT_OPERATOR_ID`. Match URLs/identity and exact callback routes. Instinct receiver must validate the same canonical HMAC and return `202 {"accepted":true,"missionId":...,"projectId":...,"externalRunId":...}` after durable queue acceptance. No mock ACKs.
+- **Activation order:** `MAXX_CLIENT_WORKSPACES_ENABLED=false`, `MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED=false`, `MAXX_PRODUCTION_MUTATIONS_ENABLED=false` until schema+auth+worker checks pass. For isolated authorized staging only, enable after independent review, set `MAXX_CLIENT_DRAFT_EXECUTOR=hermes|instinct` and verified profile or keys. Test `MAXX_EMERGENCY_DISABLE=true` and rollback.
+- Deliberately do NOT expand beyond internal drafts or read customer data through arbitrary connected tools without a later explicit tool-by-tool scope decision and independent acceptance tests.
+
+**S4 · Actual Bunna happy path AND failure path**
+- Authorized proposer logs in via Google, selects BUNNA, submits internal draft from chat/voice. A **different** authorized reviewer approves in the same client. Start returns an **actual** acknowledged Hermes/Instinct run ID and empty tools; poll or signed callback returns only a partial receipt with `human_review_required`. Review source and result manually before calling complete.
+- Confirm workspace switch to CROWN AND CORE can't view/approve/dispatch Bunna; prove absent/stale/revoked user is blocked; replay of signed event does not forge an extra receipt; bad HMAC, expired timestamp, unexpected run ACK and wrong project are denied; disconnect after dispatch results in **blocked and needs human reconciliation** (never duplicate-dispatch).
+
+**S5 · Deterministic acceptance**
+- From clean checkout: `npm ci`, `npm run lint`, `npm test`, `npm run build`; separately `npm ci --prefix services/maxx-control-plane`, `npm run typecheck --prefix services/maxx-control-plane`, `npm test --prefix services/maxx-control-plane`, `npm run build --prefix services/maxx-control-plane`; Windows `cargo check --locked --manifest-path desktop/maxx-tauri/src-tauri/Cargo.toml`.
+- Verify 320/390/768/1440 mobile/desktop, keyboard, PWA, voice/transcription/consent, every workspace, archive recovery >=30 days, approval and error states, authentic receipt and audit. Do not infer staging success from passing synthetic test or Vercel build.
+- Independent security/UX reviewer must inspect two PRs and real runtime. Verify exact-HEAD CI, any queued MariaDB, dependency PR #44, and repository ownership in `CLIENT_SOURCE_REGISTRY.md`.
+
+**S6 · Release and rollback**
+- Keep draft PR #45 and #113 unmerged until reviewer proof. Release order after approval: backend reviewed migration+PR #45, then portal #113, then approved configuration/traffic rollout. **Never** merge broad #29/#42/#43 or apply unreviewed SQL. No automatic production deployment, money, publishing or client contact.
+- Rollback first: disable `MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED`, `MAXX_CLIENT_WORKSPACES_ENABLED`, and `MAXX_PRODUCTION_MUTATIONS_ENABLED`; restore prior app image/HTTPS route/Vercel variable; revoke newly exposed RPC grants if necessary; use reviewed **forward repair**, never restore permissive legacy RLS or delete customer data. Verify no unreviewed callback could be replayed.
+- Only report **PREVIEW VERIFIED** with executed browser+runtime evidence; **PRODUCTION VERIFIED** requires an owner-approved release and successful real signed operator journey in the deployed production system.
+
+**Proof packet to return:** canonical chosen DB and operator subject (redacted user identifiers as appropriate), exact repo SHAs, SQL review signoff and restored-clone test, chosen TLS URL/status, screenshots/session checks, provider run IDs (nonsecret), per-client isolation evidence, audit/receipt IDs, security reviewer, recovery proof, rollback test, blockers, cost and the exact release action requiring owner approval.
+
+---
+
 # Agent MAXX V3 — final server/operator execution handoff
 **Date:** 2026-11-16 (America/Mexico_City)
 **Status:** NON-SERVER CODE IMPLEMENTED IN DRAFT PRs; PRODUCTION NOT VERIFIED
