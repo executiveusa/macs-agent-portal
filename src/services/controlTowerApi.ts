@@ -43,6 +43,35 @@ export type ClientPendingApprovalsResponse = {
   status:"VERIFIED";projectId:string;approvalMode:"read_only";
   approvals:ClientPendingApproval[];note:string;
 };
+export type ClientMission = {
+  missionId:string;
+  projectId:string;
+  requestedBy:string;
+  objective:string;
+  status:"waiting_approval"|"queued"|"running"|"completed"|"failed"|"blocked"|"cancelled";
+  approvalStatus:"pending"|"approved"|"rejected"|"expired"|"cancelled";
+  approvalId:string;
+  receiptId:string|null;
+  createdAt:string;
+};
+export type ClientMissionInbox = {
+  status:"VERIFIED";
+  projectId:string;
+  missions:ClientMission[];
+  note:string;
+};
+export type ClientMissionResult = {
+  missionId:string;
+  projectId:string;
+  status:string;
+  approvalId?:string;
+  receiptId?:string|null;
+  verification?:"human_review_required"|"not_yet_executed";
+  source?:"hermes"|"instinct";
+  externalRunId?:string;
+  note?:string;
+};
+
 export type ClientChatHistoryResponse = {
   status: "VERIFIED";
   projectId: string;
@@ -105,6 +134,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const controlTowerApi = {
   bootstrap: () => request<ControlTowerBootstrap>("/v1/control-tower/bootstrap"),
   listClientWorkspaces: () => request<ClientWorkspacesResponse>("/v1/client-workspaces"),
+  getClientMissions:(projectId:string) =>
+    request<ClientMissionInbox>(`/v1/client-workspaces/${encodeURIComponent(projectId)}/missions`),
+  proposeClientMission:(projectId:string,missionId:string,objective:string) =>
+    request<ClientMissionResult>(`/v1/client-workspaces/${encodeURIComponent(projectId)}/missions`,{
+      method:"POST",body:JSON.stringify({missionId,objective}),
+    }),
+  decideClientMission:(projectId:string,missionId:string,decision:"approved"|"rejected") =>
+    request<ClientMissionResult>(
+      `/v1/client-workspaces/${encodeURIComponent(projectId)}/missions/${encodeURIComponent(missionId)}/decision`,{
+        method:"POST",body:JSON.stringify({decision}),
+      }),
+  startClientMission:(projectId:string,missionId:string) =>
+    request<ClientMissionResult>(
+      `/v1/client-workspaces/${encodeURIComponent(projectId)}/missions/${encodeURIComponent(missionId)}/start`,{
+        method:"POST",body:JSON.stringify({}),
+      }),
+  pollClientMission:(projectId:string,missionId:string) =>
+    request<ClientMissionResult>(
+      `/v1/client-workspaces/${encodeURIComponent(projectId)}/missions/${encodeURIComponent(missionId)}/poll`,{
+        method:"POST",body:JSON.stringify({}),
+      }),
   getClientPendingApprovals:(projectId:string) =>
     request<ClientPendingApprovalsResponse>(`/v1/client-workspaces/${encodeURIComponent(projectId)}/pending-approvals`),
   getClientChatHistory: (projectId:string) =>
