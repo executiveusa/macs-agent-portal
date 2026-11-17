@@ -49,6 +49,14 @@ const schema = z.object({
   MAXX_PRODUCTION_MUTATIONS_ENABLED: z.string().optional(),
   MAXX_EMERGENCY_DISABLE: z.string().optional(),
   MAXX_CLIENT_WORKSPACES_ENABLED: z.string().optional(),
+  // No client agent dispatch until the owner reviews a no-tools Hermes
+  // profile or approved Instinct A2A worker in the actual server environment.
+  MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED: z.string().optional(),
+  MAXX_CLIENT_DRAFT_EXECUTOR: z.enum(["hermes","instinct"]).default("hermes"),
+  MAXX_CLIENT_DRAFT_HERMES_PROFILE: z.string().regex(/^[a-z][a-z0-9-]{2,39}$/).optional(),
+  MAXX_INSTINCT_A2A_URL: z.string().url().optional(),
+  MAXX_INSTINCT_A2A_KEY: z.string().min(32).optional(),
+  MAXX_INSTINCT_INGRESS_KEY: z.string().min(32).optional(),
   MAXX_APPROVAL_TTL_HOURS: z.coerce.number().positive().default(24),
   MAXX_MEMORY_INDEX_PATH: z.string().optional(),
   MAXX_STT_ENDPOINT: z.string().url().optional(),
