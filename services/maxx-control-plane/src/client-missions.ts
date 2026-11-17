@@ -18,7 +18,7 @@ export function createClientMissionController(
 ) {
   function executorReady(): void {
     if(!config.clientWorkspacesEnabled || config.MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED!=="true" ||
-        config.emergencyDisabled || !config.featureFlags.MAXX_PRODUCTION_MUTATIONS_ENABLED)
+        config.emergencyDisabled)
       throw new ClientExecutorUnavailable();
     if(config.MAXX_CLIENT_DRAFT_EXECUTOR==="hermes" &&
        (!config.featureFlags.MAXX_HERMES_ENABLED || !config.MAXX_HERMES_ENDPOINT ||
