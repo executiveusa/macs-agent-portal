@@ -314,8 +314,31 @@ export function createClientWorkspaceService(config:Cfg,enabled:boolean,request:
       dispatch?:{source:"hermes"|"instinct";externalRunId:string}|null;
     };
   }
+  async function listClientMissions(userId:string,projectId:string,limit=30) {
+    await authorize(userId,projectId);
+    if(!Number.isInteger(limit)||limit<1||limit>50) throw new WorkspaceInvalid();
+    const raw=await rpc("maxx_service_client_missions",{
+      p_actor:userId,p_project_id:projectId,p_limit:limit,
+    });
+    if(!Array.isArray(raw)||raw.length>limit) throw new WorkspaceUnavailable();
+    return raw.map(item=>{
+      const r=missionObject(item);
+      if(!isUUID(r.missionId)||r.projectId!==projectId||!isUUID(r.requestedBy)||
+         typeof r.objective!=="string"||r.objective.length<3||r.objective.length>2000||
+         !["waiting_approval","queued","running","completed","failed","blocked","cancelled"].includes(String(r.status))||
+         !["pending","approved","rejected","expired","cancelled"].includes(String(r.approvalStatus))||
+         !isUUID(r.approvalId)||(r.receiptId!==null&&!isUUID(r.receiptId))||
+         typeof r.createdAt!=="string"||!Number.isFinite(Date.parse(r.createdAt)))
+        throw new WorkspaceUnavailable();
+      return r as {
+        missionId:string;projectId:string;requestedBy:string;objective:string;
+        status:string;approvalStatus:string;approvalId:string;
+        receiptId:string|null;createdAt:string;
+      };
+    });
+  }
   return {listForUser,authorize,createClient,archiveStep,listChatHistory,
     recordChatExchange,listPendingApprovals,proposeClientMission,
     decideClientMission,claimClientMission,recordClientDispatch,
-    finishClientMission,getClientMission};
+    finishClientMission,getClientMission,listClientMissions};
 }
