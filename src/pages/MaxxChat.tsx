@@ -24,6 +24,7 @@ import { Link } from "react-router-dom";
 import { controlTowerApi, type MaxxChatMode } from "@/services/controlTowerApi";
 import { useAuth } from "@/hooks/useAuth";
 import { ClientWorkspaceSwitcher } from "@/components/maxx/ClientWorkspaceSwitcher";
+import { ClientMissionPanel } from "@/components/maxx/ClientMissionPanel";
 import { MaxxSettingsDrawer } from "@/components/maxx/MaxxSettingsDrawer";
 import { canSendClientTask, catalogItem } from "@/lib/maxx-client-workspaces";
 import type { Approval, ChatResponse } from "@/types/controlTower";
@@ -595,7 +596,7 @@ export default function MaxxChat() {
             )}
             {selectedClientSlug && verifiedWorkspace && (
               <p role="status" className="mt-2 text-xs text-amber-800">
-                Verified client workspace · advisory drafts only. No external client actions are executed.
+                Verified workspace · chat remains advisory. Separately approved internal draft missions use the gated ICM executor; no external client actions are authorized.
               </p>
             )}
 
@@ -664,6 +665,10 @@ export default function MaxxChat() {
               <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
                 Saved history could not be verified. Refresh or contact the operator; never assume there are zero records.
               </p>
+            )}
+            {verifiedWorkspace && selectedClientSlug && verifiedWorkspace.status==="active" && (
+              <ClientMissionPanel key={verifiedWorkspace.id+":"+authSubject}
+                workspace={verifiedWorkspace} userId={authSubject}/>
             )}
             {verifiedWorkspace && selectedClientSlug && (
               <section className="rounded-2xl border border-black/[0.07] bg-[#faf8f3] p-3" aria-label="Client approvals">
