@@ -3,6 +3,7 @@ name: MAXX TypeScript repair acceptance
 on:
   pull_request:
     branches:
+      - main
       - fix/ts-peer-align
     paths:
       - package.json
