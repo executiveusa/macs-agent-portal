@@ -23,6 +23,10 @@ import {
 import { Link } from "react-router-dom";
 import { controlTowerApi, type MaxxChatMode } from "@/services/controlTowerApi";
 import { useAuth } from "@/hooks/useAuth";
+import { ClientWorkspaceSwitcher } from "@/components/maxx/ClientWorkspaceSwitcher";
+import { ClientMissionPanel } from "@/components/maxx/ClientMissionPanel";
+import { MaxxSettingsDrawer } from "@/components/maxx/MaxxSettingsDrawer";
+import { canSendClientTask, catalogItem } from "@/lib/maxx-client-workspaces";
 import type { Approval, ChatResponse } from "@/types/controlTower";
 
 type Message = {
@@ -154,8 +158,47 @@ function ApprovalCard({ approval, onDecision, pending }: { approval: Approval; o
 
 export default function MaxxChat() {
   const queryClient = useQueryClient();
-  const { signOut } = useAuth();
+  const { signOut, session } = useAuth();
+  const authSubject = session?.user.id ?? "no-auth-session";
   const [input, setInput] = useState("");
+  const [selectedClientSlug,setSelectedClientSlug] = useState<string|null>(null);
+  const [settingsOpen,setSettingsOpen] = useState(false);
+  const [clientNotice,setClientNotice] = useState("");
+  const workspaceKey = authSubject + ":" + (selectedClientSlug ?? "general");
+  const workspaceKeyRef = useRef(workspaceKey);
+  useEffect(() => {
+    workspaceKeyRef.current = workspaceKey;
+  }, [workspaceKey]);
+  const workspaceQuery = useQuery({
+    queryKey: ["maxx-client-workspaces",authSubject],
+    queryFn: controlTowerApi.listClientWorkspaces,
+    enabled: Boolean(session?.user.id),
+    retry:false, refetchInterval:30_000,
+  });
+  const verifiedWorkspaces = workspaceQuery.data?.workspaces ?? [];
+  const verifiedWorkspace = selectedClientSlug
+    ? verifiedWorkspaces.find(x=>x.slug===selectedClientSlug) : undefined;
+  const clientPrompts = selectedClientSlug
+    ? ((verifiedWorkspace?.promptsSource === "verified" || verifiedWorkspace?.promptsSource === "operator_template") && verifiedWorkspace.suggestedTasks.length > 0
+        ? verifiedWorkspace.suggestedTasks
+        : catalogItem(selectedClientSlug)?.suggestedTasks ??
+          ["Review client decisions waiting for approval.",
+           "Draft a campaign using verified company information.",
+           "Summarize real progress and outstanding work.",
+           "Prepare the next action for owner approval."])
+    : starterPrompts;
+  const chatHistoryQuery = useQuery({
+    queryKey:["maxx-client-chat-history",authSubject,verifiedWorkspace?.id],
+    queryFn:()=>controlTowerApi.getClientChatHistory(verifiedWorkspace!.id),
+    enabled:Boolean(session?.user.id && verifiedWorkspace?.id && verifiedWorkspace.status==="active"),
+    retry:false,
+  });
+  const clientApprovalsQuery = useQuery({
+    queryKey:["maxx-client-approvals",authSubject,verifiedWorkspace?.id],
+    queryFn:()=>controlTowerApi.getClientPendingApprovals(verifiedWorkspace!.id),
+    enabled:Boolean(session?.user.id && verifiedWorkspace?.id && verifiedWorkspace.status==="active"),
+    retry:false,refetchInterval:30_000,
+  });
   const [mode, setMode] = useState<MaxxChatMode>("normal");
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -196,22 +239,53 @@ export default function MaxxChat() {
   const audioChunksRef = useRef<Blob[]>([]);
 
   const bootstrap = useQuery({
-    queryKey: ["control-tower"],
+    queryKey: ["control-tower", authSubject],
     queryFn: controlTowerApi.bootstrap,
+    enabled: Boolean(session?.user.id),
     retry: false,
     refetchInterval: 15_000,
   });
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "welcome",
-      role: "maxx",
-      text: "I’m ready. Tell me the outcome you want, and I’ll figure out the work underneath.",
-    },
-  ]);
-  const [lastResponse, setLastResponse] = useState<ChatResponse>();
+  const [messagesByWorkspace,setMessagesByWorkspace] = useState<Record<string,Message[]>>({});
+  const [responsesByWorkspace,setResponsesByWorkspace] = useState<Record<string,ChatResponse>>({});
+  // Session transitions cannot reuse a previous operator's selected client.
+  const priorSubjectRef = useRef(authSubject);
+  useEffect(() => {
+    if (priorSubjectRef.current !== authSubject) {
+      priorSubjectRef.current = authSubject;
+      setSelectedClientSlug(null);
+      setMessagesByWorkspace({});
+      setResponsesByWorkspace({});
+      setClientNotice("");
+      queryClient.removeQueries({queryKey:["maxx-client-workspaces"]});
+      queryClient.removeQueries({queryKey:["control-tower"]});
+      queryClient.removeQueries({queryKey:["maxx-client-chat-history"]});
+      queryClient.removeQueries({queryKey:["maxx-client-approvals"]});
+    }
+  }, [authSubject,queryClient]);
+  const persistedMessages: Message[] | undefined =
+    selectedClientSlug && verifiedWorkspace && chatHistoryQuery.data?.projectId===verifiedWorkspace.id
+      ? chatHistoryQuery.data.messages.map(({id,role,text})=>({id,role,text}))
+      : undefined;
+  const messages: Message[] = messagesByWorkspace[workspaceKey] ??
+    (persistedMessages?.length ? persistedMessages : [{
+      id:"welcome-"+workspaceKey,role:"maxx",
+      text:selectedClientSlug ? "Select an outcome. Client records and actions require verified access." : "I’m ready. Tell me the outcome you want.",
+    }]);
+  const lastResponse = responsesByWorkspace[workspaceKey];
+  function appendWorkspaceMessage(key:string,message:Message) {
+    // Preserve the server history while optimistic work is displayed. Never
+    // let a new local message replace a previously loaded client transcript.
+    const baseline = key===workspaceKey ? (persistedMessages??[]) : [];
+    setMessagesByWorkspace(current=>({
+      ...current,[key]:[...(current[key]??baseline),message],
+    }));
+  }
 
-  const status = bootstrap.isError
+  const status = selectedClientSlug
+    ? workspaceQuery.isError ? "Unavailable" :
+      verifiedWorkspace ? "Draft only" : "Setup needed"
+    : bootstrap.isError
     ? "Offline"
     : bootstrap.isLoading
       ? "Connecting"
@@ -219,7 +293,7 @@ export default function MaxxChat() {
         ? "Ready"
         : "Limited";
   const statusTone = status === "Ready" ? "bg-[#4f765c]" : status === "Offline" ? "bg-red-500" : "bg-amber-500";
-  const pendingApproval = bootstrap.data?.approvals.find((item) => item.status === "pending");
+  const pendingApproval = selectedClientSlug ? undefined : bootstrap.data?.approvals.find((item) => item.status === "pending");
 
   // Barge-in: Stop playing audio immediately without disrupting backend tasks
   const stopAudio = () => {
@@ -280,34 +354,41 @@ export default function MaxxChat() {
   };
 
   const chat = useMutation({
-    mutationFn: (text: string) => controlTowerApi.chat(text, undefined, undefined, mode),
-    onMutate: (text) => {
-      stopAudio(); // Barge-in on send
-      setMessages((current) => [...current, { id: crypto.randomUUID(), role: "stacy", text }]);
+    mutationFn: ({text,workspaceId,exchangeId}:{text:string;key:string;workspaceId?:string;exchangeId:string}) =>
+      controlTowerApi.chat(text,undefined,undefined,mode,workspaceId,exchangeId),
+    onMutate: ({text,key}) => {
+      stopAudio();
+      appendWorkspaceMessage(key,{id:crypto.randomUUID(),role:"stacy",text});
       setInput("");
-      setLastResponse(undefined);
+      setClientNotice("");
     },
-    onSuccess: async (response) => {
-      const id = response.id;
-      setMessages((current) => [
-        ...current,
-        {
-          id,
-          role: "maxx",
-          text: response.text,
-          details: {
-            routingReason: response.routingReason,
-            latencyMs: response.usage.latencyMs,
-            degraded: response.degraded,
-          },
-        },
-      ]);
-      setLastResponse(response);
-      queryClient.invalidateQueries({ queryKey: ["control-tower"] });
-      // Speak the response through ElevenLabs
-      if (response.text && !isListening) {
-        await playResponseAudio(response.text);
+    onError: (_error,{key}) => {
+      appendWorkspaceMessage(key,{id:crypto.randomUUID(),role:"maxx",
+        text:"That request was not completed. Please verify client access and the MAXX connection before retrying."});
+    },
+    onSuccess: async (response,{key,workspaceId}) => {
+      appendWorkspaceMessage(key,{id:response.id,role:"maxx",text:response.text,details:{
+        routingReason:response.routingReason,
+        latencyMs:response.usage.latencyMs,
+        degraded:response.degraded,
+      }});
+      setResponsesByWorkspace(current=>({...current,[key]:response}));
+      queryClient.invalidateQueries({queryKey:["control-tower"]});
+      queryClient.invalidateQueries({queryKey:["maxx-client-workspaces",authSubject]});
+      if(workspaceId) {
+        const keyForHistory=["maxx-client-chat-history",authSubject,workspaceId];
+        await queryClient.invalidateQueries({queryKey:keyForHistory});
+        const fetched=queryClient.getQueryData<{messages:Array<{text:string}>}>(keyForHistory);
+        if(fetched?.messages.some(item=>item.text===response.text)){
+          setMessagesByWorkspace(current=>{
+            if(!current[key]) return current;
+            const next={...current};
+            delete next[key];
+            return next;
+          });
+        }
       }
+      if(response.text && !isListening && workspaceKeyRef.current===key) await playResponseAudio(response.text);
     },
   });
 
@@ -318,9 +399,13 @@ export default function MaxxChat() {
 
   const send = (text = input) => {
     const clean = text.trim();
-    if (!clean || chat.isPending) return;
+    if(!clean || chat.isPending) return;
+    if(selectedClientSlug && !canSendClientTask(verifiedWorkspace)){
+      setClientNotice("Client tasks are locked until your project membership and data connection are verified.");
+      return;
+    }
     stopAudio();
-    chat.mutate(clean);
+    chat.mutate({text:clean,key:workspaceKey,workspaceId:verifiedWorkspace?.id,exchangeId:crypto.randomUUID()});
   };
 
   // Voice handler: Tap mic -> Listening -> Stacy speaks -> Utterance commits automatically -> Working
@@ -383,10 +468,7 @@ export default function MaxxChat() {
                   send(res.text);
                 }
               } catch {
-                setMessages((current) => [
-                  ...current,
-                  { id: crypto.randomUUID(), role: "maxx", text: "I couldn’t catch that. You can type to me here." },
-                ]);
+                appendWorkspaceMessage(workspaceKey,{ id: crypto.randomUUID(), role: "maxx", text: "I couldn’t catch that. You can type to me here." });
               }
             }
           };
@@ -395,16 +477,10 @@ export default function MaxxChat() {
         recorder.start();
         setIsListening(true);
       } catch {
-        setMessages((current) => [
-          ...current,
-          { id: crypto.randomUUID(), role: "maxx", text: "Microphone access was not granted. You can type to me here." },
-        ]);
+        appendWorkspaceMessage(workspaceKey,{ id: crypto.randomUUID(), role: "maxx", text: "Microphone access was not granted. You can type to me here." });
       }
     } else {
-      setMessages((current) => [
-        ...current,
-        { id: crypto.randomUUID(), role: "maxx", text: "Voice input is not available in this browser. You can type to me here." },
-      ]);
+      appendWorkspaceMessage(workspaceKey,{ id: crypto.randomUUID(), role: "maxx", text: "Voice input is not available in this browser. You can type to me here." });
     }
   };
 
@@ -427,7 +503,7 @@ export default function MaxxChat() {
     };
   }, []);
 
-  const recentMissions = useMemo(() => bootstrap.data?.missions.slice(0, 6) ?? [], [bootstrap.data?.missions]);
+  const recentMissions = useMemo(() => selectedClientSlug ? [] : (bootstrap.data?.missions.slice(0, 6) ?? []), [bootstrap.data?.missions,selectedClientSlug]);
 
   return (
     <main className={`min-h-[100dvh] transition-colors duration-300 ${mode === "max" ? "bg-[#efebe5]" : "bg-[#f4f2ed]"} text-[#20201d]`}>
@@ -436,13 +512,19 @@ export default function MaxxChat() {
           <div className="flex items-center gap-2.5">
             <span className="text-lg font-bold tracking-[-0.04em]">MAXX</span>
             <span className={`h-2.5 w-2.5 rounded-full ${statusTone}`} aria-hidden="true" />
-            <span className="text-sm text-black/50">{status}</span>
+            <span className="hidden text-sm text-black/50 sm:inline">{status}</span>
+            <ClientWorkspaceSwitcher
+              selectedSlug={selectedClientSlug}
+              onSelect={(slug) => {setSelectedClientSlug(slug);setClientNotice("");stopAudio();}}
+              verifiedWorkspaces={verifiedWorkspaces}
+              connectionState={workspaceQuery.isLoading?"loading":workspaceQuery.isSuccess?"verified":"unavailable"}
+            />
           </div>
           <div className="flex items-center gap-1.5">
             {!isPwaInstalled && (
               <button
                 onClick={handleInstallClick}
-                className="flex h-9 items-center gap-1.5 rounded-full bg-[#24241f] px-3 text-xs font-semibold text-[#f4f2ed] shadow-sm hover:bg-black/80 transition"
+                className="hidden sm:flex h-9 items-center gap-1.5 rounded-full bg-[#24241f] px-3 text-xs font-semibold text-[#f4f2ed] shadow-sm hover:bg-black/80 transition"
                 title="Install MAXX on your phone"
               >
                 <Smartphone size={13} />
@@ -453,14 +535,21 @@ export default function MaxxChat() {
               <History size={16} />
               <span className="hidden sm:inline">History</span>
             </button>
-            <Link to="/control/settings" className="flex h-10 w-10 items-center justify-center rounded-full text-black/50 hover:bg-black/[0.04]" aria-label="Advanced settings">
+            <button type="button" onClick={()=>setSettingsOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-black/50 hover:bg-black/[0.04]"
+              aria-label="Open MAXX settings and navigation" aria-haspopup="dialog" aria-expanded={settingsOpen}>
               <Settings size={17} />
-            </Link>
+            </button>
             <button onClick={() => signOut()} className="flex h-10 w-10 items-center justify-center rounded-full text-black/50 hover:bg-black/[0.04]" aria-label="Sign out">
               <LogOut size={17} />
             </button>
           </div>
         </header>
+
+        <MaxxSettingsDrawer
+          open={settingsOpen} onOpenChange={setSettingsOpen}
+          onOpenHistory={()=>setShowHistory(true)}
+        />
 
         {showHistory && (
           <section className="border-b border-black/[0.07] bg-[#faf8f3] px-4 py-4 sm:px-6">
@@ -469,7 +558,20 @@ export default function MaxxChat() {
               <button onClick={() => setShowHistory(false)} aria-label="Close history" className="rounded-full p-2 text-black/40 hover:bg-black/[0.05]"><X size={15} /></button>
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {recentMissions.length ? recentMissions.map((mission) => (
+              {selectedClientSlug ? (
+                chatHistoryQuery.isError
+                  ? <p role="alert" className="text-sm text-red-700">Saved client history is unavailable. This is not an empty history.</p>
+                  : chatHistoryQuery.isLoading
+                    ? <p className="text-sm text-black/40">Loading verified client history…</p>
+                    : chatHistoryQuery.data?.messages.length
+                      ? chatHistoryQuery.data.messages.slice(-8).map(item=>(
+                          <div key={item.id} className="rounded-xl border border-black/[0.07] bg-white px-3 py-2.5">
+                            <p className="text-xs font-semibold">{item.role==="stacy"?"You":"MAXX"}</p>
+                            <p className="mt-1 line-clamp-2 text-sm">{item.text}</p>
+                          </div>
+                        ))
+                      : <p className="text-sm text-black/40">No persisted client messages yet.</p>
+              ) : recentMissions.length ? recentMissions.map((mission) => (
                 <div key={mission.id} className="rounded-xl border border-black/[0.07] bg-white px-3 py-2.5">
                   <p className="line-clamp-2 text-sm font-medium">{mission.objective}</p>
                   <p className="mt-1 text-xs text-black/40">{mission.status === "needs_operator" ? "Needs you" : mission.status === "working" ? "Working" : mission.status === "completed" ? "Done" : mission.status}</p>
@@ -483,7 +585,20 @@ export default function MaxxChat() {
           <div className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
             <MaxxAvatar maxMode={mode === "max"} isSpeaking={isSpeaking} />
             <h1 className="mt-4 text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">What do you need done?</h1>
-            <p className="mt-2 text-sm leading-6 text-black/48">Talk or type normally. MAXX handles the work underneath.</p>
+            <p className="mt-2 text-sm leading-6 text-black/48">
+              {selectedClientSlug ? `Working context: ${catalogItem(selectedClientSlug)?.name}.` :
+                "Talk or type normally. MAXX handles the work underneath."}
+            </p>
+            {selectedClientSlug && !canSendClientTask(verifiedWorkspace) && (
+              <p role="status" className="mt-3 rounded-xl bg-amber-50 px-4 py-2 text-xs text-amber-900">
+                Client-specific execution is locked pending verified project membership.
+              </p>
+            )}
+            {selectedClientSlug && verifiedWorkspace && (
+              <p role="status" className="mt-2 text-xs text-amber-800">
+                Verified workspace · chat remains advisory. Separately approved internal draft missions use the gated ICM executor; no external client actions are authorized.
+              </p>
+            )}
 
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               <button
@@ -503,8 +618,8 @@ export default function MaxxChat() {
           </div>
 
           <div className="mx-auto mt-6 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
-            {starterPrompts.map((prompt) => (
-              <button key={prompt} onClick={() => send(prompt)} disabled={chat.isPending} className="rounded-2xl border border-black/[0.07] bg-[#faf8f3] p-3.5 text-left text-sm leading-5 text-black/66 transition hover:border-black/15 hover:bg-[#f6f3ed] disabled:opacity-50">
+            {clientPrompts.map((prompt) => (
+              <button key={prompt} onClick={() => send(prompt)} disabled={chat.isPending || (Boolean(selectedClientSlug) && !canSendClientTask(verifiedWorkspace))} className="rounded-2xl border border-black/[0.07] bg-[#faf8f3] p-3.5 text-left text-sm leading-5 text-black/66 transition hover:border-black/15 hover:bg-[#f6f3ed] disabled:opacity-50">
                 {prompt}
               </button>
             ))}
@@ -546,6 +661,39 @@ export default function MaxxChat() {
               </div>
             ))}
 
+            {selectedClientSlug && chatHistoryQuery.isError && verifiedWorkspace && (
+              <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                Saved history could not be verified. Refresh or contact the operator; never assume there are zero records.
+              </p>
+            )}
+            {verifiedWorkspace && selectedClientSlug && verifiedWorkspace.status==="active" && (
+              <ClientMissionPanel key={verifiedWorkspace.id+":"+authSubject}
+                workspace={verifiedWorkspace} userId={authSubject}
+                suggestedObjective={messages.filter(m=>m.role==="stacy").slice(-1)[0]?.text}/>
+            )}
+            {verifiedWorkspace && selectedClientSlug && (
+              <section className="rounded-2xl border border-black/[0.07] bg-[#faf8f3] p-3" aria-label="Client approvals">
+                <p className="text-xs font-semibold text-black/70">Client approvals · review only</p>
+                {clientApprovalsQuery.isError
+                  ? <p role="alert" className="mt-1 text-xs text-amber-900">Approval status is unavailable, not zero.</p>
+                  : clientApprovalsQuery.isLoading
+                    ? <p className="mt-1 text-xs text-black/45">Checking authorized approvals…</p>
+                    : clientApprovalsQuery.data?.approvals.length
+                      ? <div className="mt-2 space-y-2">
+                          {clientApprovalsQuery.data.approvals.slice(0,3).map(item=>(
+                            <div key={item.id} className="rounded-lg border border-black/[0.06] bg-white p-2 text-xs">
+                              <p className="font-semibold">{item.actionKey}</p>
+                              <p className="mt-1 text-black/55">Risk: {item.riskClass}. Approval or execution requires separate authorized review.</p>
+                            </div>
+                          ))}
+                          {clientApprovalsQuery.data.approvals.length>3 && (
+                            <p className="text-xs text-black/55">Additional verified approvals: {clientApprovalsQuery.data.approvals.length-3}</p>
+                          )}
+                        </div>
+                      : <p className="mt-1 text-xs text-black/50">No pending approvals in the scoped MAXX ledger. Other systems are not included.</p>}
+              </section>
+            )}
+            {clientNotice && <p role="alert" className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{clientNotice}</p>}
             <WorkState pending={chat.isPending} response={lastResponse} isSpeaking={isSpeaking} onStopAudio={stopAudio} />
             {chat.isError && (
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800">
@@ -574,6 +722,7 @@ export default function MaxxChat() {
                 }}
                 rows={1}
                 placeholder="Tell MAXX what you need…"
+                disabled={Boolean(selectedClientSlug) && !canSendClientTask(verifiedWorkspace)}
                 className="min-h-11 max-h-32 flex-1 resize-none bg-transparent px-3 py-3 text-[16px] leading-5 outline-none placeholder:text-black/30"
               />
               <button
@@ -584,6 +733,7 @@ export default function MaxxChat() {
                     startVoice();
                   }
                 }}
+                disabled={Boolean(selectedClientSlug) && !canSendClientTask(verifiedWorkspace)}
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all ${
                   isListening ? "bg-red-500 text-white animate-pulse" : "bg-[#efede7] text-black/60 hover:bg-[#e4e1d8]"
                 }`}
@@ -592,7 +742,7 @@ export default function MaxxChat() {
               >
                 {isListening ? <MicOff size={18} /> : <Mic size={18} />}
               </button>
-              <button onClick={() => send()} disabled={!input.trim() || chat.isPending} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#24241f] text-white disabled:opacity-25" aria-label="Send to MAXX">
+              <button onClick={() => send()} disabled={!input.trim() || chat.isPending || (Boolean(selectedClientSlug) && !canSendClientTask(verifiedWorkspace))} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#24241f] text-white disabled:opacity-25" aria-label="Send to MAXX">
                 <ArrowUp size={18} />
               </button>
             </div>
@@ -603,7 +753,7 @@ export default function MaxxChat() {
                   ? "Speaking… tap mic or type to interrupt."
                   : mode === "max"
                     ? "MAXX Mode active"
-                    : "Voice and text go through your private MAXX account."}
+                    : selectedClientSlug ? "Client data and tools remain gated until project membership is verified." : "Voice and text go through your private MAXX account."}
             </p>
           </div>
         </section>

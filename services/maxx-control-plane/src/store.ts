@@ -122,6 +122,7 @@ export class SupabaseStore implements ControlTowerStore {
     private readonly url: string,
     private readonly serviceRoleKey: string,
     private readonly approvalTtlHours: number = DEFAULT_APPROVAL_TTL_HOURS,
+    private readonly strictPersistence: boolean = false,
   ) {
     this.fallback = new MemoryStore(approvalTtlHours);
   }
@@ -148,7 +149,8 @@ export class SupabaseStore implements ControlTowerStore {
         "maxx_missions?select=id,objective,status,run_id,created_at,updated_at&order=updated_at.desc",
       );
       return rows.map(mapMission);
-    } catch {
+    } catch (error) {
+      if (this.strictPersistence) throw error;
       return this.fallback.listMissions();
     }
   }
@@ -180,7 +182,8 @@ export class SupabaseStore implements ControlTowerStore {
         body: JSON.stringify({ run_id: input.runId, current_stage: "01_intake" }),
       });
       return mapMission(rows[0]);
-    } catch {
+    } catch (error) {
+      if (this.strictPersistence) throw error;
       return this.fallback.createMission(input);
     }
   }
@@ -192,7 +195,8 @@ export class SupabaseStore implements ControlTowerStore {
         body: JSON.stringify({ status }),
       });
       return rows[0] ? mapMission(rows[0]) : undefined;
-    } catch {
+    } catch (error) {
+      if (this.strictPersistence) throw error;
       return this.fallback.updateMission(id, status);
     }
   }
@@ -204,7 +208,8 @@ export class SupabaseStore implements ControlTowerStore {
         body: JSON.stringify({ run_id: runId, event_type: type, message, data: data ?? {} }),
       });
       return mapEvent(rows[0]);
-    } catch {
+    } catch (error) {
+      if (this.strictPersistence) throw error;
       return this.fallback.addEvent(runId, type, message, data);
     }
   }
@@ -215,7 +220,8 @@ export class SupabaseStore implements ControlTowerStore {
         `maxx_events?run_id=eq.${encodeURIComponent(runId)}&order=sequence.asc`,
       );
       return rows.map(mapEvent);
-    } catch {
+    } catch (error) {
+      if (this.strictPersistence) throw error;
       return this.fallback.listEvents(runId);
     }
   }
@@ -227,7 +233,8 @@ export class SupabaseStore implements ControlTowerStore {
         "maxx_approvals?select=*&order=created_at.desc",
       );
       return rows.map(mapApproval);
-    } catch {
+    } catch (error) {
+      if (this.strictPersistence) throw error;
       return this.fallback.listApprovals();
     }
   }
@@ -246,7 +253,8 @@ export class SupabaseStore implements ControlTowerStore {
         }),
       });
       return mapApproval(rows[0]);
-    } catch {
+    } catch (error) {
+      if (this.strictPersistence) throw error;
       return this.fallback.createApproval(input);
     }
   }
@@ -269,7 +277,8 @@ export class SupabaseStore implements ControlTowerStore {
         },
       );
       return rows[0] ? mapApproval(rows[0]) : undefined;
-    } catch {
+    } catch (error) {
+      if (this.strictPersistence) throw error;
       return this.fallback.decideApproval(id, decision, operatorId);
     }
   }
@@ -280,7 +289,8 @@ export class SupabaseStore implements ControlTowerStore {
         `maxx_approvals?status=eq.pending&expires_at=lte.${encodeURIComponent(new Date().toISOString())}`,
         { method: "PATCH", body: JSON.stringify({ status: "expired" }) },
       );
-    } catch {
+    } catch (error) {
+      if (this.strictPersistence) throw error;
       // In-memory handles expiration via listApprovals
     }
   }
@@ -300,7 +310,8 @@ export class SupabaseStore implements ControlTowerStore {
           created_at: input.createdAt,
         }),
       });
-    } catch {
+    } catch (error) {
+      if (this.strictPersistence) throw error;
       await this.fallback.addUsage(input);
     }
   }
@@ -318,16 +329,35 @@ export class SupabaseStore implements ControlTowerStore {
         latencyMs: Number(row.latency_ms),
         createdAt: String(row.created_at),
       }));
-    } catch {
+    } catch (error) {
+      if (this.strictPersistence) throw error;
       return this.fallback.listUsage();
     }
   }
 }
 
+/** Configured production cannot silently become a volatile in-memory system. */
+class UnavailableProductionStore implements ControlTowerStore {
+  private fail(): never {
+    throw new Error("MAXX production persistence is unavailable: Supabase server configuration is required");
+  }
+  async listMissions(): Promise<Mission[]> { return this.fail(); }
+  async createMission(_input: Omit<Mission, "createdAt" | "updatedAt"> & { workspacePath: string }): Promise<Mission> { return this.fail(); }
+  async updateMission(_id: string, _status: Mission["status"]): Promise<Mission | undefined> { return this.fail(); }
+  async addEvent(_runId: string, _type: string, _message: string, _data?: Record<string,unknown>): Promise<RunEvent> { return this.fail(); }
+  async listEvents(_runId: string): Promise<RunEvent[]> { return this.fail(); }
+  async listApprovals(): Promise<Approval[]> { return this.fail(); }
+  async createApproval(_input: CreateApprovalInput): Promise<Approval> { return this.fail(); }
+  async decideApproval(_id: string, _decision: "approved" | "rejected", _operatorId: string): Promise<Approval | undefined> { return this.fail(); }
+  async addUsage(_input: UsageRecord): Promise<void> { return this.fail(); }
+  async listUsage(): Promise<UsageRecord[]> { return this.fail(); }
+}
+
 export function createStore(config: MaxxConfig): ControlTowerStore {
   if (config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY) {
-    return new SupabaseStore(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, config.MAXX_APPROVAL_TTL_HOURS);
+    return new SupabaseStore(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, config.MAXX_APPROVAL_TTL_HOURS, config.NODE_ENV === "production");
   }
+  if (config.NODE_ENV === "production") return new UnavailableProductionStore();
   return new MemoryStore(config.MAXX_APPROVAL_TTL_HOURS);
 }
 

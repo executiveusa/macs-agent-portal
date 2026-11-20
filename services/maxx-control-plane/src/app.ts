@@ -1,4 +1,4 @@
-import Fastify, { type FastifyRequest } from "fastify";
+import Fastify, { type FastifyRequest, type FastifyReply } from "fastify";
 import cors from "@fastify/cors";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -33,6 +33,9 @@ import {
 import { createVisionGateway, type VisionInputAdapter } from "./vision-gateway.js";
 import { createBrowserWorker, type BrowserWorker } from "./browser-worker.js";
 import { DefaultPhoneChatGateway, type PhoneChatGateway } from "./phone-chat.js";
+import { createClientWorkspaceService, WorkspaceForbidden, WorkspaceUnavailable, WorkspaceConflict, WorkspaceInvalid } from "./client-workspaces.js";
+import { createClientMissionController } from "./client-missions.js";
+import { registerClientMissionRoutes } from "./client-mission-routes.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -54,6 +57,8 @@ type AppOptions = {
   vision?: { adapter: VisionInputAdapter; isReady: () => boolean };
   browser?: BrowserWorker;
   phone?: PhoneChatGateway;
+  clientWorkspaces?: ReturnType<typeof createClientWorkspaceService>;
+  clientMissions?: ReturnType<typeof createClientMissionController>;
 };
 
 const riskToleranceEnum = z.enum(["conservative", "standard", "permissive"]);
@@ -70,6 +75,8 @@ const chatSchema = z.object({
   message: z.string().trim().min(1).max(20_000),
   model: z.string().trim().min(1).optional(),
   runId: z.string().optional(),
+  workspaceId: z.string().uuid().optional(),
+  exchangeId: z.string().uuid().optional(),
 });
 
 const missionSchema = z.object({ objective: z.string().trim().min(3).max(2_000) });
@@ -284,6 +291,10 @@ export function buildApp(options: AppOptions = {}) {
       indexPath: config.memoryIndexPath,
     });
   const ownerStrategies = options.ownerStrategies ?? new OwnerStrategyStore();
+  const clientWorkspaces = options.clientWorkspaces ??
+    createClientWorkspaceService(config, config.clientWorkspacesEnabled);
+  const clientMissions = options.clientMissions ??
+    createClientMissionController(config,clientWorkspaces,hermes);
   const scheduler = options.scheduler ?? new Scheduler();
   const rawVoice =
     options.voice ??
@@ -392,6 +403,31 @@ export function buildApp(options: AppOptions = {}) {
     if (!operator) return reply.code(401).send({ error: "Stacy operator authentication required" });
     request.operator = operator;
 
+    // Once multi-client mode is enabled, legacy unscoped control-tower APIs
+    // remain available only to a verified organization owner/admin.
+    // Project members get client-specific endpoints and advisory chat only.
+    // Email allowlists and machine credentials are never project grants.
+    if (config.clientWorkspacesEnabled && operator.principal === "human" &&
+        request.url.startsWith("/v1/")) {
+      const path=request.url.split("?",1)[0];
+      const body=request.body as Record<string,unknown>|undefined;
+      const isScopedClientEndpoint=path==="/v1/client-workspaces" ||
+        path.startsWith("/v1/client-workspaces/");
+      const isScopedAdvisoryChat=path==="/v1/chat" && request.method==="POST" &&
+        body && typeof body==="object" && typeof body.workspaceId==="string" &&
+        body.workspaceId.length>0;
+      if(!isScopedClientEndpoint && !isScopedAdvisoryChat) {
+        try {
+          const memberships=await clientWorkspaces.listForUser(operator.id);
+          if(!memberships.some(item=>item.role==="owner"||item.role==="admin")) {
+            return reply.code(403).send({error:"Organization administrator access required for legacy MAXX APIs"});
+          }
+        } catch {
+          return reply.code(503).send({error:"Organization administrator access could not be verified"});
+        }
+      }
+    }
+
     if (config.emergencyDisabled && PRODUCTION_LOCKED_METHODS.has(request.method)) {
       return reply.code(503).send({
         status: "locked",
@@ -402,13 +438,137 @@ export function buildApp(options: AppOptions = {}) {
     if (
       config.NODE_ENV === "production" &&
       !config.featureFlags.MAXX_PRODUCTION_MUTATIONS_ENABLED &&
-      PRODUCTION_LOCKED_METHODS.has(request.method)
+      PRODUCTION_LOCKED_METHODS.has(request.method) &&
+      // Narrow, independently authorized client-only actions may proceed
+      // while ALL legacy/general production mutation APIs remain locked.
+      // Every action below still rechecks the live DB and/or signed webhook.
+      !(
+        config.clientWorkspacesEnabled && (
+          (operator.principal==="human" && request.method==="POST" &&
+            request.url.split("?",1)[0]==="/v1/chat" &&
+            typeof (request.body as {workspaceId?:unknown}|undefined)?.workspaceId==="string") ||
+          (operator.principal==="human" &&
+            config.MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED==="true" &&
+            request.method==="POST" &&
+            /^\/v1\/client-workspaces\/[0-9a-f-]{36}\/missions(?:\/[0-9a-f-]{36}\/(?:decision|start|poll))?$/i
+              .test(request.url.split("?",1)[0])) ||
+          (operator.principal==="machine" &&
+            config.MAXX_CLIENT_DRAFT_EXECUTOR_ENABLED==="true" &&
+            config.MAXX_CLIENT_DRAFT_EXECUTOR==="instinct" &&
+            request.method==="POST" &&
+            request.url.split("?",1)[0]==="/v1/client-execution/instinct/events")
+        )
+      )
     ) {
       return reply.code(503).send({
         status: "locked",
         message: "Production mutations disabled. Set MAXX_PRODUCTION_MUTATIONS_ENABLED=true to proceed.",
       });
     }
+  });
+
+  // Reuse the same verified workspace service + existing Hermes/ICM runtime.
+  // These endpoints never accept browser-supplied tool scope or actor IDs.
+  registerClientMissionRoutes(app,config,clientMissions);
+
+  // Project workspaces are retrieved only after verifying the JWT subject,
+  // an active organization membership AND an explicit project membership.
+  // No machine key or static catalog can confer access.
+  app.get("/v1/client-workspaces", async (request, reply) => {
+    if (request.operator?.principal === "machine") return reply.code(403).send({error:"Human session required"});
+    try {
+      const workspaces = await clientWorkspaces.listForUser(request.operator!.id);
+      return reply.header("cache-control", "private, no-store").send({
+        status: "VERIFIED",
+        workspaces,
+        note: "Pending counts are unknown until project-scoped approvals join is verified.",
+      });
+    } catch (error) {
+      const status = error instanceof WorkspaceForbidden ? 403 : 503;
+      return reply.code(status).send({status:"UNAVAILABLE",error:"Client workspace access cannot be verified"});
+    }
+  });
+
+  // These are explicit, audited server-side operations. Never expose a direct
+  // Supabase table write or allow the browser to supply the acting user ID.
+  const clientCreateSchema = z.object({
+    organizationId:z.string().uuid(),
+    name:z.string().trim().min(2).max(100),
+    slug:z.string().regex(/^[a-z][a-z0-9-]{2,60}$/),
+  });
+  const archiveStepSchema = z.object({
+    step:z.enum(["start","acknowledge","type_name","archive","cancel"]),
+    requestId:z.string().uuid().optional(),
+    typedName:z.string().max(100).optional(),
+  });
+  const archiveProjectSchema = z.object({projectId:z.string().uuid()});
+  function clientRequestError(error:unknown,reply:FastifyReply) {
+    const status = error instanceof WorkspaceForbidden ? 403 :
+      error instanceof WorkspaceConflict ? 409 :
+      error instanceof WorkspaceInvalid ? 400 : 503;
+    return reply.code(status).send({
+      status:status===503?"UNAVAILABLE":"DENIED",
+      error: status===503?"Client workspace service is unavailable" :
+        status===403?"Not authorized for this client":
+        status===409?"Client state has changed or needs confirmation":"Invalid client request",
+    });
+  }
+  app.get("/v1/client-workspaces/:projectId/chat-history",async(request,reply)=>{
+    if(request.operator?.principal!=="human") return reply.code(403).send({error:"Human session required"});
+    const parsed=archiveProjectSchema.safeParse(request.params);
+    if(!parsed.success) return reply.code(400).send({error:"Invalid workspace ID"});
+    try {
+      const messages=await clientWorkspaces.listChatHistory(request.operator!.id,parsed.data.projectId,100);
+      return reply.header("cache-control","private, no-store").send({
+        status:"VERIFIED",projectId:parsed.data.projectId,messages,
+      });
+    } catch(error) {return clientRequestError(error,reply);}
+  });
+  app.get("/v1/client-workspaces/:projectId/pending-approvals",async(request,reply)=>{
+    if(request.operator?.principal!=="human") return reply.code(403).send({error:"Human session required"});
+    const parsed=archiveProjectSchema.safeParse(request.params);
+    if(!parsed.success) return reply.code(400).send({error:"Invalid workspace ID"});
+    try {
+      const approvals=await clientWorkspaces.listPendingApprovals(request.operator!.id,parsed.data.projectId);
+      return reply.header("cache-control","private, no-store").send({
+        status:"VERIFIED",projectId:parsed.data.projectId,approvalMode:"read_only",
+        approvals,
+        note:"Approval decisions and execution remain disabled until scoped ICM review.",
+      });
+    } catch(error) {return clientRequestError(error,reply);}
+  });
+  app.post("/v1/client-workspaces",async(request,reply)=>{
+    if(request.operator?.principal==="machine") return reply.code(403).send({error:"Human session required"});
+    const parsed = clientCreateSchema.safeParse(request.body);
+    if(!parsed.success) return reply.code(400).send({error:"Invalid client details"});
+    try {
+      const item=await clientWorkspaces.createClient(
+        request.operator!.id,parsed.data.organizationId,parsed.data.name,parsed.data.slug);
+      return reply.code(201).header("cache-control","no-store").send(item);
+    } catch(error) { return clientRequestError(error,reply); }
+  });
+  app.post("/v1/client-workspaces/:projectId/archive",async(request,reply)=>{
+    if(request.operator?.principal==="machine") return reply.code(403).send({error:"Human session required"});
+    const params=archiveProjectSchema.safeParse(request.params);
+    const body=archiveStepSchema.safeParse(request.body);
+    if(!params.success || !body.success) return reply.code(400).send({error:"Invalid archive confirmation"});
+    try {
+      const result=await clientWorkspaces.archiveStep(
+        request.operator!.id,params.data.projectId,body.data.step,
+        body.data.requestId,body.data.typedName);
+      return reply.header("cache-control","no-store").send(result);
+    } catch(error) { return clientRequestError(error,reply); }
+  });
+  app.post("/v1/client-workspaces/:projectId/restore",async(request,reply)=>{
+    if(request.operator?.principal==="machine") return reply.code(403).send({error:"Human session required"});
+    const params=archiveProjectSchema.safeParse(request.params);
+    const body=z.object({requestId:z.string().uuid()}).safeParse(request.body);
+    if(!params.success || !body.success) return reply.code(400).send({error:"Invalid restore request"});
+    try {
+      const result=await clientWorkspaces.archiveStep(
+        request.operator!.id,params.data.projectId,"restore",body.data.requestId);
+      return reply.header("cache-control","no-store").send(result);
+    } catch(error) { return clientRequestError(error,reply); }
   });
 
   app.get("/v1/control-tower/bootstrap", async () => {
@@ -458,6 +618,27 @@ export function buildApp(options: AppOptions = {}) {
     }
 
     const input = chatSchema.parse(request.body);
+    let workspace: Awaited<ReturnType<typeof clientWorkspaces.authorize>> | undefined;
+    if (input.workspaceId) {
+      if (request.operator?.principal === "machine") return reply.code(403).send({error:"Scoped machine authorization required"});
+      try {
+        workspace = await clientWorkspaces.authorize(request.operator!.id, input.workspaceId, true);
+      } catch (error) {
+        const status = error instanceof WorkspaceForbidden ? 403 : 503;
+        return reply.code(status).send({status:"UNAVAILABLE",error:"Client workspace access cannot be verified"});
+      }
+    }
+    // A legacy runId is not project-bound. Never let client-scoped chat append
+    // events to a caller-selected legacy run until durable per-project ICM exists.
+    if (workspace && input.runId) {
+      return reply.code(403).send({ error: "Legacy run identifiers are not accepted in a client workspace" });
+    }
+    // Context is never a substitute for server-enforced tenant checks.
+    // Until tool scope is proven, workspace conversations are advisory ONLY,
+    // bypass Hermes/tool execution and cannot claim to inspect private records.
+    const contextualMessage = workspace
+      ? `You are assisting with a DRAFT-ONLY request for client "${workspace.name}" (project ${workspace.id}). No private client records, POS, customer data or agent tools are available in this mode. Do not claim to have read, sent, changed, approved or completed anything. Provide an actionable proposed response and note any missing verified inputs. User request: ${input.message}`
+      : input.message;
     const routed = routeModel({ message: input.message, manualModel: input.model });
     const decision = applyProviderPreference(routed, ownerStrategies.get(request.operator!.id), {
       groq: Boolean(config.GROQ_API_KEY),
@@ -481,12 +662,12 @@ export function buildApp(options: AppOptions = {}) {
     let degraded = false;
 
     const hermesPrimary = Boolean(
-      config.featureFlags.MAXX_HERMES_ENABLED && (config.MAXX_HERMES_ENDPOINT || (hermes as any).isConfigured?.()),
+      !workspace && config.featureFlags.MAXX_HERMES_ENABLED && (config.MAXX_HERMES_ENDPOINT || (hermes as any).isConfigured?.()),
     );
 
     if (hermesPrimary) {
       try {
-        const hermesResult = await hermes.chat({ message: input.message, sessionId: input.runId });
+        const hermesResult = await hermes.chat({ message: contextualMessage, sessionId: input.runId });
         result = hermesResult;
         effectiveProvider = "hermes";
         effectiveModel = hermesResult.model;
@@ -503,7 +684,7 @@ export function buildApp(options: AppOptions = {}) {
     async function runDirectFallback() {
       if (decision.provider === "groq" && config.GROQ_API_KEY && circuitBreakers.groq.canRequest()) {
         try {
-          const groqResult = await runGroq({ apiKey: config.GROQ_API_KEY, message: input.message, decision });
+          const groqResult = await runGroq({ apiKey: config.GROQ_API_KEY, message: contextualMessage, decision });
           circuitBreakers.groq.recordSuccess();
           effectiveProvider = decision.provider;
           effectiveModel = decision.model;
@@ -514,13 +695,13 @@ export function buildApp(options: AppOptions = {}) {
           effectiveProvider = "openrouter";
           return runOpenRouter({
             apiKey: config.OPENROUTER_API_KEY,
-            message: input.message,
+            message: contextualMessage,
             decision: { ...decision, provider: "openrouter" },
           });
         }
       }
       effectiveProvider = "openrouter";
-      return runOpenRouter({ apiKey: config.OPENROUTER_API_KEY, message: input.message, decision });
+      return runOpenRouter({ apiKey: config.OPENROUTER_API_KEY, message: contextualMessage, decision });
     }
 
     const usage = {
@@ -530,7 +711,17 @@ export function buildApp(options: AppOptions = {}) {
       ...result.usage,
       createdAt: new Date().toISOString(),
     };
-    await store.addUsage(usage);
+    // Legacy usage and event stores are NOT project-scoped. Never write an
+    // authorized client exchange into an unscoped legacy history/usage table.
+    // Persist both messages atomically through the scoped service-role RPC,
+    // then return success. No private client data is passed to Hermes/tools.
+    const exchangeId = workspace ? (input.exchangeId ?? randomUUID()) : undefined;
+    if (workspace) {
+      await clientWorkspaces.recordChatExchange(
+        request.operator!.id,workspace.id,exchangeId!,input.message,result.text);
+    } else {
+      await store.addUsage(usage);
+    }
     if (input.runId) {
       await store.addEvent(input.runId, "assistant.message", result.text, {
         model: effectiveModel,
@@ -538,14 +729,15 @@ export function buildApp(options: AppOptions = {}) {
       });
     }
     return reply.send({
-      id: randomUUID(),
+      id: exchangeId ?? randomUUID(),
       text: result.text,
       model: effectiveModel,
       provider: effectiveProvider,
       taskClass: decision.taskClass,
-      routingReason,
+      routingReason: workspace ? "Authorized client context; advisory draft only. No tools or external client systems were called." : routingReason,
+      workspace: workspace ? {id:workspace.id, name:workspace.name, mode:"advisory_only"} : undefined,
       approvalState: decision.taskClass === "high_risk" ? "required" : "not_required",
-      skills: effectiveProvider === "hermes"
+      skills: workspace ? ["client-draft-only"] : effectiveProvider === "hermes"
         ? ["agent-maxx"]
         : decision.taskClass === "research"
           ? ["maxx-skill-router", "maxx-video-dossier"]

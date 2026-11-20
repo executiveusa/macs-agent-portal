@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { requireSecureControlTowerEndpoint } from "@/lib/control-tower-endpoint";
 import type { ChatResponse, ControlTowerBootstrap, Mission, OwnerStrategy } from "@/types/controlTower";
 
 const defaultUrl = "https://api.thepaulieffect.com/maxx";
@@ -7,6 +8,75 @@ const baseUrl = configuredUrl.replace(/\/$/, "");
 const MAXX_MODE_MARKER = "[[MAXX_MODE:POWER]]";
 
 export type MaxxChatMode = "normal" | "max";
+export type AuthorizedWorkspace = {
+  id: string;
+  organizationId: string;
+  slug: string;
+  name: string;
+  role: "owner" | "admin" | "operator" | "reviewer" | "viewer";
+  status: "active" | "paused" | "archived";
+  archiveRequestId: string | null;
+  recoveryUntil: string | null;
+  pendingApprovalCount: number | null;
+  urgentApprovalCount: number | null;
+  approvalCoverage: "maxx_only";
+  suggestedTasks: string[];
+  promptsSource: "operator_template" | "verified" | "unavailable";
+};
+export type ClientWorkspacesResponse = {
+  status: "VERIFIED";
+  workspaces: AuthorizedWorkspace[];
+  note: string;
+};
+
+export type ClientChatMessage = {
+  id: string;
+  role: "stacy" | "maxx";
+  text: string;
+  createdAt: string;
+};
+export type ClientPendingApproval = {
+  id:string;actionKey:string;actionClass:string;riskClass:string;
+  requestedAt:string;expiresAt:string;status:"pending";
+};
+export type ClientPendingApprovalsResponse = {
+  status:"VERIFIED";projectId:string;approvalMode:"read_only";
+  approvals:ClientPendingApproval[];note:string;
+};
+export type ClientMission = {
+  missionId:string;
+  projectId:string;
+  requestedBy:string;
+  objective:string;
+  status:"waiting_approval"|"queued"|"running"|"completed"|"failed"|"blocked"|"cancelled";
+  approvalStatus:"pending"|"approved"|"rejected"|"expired"|"cancelled";
+  approvalId:string;
+  receiptId:string|null;
+  createdAt:string;
+};
+export type ClientMissionInbox = {
+  status:"VERIFIED";
+  projectId:string;
+  missions:ClientMission[];
+  note:string;
+};
+export type ClientMissionResult = {
+  missionId:string;
+  projectId:string;
+  status:string;
+  approvalId?:string;
+  receiptId?:string|null;
+  verification?:"human_review_required"|"not_yet_executed";
+  source?:"hermes"|"instinct";
+  externalRunId?:string;
+  note?:string;
+};
+
+export type ClientChatHistoryResponse = {
+  status: "VERIFIED";
+  projectId: string;
+  messages: ClientChatMessage[];
+};
 
 export type VoiceSession = {
   clientSecret?: string;
@@ -32,6 +102,9 @@ export type VoiceHealth = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // The connected Vercel environment must never send a Supabase JWT to an
+  // unsecured server IP. Validate before even retrieving the user session.
+  requireSecureControlTowerEndpoint(baseUrl, import.meta.env.DEV);
   const devBypass = import.meta.env.DEV && import.meta.env.VITE_MAXX_DEV_AUTH_BYPASS === "true";
   const token = devBypass ? undefined : (await supabase.auth.getSession()).data.session?.access_token;
   const url = `${baseUrl}${path}`;
@@ -60,13 +133,56 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const controlTowerApi = {
   bootstrap: () => request<ControlTowerBootstrap>("/v1/control-tower/bootstrap"),
-  chat: (message: string, model?: string, runId?: string, mode: MaxxChatMode = "normal") =>
+  listClientWorkspaces: () => request<ClientWorkspacesResponse>("/v1/client-workspaces"),
+  getClientMissions:(projectId:string) =>
+    request<ClientMissionInbox>(`/v1/client-workspaces/${encodeURIComponent(projectId)}/missions`),
+  proposeClientMission:(projectId:string,missionId:string,objective:string) =>
+    request<ClientMissionResult>(`/v1/client-workspaces/${encodeURIComponent(projectId)}/missions`,{
+      method:"POST",body:JSON.stringify({missionId,objective}),
+    }),
+  decideClientMission:(projectId:string,missionId:string,decision:"approved"|"rejected") =>
+    request<ClientMissionResult>(
+      `/v1/client-workspaces/${encodeURIComponent(projectId)}/missions/${encodeURIComponent(missionId)}/decision`,{
+        method:"POST",body:JSON.stringify({decision}),
+      }),
+  startClientMission:(projectId:string,missionId:string) =>
+    request<ClientMissionResult>(
+      `/v1/client-workspaces/${encodeURIComponent(projectId)}/missions/${encodeURIComponent(missionId)}/start`,{
+        method:"POST",body:JSON.stringify({}),
+      }),
+  pollClientMission:(projectId:string,missionId:string) =>
+    request<ClientMissionResult>(
+      `/v1/client-workspaces/${encodeURIComponent(projectId)}/missions/${encodeURIComponent(missionId)}/poll`,{
+        method:"POST",body:JSON.stringify({}),
+      }),
+  getClientPendingApprovals:(projectId:string) =>
+    request<ClientPendingApprovalsResponse>(`/v1/client-workspaces/${encodeURIComponent(projectId)}/pending-approvals`),
+  getClientChatHistory: (projectId:string) =>
+    request<ClientChatHistoryResponse>(`/v1/client-workspaces/${encodeURIComponent(projectId)}/chat-history`),
+  addClientWorkspace: (organizationId:string,name:string,slug:string) =>
+    request<{id:string;slug:string;status:"active"}>("/v1/client-workspaces",{
+      method:"POST",body:JSON.stringify({organizationId,name,slug}),
+    }),
+  advanceClientArchive: (projectId:string,step:"start"|"acknowledge"|"type_name"|"archive"|"cancel",
+      requestId?:string,typedName?:string) =>
+    request<{requestId:string;projectId:string;state:string;recoveryUntil:string|null}>(
+      `/v1/client-workspaces/${encodeURIComponent(projectId)}/archive`,{
+        method:"POST",body:JSON.stringify({step,requestId,typedName}),
+      }),
+  restoreClientWorkspace: (projectId:string,requestId:string) =>
+    request<{status:"restored";projectId:string}>(
+      `/v1/client-workspaces/${encodeURIComponent(projectId)}/restore`,{
+        method:"POST",body:JSON.stringify({requestId}),
+      }),
+  chat: (message: string, model?: string, runId?: string, mode: MaxxChatMode = "normal", workspaceId?: string, exchangeId?: string) =>
     request<ChatResponse>("/v1/chat", {
       method: "POST",
       body: JSON.stringify({
         message: mode === "max" ? `${MAXX_MODE_MARKER}\n${message}` : message,
         model: model || undefined,
         runId,
+        workspaceId,
+        exchangeId,
       }),
     }),
   createMission: (objective: string) =>

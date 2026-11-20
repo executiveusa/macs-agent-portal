@@ -12,6 +12,13 @@ function safeMatches(candidate: string | undefined, expected: string | undefined
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+// Production Supabase identities are UUIDs; an allowlisted email alone does
+// not establish an authenticated subject suitable for tenant-scoped access.
+const UUID_SUBJECT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isVerifiedSubject(sub: unknown): sub is string {
+  return typeof sub === "string" && UUID_SUBJECT.test(sub);
+}
+
 function pathOf(request: FastifyRequest) {
   return request.url.split("?", 1)[0];
 }
@@ -31,7 +38,8 @@ function machineRouteAllowed(request: FastifyRequest) {
 }
 
 function eventRouteAllowed(request: FastifyRequest) {
-  return request.method === "POST" && pathOf(request) === "/v1/events";
+  return request.method === "POST" && (pathOf(request) === "/v1/events" ||
+    pathOf(request) === "/v1/client-execution/instinct/events");
 }
 
 function hermesToolRouteAllowed(request: FastifyRequest) {
@@ -57,8 +65,9 @@ function hermesToolRouteAllowed(request: FastifyRequest) {
 }
 
 export function createAuthenticator(config: MaxxConfig) {
+  const issuer = config.SUPABASE_URL ? new URL("/auth/v1", config.SUPABASE_URL).toString() : null;
   const jwks = config.SUPABASE_URL
-    ? createRemoteJWKSet(new URL(`${config.SUPABASE_URL}/auth/v1/.well-known/jwks.json`))
+    ? createRemoteJWKSet(new URL("/auth/v1/.well-known/jwks.json", config.SUPABASE_URL))
     : null;
 
   return async (request: FastifyRequest): Promise<Operator | null> => {
@@ -89,16 +98,17 @@ export function createAuthenticator(config: MaxxConfig) {
 
     const value = request.headers.authorization;
     const token = value?.startsWith("Bearer ") ? value.slice(7) : undefined;
-    if (!token) return null;
+    if (!token || !issuer) return null;
 
     if (config.SUPABASE_JWT_SECRET) {
       try {
         const { payload } = await jwtVerify(token, new TextEncoder().encode(config.SUPABASE_JWT_SECRET), {
           audience: "authenticated",
+          issuer,
         });
         const email = typeof payload.email === "string" ? payload.email : undefined;
-        if (!isAllowedOperator(email, config.allowedEmails)) return null;
-        return { id: String(payload.sub), email: email!, principal: "human" };
+        if (!isVerifiedSubject(payload.sub) || !isAllowedOperator(email, config.allowedEmails)) return null;
+        return { id: payload.sub, email: email!, principal: "human" };
       } catch {
         // continue to jwks
       }
@@ -112,8 +122,8 @@ export function createAuthenticator(config: MaxxConfig) {
         audience: "authenticated",
       });
       const email = typeof payload.email === "string" ? payload.email : undefined;
-      if (!isAllowedOperator(email, config.allowedEmails)) return null;
-      return { id: String(payload.sub), email: email!, principal: "human" };
+      if (!isVerifiedSubject(payload.sub) || !isAllowedOperator(email, config.allowedEmails)) return null;
+      return { id: payload.sub, email: email!, principal: "human" };
     } catch {
       return null;
     }
