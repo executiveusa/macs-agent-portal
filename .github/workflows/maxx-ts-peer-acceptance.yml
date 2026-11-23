@@ -1,0 +1,46 @@
+name: MAXX TypeScript repair acceptance
+
+on:
+  pull_request:
+    branches:
+      - main
+      - fix/ts-peer-align
+    paths:
+      - package.json
+      - package-lock.json
+      - .github/workflows/maxx-ts-peer-acceptance.yml
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Verify TypeScript manifest and lockfile agreement
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const manifest = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const declared = manifest.devDependencies?.typescript;
+          const locked = lock.packages?.['']?.devDependencies?.typescript;
+          if (declared !== '~5.9.3' || locked !== declared) {
+            console.error('TypeScript version mismatch between package.json and package-lock.json');
+            process.exit(1);
+          }
+          NODE
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
